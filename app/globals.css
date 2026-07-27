@@ -1,44 +1,50 @@
 @import "tailwindcss";
 
+@theme {
+  --color-base: #FDFBF7;
+  --color-primary: #2C3E50;
+  --color-lavender: #E6E6FA;
+  --color-sage: #8A9A5B;
+
+  --font-display: var(--font-playfair);
+  --font-body: var(--font-outfit);
+}
+
 /* ============================================================
    TINTKIN DESIGN SYSTEM
-   Brand: TintKin | Skincare AI
-   Palette: Coral → Rose → Violet → Indigo
+   Brand: TintKin | Skincare AI (Wellness Journal Aesthetic)
    ============================================================ */
 
 :root {
-  /* ── Brand Gradient Colors ─────────────────────────────── */
-  --tk-coral:   #E05454;
-  --tk-rose:    #C13383;
-  --tk-violet:  #792CA2;
-  --tk-indigo:  #443199;
+  /* ── Brand Colors ─────────────────────────────── */
+  --tk-bg: #FDFBF7; /* Alabaster / Warm Oat */
+  --tk-text-primary: #2C3E50; /* Deep Charcoal */
+  --tk-text-muted: #5B6D7F; /* Softer Charcoal for secondary text */
+  --tk-text-faint: #8E9BAA;
+  
+  --tk-accent-lavender: #E6E6FA;
+  --tk-accent-sage: #8A9A5B;
+  --tk-accent-peach: #FFDAB9;
+  
+  /* ── Gradients ──────────────────────────────────── */
+  --tk-gradient-mesh: radial-gradient(at 0% 0%, rgba(230,230,250, 0.4) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, rgba(255,218,185, 0.4) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, rgba(230,230,250, 0.4) 0px, transparent 50%),
+                      radial-gradient(at 0% 100%, rgba(255,218,185, 0.4) 0px, transparent 50%);
 
-  /* ── Gradient Strings ──────────────────────────────────── */
-  --tk-gradient:         linear-gradient(135deg, #E05454 0%, #C13383 35%, #792CA2 65%, #443199 100%);
-  --tk-gradient-reverse: linear-gradient(135deg, #443199 0%, #792CA2 35%, #C13383 65%, #E05454 100%);
-  --tk-gradient-soft:    linear-gradient(135deg, rgba(224,84,84,0.8) 0%, rgba(193,51,131,0.8) 35%, rgba(121,44,162,0.8) 65%, rgba(68,49,153,0.8) 100%);
-  --tk-gradient-radial:  radial-gradient(ellipse at 30% 20%, rgba(224,84,84,0.35) 0%, rgba(121,44,162,0.25) 40%, transparent 70%);
+  --tk-gradient-pastel: linear-gradient(135deg, rgba(230,230,250,0.6) 0%, rgba(255,218,185,0.6) 100%);
 
   /* ── Background & Surface ──────────────────────────────── */
-  --tk-bg:              #0d0a1a;
-  --tk-bg-raised:       #120e24;
-  --tk-surface:         rgba(255, 255, 255, 0.05);
-  --tk-surface-raised:  rgba(255, 255, 255, 0.08);
-  --tk-surface-overlay: rgba(255, 255, 255, 0.12);
-  --tk-border:          rgba(255, 255, 255, 0.1);
-  --tk-border-brand:    rgba(224, 84, 84, 0.35);
-
-  /* ── Text ──────────────────────────────────────────────── */
-  --tk-text-primary: #f0eafa;
-  --tk-text-muted:   rgba(240, 234, 250, 0.55);
-  --tk-text-faint:   rgba(240, 234, 250, 0.30);
-  --tk-text-on-brand: #ffffff;
+  --tk-surface-glass: rgba(255, 255, 255, 0.4);
+  --tk-border-glass: rgba(255, 255, 255, 0.2);
+  --tk-border-solid: rgba(44, 62, 80, 0.08);
 
   /* ── Glow Shadows ──────────────────────────────────────── */
-  --tk-glow-coral:  0 0 24px rgba(224, 84, 84, 0.5);
-  --tk-glow-rose:   0 0 24px rgba(193, 51, 131, 0.5);
-  --tk-glow-violet: 0 0 24px rgba(121, 44, 162, 0.5);
-  --tk-glow-card:   0 8px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.06);
+  --tk-glow-card: 0 8px 32px rgba(44, 62, 80, 0.05), 0 0 0 1px var(--tk-border-glass);
+  --tk-glow-focus: 0 0 40px rgba(230,230,250,0.6);
+  
+  --font-display: var(--font-playfair, 'Playfair Display', serif);
+  --font-body: var(--font-outfit, 'Outfit', system-ui, sans-serif);
 }
 
 /* ============================================================
@@ -55,14 +61,10 @@
   to   { opacity: 1; }
 }
 
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 12px rgba(224, 84, 84, 0.4); }
-  50%       { box-shadow: 0 0 32px rgba(224, 84, 84, 0.8), 0 0 60px rgba(193, 51, 131, 0.4); }
+@keyframes meshShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 @keyframes orbFloat {
@@ -71,36 +73,11 @@
   66%       { transform: translate(-20px, 20px) scale(0.97); }
 }
 
-@keyframes orbFloat2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(-40px, 30px) scale(1.08); }
-  66%       { transform: translate(25px, -20px) scale(0.95); }
-}
-
-@keyframes spinRing {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes progressFill {
-  from { width: 0%; }
-  to   { width: var(--progress-width, 0%); }
-}
-
-@keyframes dashBorder {
-  0%   { background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%; }
-  100% { background-position: 100% 0%, 100% 100%, 0% 100%, 0% 0%; }
-}
-
-@keyframes bounceIn {
-  0%   { opacity: 0; transform: scale(0.85); }
-  60%  { transform: scale(1.03); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-12px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes tooltipFade {
+  0% { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  10% { opacity: 1; transform: translateY(0) scale(1); }
+  90% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(10px) scale(0.95); }
 }
 
 /* ============================================================
@@ -118,10 +95,14 @@ html {
 body {
   background-color: var(--tk-bg);
   color: var(--tk-text-primary);
-  font-family: var(--font-outfit, 'Outfit', system-ui, sans-serif);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
 }
 
 /* ============================================================
@@ -129,12 +110,12 @@ body {
    ============================================================ */
 
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--tk-bg-raised); }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--tk-rose), var(--tk-violet));
+  background: var(--tk-accent-lavender);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--tk-coral); }
+::-webkit-scrollbar-thumb:hover { background: var(--tk-text-faint); }
 
 /* ============================================================
    UTILITY CLASSES
@@ -142,549 +123,61 @@ body {
 
 /* Glass morphism card */
 .tk-glass {
-  background: var(--tk-surface);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--tk-border);
+  background: var(--tk-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tk-border-glass);
   box-shadow: var(--tk-glow-card);
+  border-radius: 1.5rem; /* rounded-3xl approx */
 }
 
-.tk-glass-raised {
-  background: var(--tk-surface-raised);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: var(--tk-glow-card);
+/* Pill button */
+.tk-pill-btn {
+  border-radius: 9999px; /* rounded-full */
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: var(--font-body);
 }
 
-/* Gradient text */
-.tk-gradient-text {
-  background: var(--tk-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Shimmer text effect */
-.tk-shimmer-text {
-  background: linear-gradient(90deg,
-    var(--tk-coral) 0%,
-    var(--tk-rose) 25%,
-    var(--tk-violet) 50%,
-    var(--tk-rose) 75%,
-    var(--tk-coral) 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: shimmer 3s linear infinite;
-}
-
-/* Gradient button */
 .tk-btn-primary {
-  background: var(--tk-gradient);
-  color: white;
+  background-color: var(--tk-text-primary);
+  color: var(--tk-bg);
   border: none;
   cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.tk-btn-primary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
-  pointer-events: none;
 }
 .tk-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(193, 51, 131, 0.5);
+  box-shadow: 0 10px 25px rgba(44, 62, 80, 0.15);
 }
-.tk-btn-primary:active { transform: translateY(0); }
 
-/* Ghost button */
 .tk-btn-ghost {
   background: transparent;
-  border: 1px solid var(--tk-border);
+  border: 1px solid var(--tk-border-solid);
   color: var(--tk-text-primary);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 .tk-btn-ghost:hover {
-  border-color: var(--tk-rose);
-  box-shadow: 0 0 16px rgba(193, 51, 131, 0.25);
+  background: rgba(44, 62, 80, 0.03);
   transform: translateY(-1px);
 }
 
 /* Fade in up animation helpers */
-.tk-anim-1 { animation: fadeInUp 0.6s ease both; }
-.tk-anim-2 { animation: fadeInUp 0.6s 0.1s ease both; }
-.tk-anim-3 { animation: fadeInUp 0.6s 0.2s ease both; }
-.tk-anim-4 { animation: fadeInUp 0.6s 0.3s ease both; }
-.tk-anim-5 { animation: fadeInUp 0.6s 0.4s ease both; }
+.tk-anim-1 { animation: fadeInUp 0.8s ease both; }
+.tk-anim-2 { animation: fadeInUp 0.8s 0.15s ease both; }
+.tk-anim-3 { animation: fadeInUp 0.8s 0.3s ease both; }
+.tk-anim-4 { animation: fadeInUp 0.8s 0.45s ease both; }
+.tk-anim-5 { animation: fadeInUp 0.8s 0.6s ease both; }
 
-/* Brand gradient border */
-.tk-gradient-border {
-  position: relative;
-}
-.tk-gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: var(--tk-gradient);
-  border-radius: inherit;
-  z-index: -1;
-}
-
-/* Pulse glow ring */
-.tk-pulse-ring {
-  animation: pulseGlow 2s ease-in-out infinite;
-}
-
-/* Loading shimmer skeleton */
-.tk-skeleton {
-  background: linear-gradient(90deg,
-    rgba(255,255,255,0.04) 25%,
-    rgba(255,255,255,0.1) 50%,
-    rgba(255,255,255,0.04) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-/* ============================================================
-   LAYOUT & HEADER
-   ============================================================ */
-
-.tk-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
+/* Mesh Background for 40% split */
+.tk-mesh-bg {
   background-color: var(--tk-bg);
-  color: var(--tk-text-primary);
-  font-family: var(--font-outfit, 'Outfit', system-ui, sans-serif);
+  background-image: var(--tk-gradient-mesh);
+  background-size: 200% 200%;
+  animation: meshShift 15s ease infinite;
 }
 
-.tk-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  background-color: rgba(13, 10, 26, 0.8);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-
-.tk-header-glow-line {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: var(--tk-gradient);
-  opacity: 0.7;
-}
-
-.tk-header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-/* Logo */
-.tk-logo {
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.tk-logo-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--tk-gradient);
-  font-size: 16px;
-  box-shadow: 0 0 16px rgba(193,51,131,0.5);
-}
-
-.tk-logo-text {
-  font-size: 22px;
-  font-weight: 800;
-  background: var(--tk-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.5px;
-}
-
-/* Nav */
-.tk-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tk-nav-link {
-  padding: 6px 14px;
-  border-radius: 100px;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--tk-text-muted);
-  transition: color 0.2s ease, background 0.2s ease;
-}
-.tk-nav-link:hover {
-  color: var(--tk-text-primary);
-  background: rgba(255,255,255,0.06);
-}
-
-/* Auth buttons */
-.tk-auth-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.tk-btn-sign-in {
-  padding: 8px 18px;
-  border-radius: 100px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: transparent;
-  color: var(--tk-text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-.tk-btn-sign-in:hover {
-  border-color: rgba(193,51,131,0.6);
-  box-shadow: 0 0 16px rgba(193,51,131,0.2);
-  transform: translateY(-1px);
-}
-
-.tk-btn-sign-up {
-  padding: 8px 18px;
-  border-radius: 100px;
-  border: none;
-  background: var(--tk-gradient);
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 4px 16px rgba(193,51,131,0.35);
-}
-.tk-btn-sign-up:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(193,51,131,0.5);
-}
-
-/* UserButton ring */
-.tk-user-ring {
-  border-radius: 50%;
-  padding: 2px;
-  background: var(--tk-gradient);
-  box-shadow: 0 0 14px rgba(193,51,131,0.4);
-}
-.tk-user-ring-inner {
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--tk-bg);
-  padding: 1px;
-}
-
-/* ============================================================
-   HERO SECTION
-   ============================================================ */
-
-.tk-hero-wrapper {
-  min-height: calc(100vh - 68px);
-  background:
-    radial-gradient(ellipse at 20% 10%, rgba(224,84,84,0.18) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(68,49,153,0.22) 0%, transparent 50%),
-    var(--tk-bg);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Orbs */
-.tk-orbs-container {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.tk-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-}
-
-.tk-orb-1 {
-  top: -10%; left: -5%;
-  width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(224,84,84,0.22) 0%, rgba(193,51,131,0.12) 40%, transparent 70%);
-  animation: orbFloat 12s ease-in-out infinite;
-}
-
-.tk-orb-2 {
-  bottom: 5%; right: -8%;
-  width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(68,49,153,0.28) 0%, rgba(121,44,162,0.15) 40%, transparent 70%);
-  animation: orbFloat2 15s ease-in-out infinite;
-  filter: blur(50px);
-}
-
-.tk-orb-3 {
-  top: 40%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(193,51,131,0.1) 0%, transparent 70%);
-  animation: orbFloat 18s 2s ease-in-out infinite;
-  filter: blur(60px);
-}
-
-/* Hero main content */
-.tk-hero-main {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 24px 60px;
-  text-align: center;
-}
-
-.tk-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 28px;
-  padding: 8px 18px;
-  border-radius: 100px;
-  background: rgba(193,51,131,0.12);
-  border: 1px solid rgba(193,51,131,0.3);
-  font-size: 13px;
-  font-weight: 500;
-  color: #f0a8d0;
-}
-
-.tk-live-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--tk-rose);
-  animation: pulseGlow 2s ease-in-out infinite;
-}
-
-.tk-hero-h1 {
-  font-size: clamp(2.8rem, 7vw, 5.5rem);
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -2px;
-  margin-bottom: 24px;
-  max-width: 800px;
-  color: var(--tk-text-primary);
-}
-
-.tk-hero-sub {
-  font-size: clamp(1rem, 2.5vw, 1.2rem);
-  line-height: 1.7;
-  color: var(--tk-text-muted);
-  max-width: 560px;
-  margin-bottom: 44px;
-}
-
-.tk-hero-ctas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  justify-content: center;
-  margin-bottom: 80px;
-}
-
-.tk-btn-hero-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 54px;
-  padding: 0 32px;
-  border-radius: 100px;
-  text-decoration: none;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
-  color: white;
-  background: var(--tk-gradient);
-  box-shadow: 0 8px 32px rgba(193,51,131,0.4);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.tk-btn-hero-primary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
-  pointer-events: none;
-}
-.tk-btn-hero-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(193,51,131,0.55);
-}
-
-.tk-btn-hero-ghost {
-  display: inline-flex;
-  align-items: center;
-  height: 54px;
-  padding: 0 32px;
-  border-radius: 100px;
-  text-decoration: none;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--tk-text-primary);
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.15);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-.tk-btn-hero-ghost:hover {
-  border-color: rgba(193,51,131,0.5);
-  box-shadow: 0 0 20px rgba(193,51,131,0.2);
-  transform: translateY(-1px);
-}
-
-/* Feature Cards Grid */
-.tk-features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  width: 100%;
-  max-width: 900px;
-  margin-bottom: 72px;
-}
-
-.tk-feature-card {
-  border-radius: 20px;
-  padding: 28px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  animation: fadeInUp 0.6s ease both;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-.tk-feature-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
-}
-
-.tk-feature-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.tk-card-coral .tk-card-coral-icon,
-.tk-card-coral-icon {
-  background: linear-gradient(135deg, #E05454, #C13383);
-  box-shadow: 0 4px 16px rgba(224,84,84,0.45);
-}
-.tk-card-rose-icon {
-  background: linear-gradient(135deg, #C13383, #792CA2);
-  box-shadow: 0 4px 16px rgba(193,51,131,0.45);
-}
-.tk-card-violet-icon {
-  background: linear-gradient(135deg, #792CA2, #443199);
-  box-shadow: 0 4px 16px rgba(121,44,162,0.45);
-}
-
-.tk-feature-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--tk-text-primary);
-  margin-bottom: 8px;
-  letter-spacing: -0.3px;
-}
-
-.tk-feature-desc {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--tk-text-muted);
-  margin: 0;
-}
-
-/* How It Works */
-.tk-hiw-section {
-  width: 100%;
-  max-width: 900px;
-}
-
-.tk-hiw-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--tk-text-faint);
-  margin-bottom: 32px;
-}
-
-.tk-hiw-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.tk-hiw-card {
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tk-hiw-num {
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1;
-  display: block;
-}
-
-.tk-hiw-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--tk-text-primary);
-  margin: 0;
-}
-
-.tk-hiw-desc {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--tk-text-muted);
-  margin: 0;
+/* Tooltip animation */
+.tk-tooltip-anim {
+  animation: tooltipFade 4s ease-in-out forwards;
 }

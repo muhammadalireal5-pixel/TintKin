@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { runWhatIfSim } from "@/app/lib/actions";
-import { ReactCompareSlider, ReactCompareSliderImage } from "react-compare-slider";
+import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 
 const PRESETS = [
   { id: "retinol", label: "Retinol @ 25 vs Retinol @ 35" },
@@ -27,109 +27,63 @@ export default function WhatIfPage() {
   };
 
   return (
-    <div style={{
-      minHeight: 'calc(100vh - 68px)',
-      background: 'radial-gradient(ellipse at 80% 10%, rgba(224,84,84,0.14) 0%, transparent 50%), radial-gradient(ellipse at 20% 90%, rgba(121,44,162,0.2) 0%, transparent 50%), var(--tk-bg)',
-      padding: '48px 24px 64px',
-    }}>
-      <div style={{ maxWidth: '860px', margin: '0 auto' }}>
+    <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-6 lg:px-12 relative overflow-hidden">
+      <div className="max-w-4xl mx-auto relative z-10">
 
         {/* Header */}
-        <div style={{ marginBottom: '40px', animation: 'fadeInUp 0.5s ease both' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: '52px', height: '52px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, #E05454, #C13383)',
-            fontSize: '24px', marginBottom: '20px',
-            boxShadow: '0 8px 28px rgba(224,84,84,0.4)',
-          }}>🧪</div>
-          <p style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--tk-text-faint)', marginBottom: '8px' }}>
-            Simulation Lab
-          </p>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 800, letterSpacing: '-1.5px', margin: '0 0 12px' }}>
-            What-If <span className="tk-gradient-text">Simulator</span>
+        <div className="mb-12 tk-anim-1 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#FFDAB9]/40 text-orange-400 shadow-[0_8px_32px_rgba(255,218,185,0.8)] mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.52 16h12.96"></path></svg>
+          </div>
+          <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary mb-4">
+            The <span className="italic text-orange-400/80">What-If</span> Sandbox
           </h1>
-          <p style={{ fontSize: '15px', color: 'var(--tk-text-muted)', margin: 0 }}>
-            See how small choices change your skin decades later.
+          <p className="text-muted text-lg max-w-lg mx-auto">
+            Gently explore how small choices today shape your skin decades later.
           </p>
         </div>
 
         {/* Controls */}
-        <div className="tk-glass" style={{
-          borderRadius: '20px', padding: '24px',
-          marginBottom: '28px',
-          animation: 'fadeInUp 0.5s 0.1s ease both',
-          display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center',
-        }}>
-          <div style={{ flex: '1 1 200px', position: 'relative' }}>
-            <label style={{
-              display: 'block', fontSize: '11px', fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '2px',
-              color: 'var(--tk-text-faint)', marginBottom: '8px',
-            }}>
-              Scenario
+        <div className="tk-glass p-6 md:p-8 rounded-3xl mb-12 tk-anim-2 flex flex-col md:flex-row gap-6 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+              Explore Scenario
             </label>
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              id="whatif-scenario-select"
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'var(--tk-text-primary)',
-                fontSize: '14px', fontWeight: 500,
-                fontFamily: 'var(--font-outfit, inherit)',
-                cursor: 'pointer',
-                outline: 'none',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23rgba(240,234,250,0.4)' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 14px center',
-                paddingRight: '36px',
-              }}
-            >
-              {PRESETS.map((p) => (
-                <option key={p.id} value={p.id} style={{ background: '#120e24' }}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                className="w-full appearance-none bg-white/50 border border-white/40 text-primary py-3.5 pl-5 pr-12 rounded-2xl font-medium focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all cursor-pointer"
+              >
+                {PRESETS.map((p) => (
+                  <option key={p.id} value={p.id} className="text-primary bg-white">
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
           </div>
 
           <button
             onClick={handleRun}
             disabled={loading}
-            id="whatif-run-btn"
-            className="tk-btn-primary"
-            style={{
-              padding: '12px 28px',
-              borderRadius: '12px',
-              fontSize: '15px', fontWeight: 600,
-              fontFamily: 'var(--font-outfit, inherit)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              boxShadow: '0 6px 24px rgba(193,51,131,0.35)',
-              alignSelf: 'flex-end',
-              display: 'flex', alignItems: 'center', gap: '8px',
-              minWidth: '180px', justifyContent: 'center',
-              flexShrink: 0,
-            }}
+            className={`
+              tk-pill-btn w-full md:w-auto min-w-[200px] flex items-center justify-center gap-2 py-3.5
+              ${loading ? 'bg-primary/80 cursor-not-allowed' : 'tk-btn-primary shadow-[0_8px_24px_rgba(44,62,80,0.15)]'}
+            `}
           >
             {loading ? (
               <>
-                <SpinnerIcon />
-                Running…
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+                Processing...
               </>
             ) : (
               <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-                Run Simulation
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Visualize
               </>
             )}
           </button>
@@ -137,125 +91,106 @@ export default function WhatIfPage() {
 
         {/* Error */}
         {error && (
-          <div style={{
-            padding: '14px 18px', borderRadius: '12px',
-            background: 'rgba(224,84,84,0.1)',
-            border: '1px solid rgba(224,84,84,0.3)',
-            color: 'var(--tk-coral)', fontSize: '14px', marginBottom: '20px',
-            animation: 'fadeIn 0.3s ease both',
-          }}>
-            ❌ {error}
+          <div className="tk-anim-3 bg-red-50 text-red-700 px-6 py-4 rounded-2xl border border-red-100 text-sm font-medium mb-8 text-center">
+            {error}
           </div>
         )}
 
         {/* Loading skeleton */}
         {loading && (
-          <div style={{ animation: 'fadeIn 0.3s ease both' }}>
-            <div className="tk-glass" style={{ borderRadius: '20px', padding: '28px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div className="tk-skeleton" style={{ height: '18px', width: '30%', borderRadius: '8px' }} />
-                <div className="tk-skeleton" style={{ height: '18px', width: '30%', borderRadius: '8px' }} />
-              </div>
-              <div className="tk-skeleton" style={{ height: '320px', borderRadius: '14px' }} />
+          <div className="tk-anim-3 tk-glass p-8 rounded-3xl mb-8">
+            <div className="flex justify-between mb-6">
+              <div className="h-6 w-32 bg-black/5 rounded-full animate-pulse" />
+              <div className="h-6 w-32 bg-black/5 rounded-full animate-pulse" />
             </div>
+            <div className="h-[400px] w-full bg-black/5 rounded-2xl animate-pulse" />
           </div>
         )}
 
         {/* Results */}
         {result && !loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'bounceIn 0.5s ease both' }}>
+          <div className="flex flex-col gap-8 tk-anim-4">
 
             {/* Compare Slider */}
-            <div className="tk-glass" style={{ borderRadius: '20px', overflow: 'hidden' }}>
+            <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)]">
               {/* Labels */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                padding: '16px 20px 12px',
-              }}>
-                <span style={{
-                  padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 700,
-                  background: 'rgba(52,211,153,0.15)', color: '#34d399',
-                  border: '1px solid rgba(52,211,153,0.3)',
-                }}>← {result.scenarioA.label}</span>
-                <span style={{
-                  padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 700,
-                  background: 'rgba(224,84,84,0.15)', color: 'var(--tk-coral)',
-                  border: '1px solid rgba(224,84,84,0.3)',
-                }}>{result.scenarioB.label} →</span>
+              <div className="flex justify-between p-6 bg-white/40 border-b border-white/30">
+                <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-sage/15 text-sage border border-sage/20">
+                  ← {result.scenarioA.label}
+                </span>
+                <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-500 border border-orange-100">
+                  {result.scenarioB.label} →
+                </span>
               </div>
-              <ReactCompareSlider
-                itemOne={<ReactCompareSliderImage src={result.scenarioA.imageUrl} alt={result.scenarioA.label} />}
-                itemTwo={<ReactCompareSliderImage src={result.scenarioB.imageUrl} alt={result.scenarioB.label} />}
-                style={{ display: 'block' }}
-              />
-              <p style={{
-                textAlign: 'center', fontSize: '12px', fontStyle: 'italic',
-                color: 'var(--tk-text-faint)', padding: '12px 20px 16px',
-              }}>
-                Drag slider to compare both faces at age {result.targetAge}
+              
+              <div className="relative">
+                <ReactCompareSlider
+                  handle={
+                    <ReactCompareSliderHandle 
+                      buttonStyle={{
+                        backdropFilter: 'blur(4px)',
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        border: '1px solid rgba(44,62,80,0.1)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        color: '#2C3E50',
+                      }}
+                      linesStyle={{ opacity: 0.5, color: '#2C3E50' }}
+                    />
+                  }
+                  itemOne={<ReactCompareSliderImage src={result.scenarioA.imageUrl} alt={result.scenarioA.label} />}
+                  itemTwo={<ReactCompareSliderImage src={result.scenarioB.imageUrl} alt={result.scenarioB.label} />}
+                  className="w-full"
+                />
+              </div>
+              
+              <p className="text-center text-xs font-medium text-muted py-5 bg-white/20">
+                Slide to compare outcomes at age {result.targetAge}
               </p>
             </div>
 
             {/* Delta Table */}
-            <div className="tk-glass" style={{ borderRadius: '20px', overflow: 'hidden' }}>
-              <div style={{
-                padding: '18px 22px',
-                borderBottom: '1px solid rgba(255,255,255,0.07)',
-                background: 'linear-gradient(90deg, rgba(224,84,84,0.08), rgba(68,49,153,0.08))',
-              }}>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--tk-text-primary)' }}>
-                  Difference: {result.scenarioA.label} vs {result.scenarioB.label}
+            <div className="tk-glass rounded-3xl overflow-hidden">
+              <div className="p-6 border-b border-white/30 bg-white/40">
+                <h3 className="text-lg font-display font-medium text-primary m-0">
+                  Impact Analysis
                 </h3>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      {['Metric', result.scenarioA.label, result.scenarioB.label, 'Delta'].map((h, i) => (
-                        <th key={h} style={{
-                          padding: '12px 16px',
-                          textAlign: i === 0 ? 'left' : 'center',
-                          fontSize: '11px', fontWeight: 600,
-                          textTransform: 'uppercase', letterSpacing: '1.5px',
-                          color: 'var(--tk-text-faint)',
-                        }}>{h}</th>
+                    <tr className="border-b border-white/20 bg-white/10">
+                      {['Metric', result.scenarioA.label, result.scenarioB.label, 'Impact'].map((h, i) => (
+                        <th key={h} className={`px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted ${i > 0 ? 'text-center' : ''}`}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {/* Skin Age row */}
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--tk-text-primary)' }}>Skin Age @ 50</td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center', color: 'var(--tk-text-muted)' }}>{result.scenarioA.finalSkinAge}</td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center', color: 'var(--tk-text-muted)' }}>{result.scenarioB.finalSkinAge}</td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-block', padding: '3px 10px', borderRadius: '100px',
-                          fontSize: '12px', fontWeight: 700,
-                          background: 'rgba(52,211,153,0.15)', color: '#34d399',
-                          border: '1px solid rgba(52,211,153,0.3)',
-                        }}>
-                          -{result.deltas.skinAge} yrs 🎯
+                    <tr className="border-b border-white/10 hover:bg-white/30 transition-colors">
+                      <td className="px-6 py-4 font-medium text-primary text-sm">Skin Age @ 50</td>
+                      <td className="px-6 py-4 text-center text-muted text-sm">{result.scenarioA.finalSkinAge}</td>
+                      <td className="px-6 py-4 text-center text-muted text-sm">{result.scenarioB.finalSkinAge}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-sage/15 text-sage border border-sage/20">
+                          -{result.deltas.skinAge} yrs ✨
                         </span>
                       </td>
                     </tr>
                     {/* Score rows */}
                     {Object.entries(result.scenarioA.projectedScores).map(([k], i) => (
-                      <tr key={k} style={{
-                        borderBottom: '1px solid rgba(255,255,255,0.04)',
-                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
-                      }}>
-                        <td style={{ padding: '13px 16px', textTransform: 'capitalize', color: 'var(--tk-text-muted)', fontWeight: 500 }}>{k}</td>
-                        <td style={{ padding: '13px 16px', textAlign: 'center', color: 'var(--tk-text-muted)' }}>{result.scenarioA.projectedScores[k]}</td>
-                        <td style={{ padding: '13px 16px', textAlign: 'center', color: 'var(--tk-text-muted)' }}>{result.scenarioB.projectedScores[k]}</td>
-                        <td style={{ padding: '13px 16px', textAlign: 'center' }}>
-                          <span style={{
-                            display: 'inline-block', padding: '3px 10px', borderRadius: '100px',
-                            fontSize: '12px', fontWeight: 700,
-                            background: result.deltas[k] > 0 ? 'rgba(52,211,153,0.15)' : 'rgba(224,84,84,0.15)',
-                            color: result.deltas[k] > 0 ? '#34d399' : 'var(--tk-coral)',
-                            border: `1px solid ${result.deltas[k] > 0 ? 'rgba(52,211,153,0.3)' : 'rgba(224,84,84,0.3)'}`,
-                          }}>
+                      <tr key={k} className={`border-b border-white/10 hover:bg-white/30 transition-colors ${i % 2 === 0 ? '' : 'bg-white/5'}`}>
+                        <td className="px-6 py-4 font-medium text-primary text-sm capitalize">{k}</td>
+                        <td className="px-6 py-4 text-center text-muted text-sm">{result.scenarioA.projectedScores[k]}</td>
+                        <td className="px-6 py-4 text-center text-muted text-sm">{result.scenarioB.projectedScores[k]}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1 rounded-full text-xs font-semibold border ${
+                            result.deltas[k] > 0 
+                              ? 'bg-sage/15 text-sage border-sage/20' 
+                              : 'bg-orange-50 text-orange-500 border-orange-100'
+                          }`}>
                             {result.deltas[k] > 0 ? '+' : ''}{result.deltas[k]}
                           </span>
                         </td>
@@ -270,17 +205,5 @@ export default function WhatIfPage() {
         )}
       </div>
     </div>
-  );
-}
-
-function SpinnerIcon() {
-  return (
-    <svg
-      width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.5"
-      style={{ animation: 'spinRing 0.8s linear infinite' }}
-    >
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-    </svg>
   );
 }
