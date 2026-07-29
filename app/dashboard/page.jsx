@@ -1,12 +1,16 @@
 import { getLatestData } from "@/app/lib/actions";
 import { redirect } from "next/navigation";
 import RadarChartClient from "./RadarChartClient";
+import ProgressChart from "./ProgressChart";
 
 export default async function DashboardPage() {
-    const { latestSelfie, realAge } = await getLatestData();
+    const { user, latestSelfie, allSelfies, realAge } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
+    
+    // Ensure user has completed onboarding
+    if (!user.onboardingComplete) redirect("/onboarding");
 
-    const { overallScore, skinAge, scores } = latestSelfie;
+    const { overallScore, skinAge, scores, critique, habits, facialWorkout } = latestSelfie;
     const skinOlder = skinAge > realAge;
     const ageDelta = Math.abs(skinAge - realAge);
 
@@ -41,7 +45,7 @@ export default async function DashboardPage() {
                         </div>
                         <div className="mt-8 pt-6 border-t border-solid">
                             <p className="text-sm text-muted">
-                                {overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.'}
+                                {critique || (overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
                             </p>
                         </div>
                     </div>
@@ -70,6 +74,51 @@ export default async function DashboardPage() {
                         <div className="flex-1 w-full relative">
                             <RadarChartClient scores={scores} />
                         </div>
+                    </div>
+
+                    {/* Progress Chart (New) */}
+                    <div className="tk-glass p-8 md:col-span-4 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
+                        <div className="flex justify-between items-end mb-6">
+                            <div>
+                                <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Journey</p>
+                                <p className="text-sm text-primary">Your progress over time.</p>
+                            </div>
+                        </div>
+                        <div className="flex-1 w-full relative">
+                            <ProgressChart allSelfies={allSelfies} />
+                        </div>
+                    </div>
+
+                    {/* AI Recommendations */}
+                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col tk-anim-6">
+                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Habits</p>
+                         <ul className="space-y-4">
+                             {habits && habits.length > 0 ? (
+                                 habits.map((habit, idx) => (
+                                     <li key={idx} className="flex items-start gap-3">
+                                         <span className="text-sage mt-1">
+                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                         </span>
+                                         <span className="text-primary text-sm">{habit}</span>
+                                     </li>
+                                 ))
+                             ) : (
+                                 <li className="text-muted text-sm italic">Analyze a new selfie to get personalized habits based on your goals.</li>
+                             )}
+                         </ul>
+                    </div>
+
+                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col tk-anim-6" style={{ animationDelay: '0.1s' }}>
+                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Targeted Facial Workout</p>
+                         {facialWorkout ? (
+                             <div className="bg-sage/10 p-5 rounded-xl border border-sage/20">
+                                 <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
+                             </div>
+                         ) : (
+                             <div className="bg-white/50 p-5 rounded-xl border border-lavender/50 text-center text-muted text-sm italic">
+                                 Analyze a new selfie to get a personalized facial workout.
+                             </div>
+                         )}
                     </div>
 
                     {/* Metric Details (Small cards) */}

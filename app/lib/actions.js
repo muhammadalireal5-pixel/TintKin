@@ -5,6 +5,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { User, Selfie, Lifestyle } from "./mongoose";
 import { analyzeSkin, ageFace } from "./youcam";
 import { projectTrajectory } from "./predict";
+import { generatePersonalizedAdvice } from "./qwen";
 
 // ------------------------------
 // Helper: Get/create DB user from Clerk
@@ -18,9 +19,10 @@ async function getDbUser() {
     // Create user if first login (fill birthDate/sex in onboarding later—hardcode demo for now)
     user = await User.create({
       clerkId: clerkUser.id,
-      birthDate: new Date("2000-01-01"), // Demo: 25yo
-      sex: "female",
     });
+  }
+  if (!user.onboardingComplete) {
+    redirect("/onboarding");
   }
   return user;
 }
@@ -29,36 +31,54 @@ async function getDbUser() {
 // 1. Capture: Upload → YouCam → Save to DB
 // ------------------------------
 export async function analyzeAndSaveSelfie(imageUrl) {
+  const user = await getDbUser();
+
   try {
-    const user = await getDbUser();
     if (!imageUrl) throw new Error("No image provided");
 
     // Call YouCam API (server-only)
     const youCamResult = await analyzeSkin(imageUrl);
+    const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
-    // Extract only the scores we care about
-    const scores = {
-      wrinkles: youCamResult.result.wrinkles?.score ?? 70,
-      firmness: youCamResult.result.firmness?.score ?? 70,
-      spots: youCamResult.result.spots?.score ?? 70,
-      radiance: youCamResult.result.radiance?.score ?? 70,
+    // Helper to extract score regardless of field naming variations
+    const getScore = (key1, key2) => {
+      const item = data[key1] || data[key2];
+      if (typeof item === 'number') return item;
+      if (typeof item === 'object' && item !== null && 'score' in item) return item.score;
+      return 70;
     };
 
-    // Save selfie to DB
+    const scores = {
+      wrinkles: getScore("wrinkles", "wrinkle"),
+      firmness: getScore("firmness", "firmness"),
+      spots: getScore("spots", "age_spot"),
+      radiance: getScore("radiance", "radiance"),
+    };
+    
+    const overallScore = data.overall_score ?? data.score ?? 75;
+    const skinAge = data.skin_age ?? 27;
+
+    // Call Qwen to generate personalized advice based on scores and user goals
+    const advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
+
+    // Save selfie to DB along with the generated advice
     const selfie = await Selfie.create({
       userId: user._id,
       imageUrl,
-      overallScore: youCamResult.result.overall_score ?? 75,
-      skinAge: youCamResult.result.skin_age ?? 27,
+      overallScore,
+      skinAge,
       scores,
-      maskUrls: youCamResult.result.masks ?? {},
+      maskUrls: youCamResult.masks ?? {},
       youCamTaskId: youCamResult.task_id,
+      critique: advice.critique,
+      habits: advice.habits,
+      facialWorkout: advice.facialWorkout,
     });
 
     // Update user's baseline selfie
     await User.findByIdAndUpdate(user._id, { baselineSelfie: imageUrl });
 
-    return { success: true, selfieId: selfie._id };
+    return { success: true, selfieId: selfie._id.toString() };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -77,15 +97,17 @@ export async function getLatestData() {
   const ageMs = Date.now() - new Date(user.birthDate).getTime();
   const realAge = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000));
 
-  return { user, latestSelfie, allSelfies, lifestyleLogs, realAge };
+  const data = { user, latestSelfie, allSelfies, lifestyleLogs, realAge };
+  return JSON.parse(JSON.stringify(data));
 }
 
 // ------------------------------
 // 3. Time Machine: Age face + project scores
 // ------------------------------
 export async function getAgedProjection(years) {
+  const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+
   try {
-    const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
     if (!latestSelfie) throw new Error("Take a selfie first!");
 
     const targetAge = realAge + years;
@@ -125,8 +147,9 @@ export async function getAgedProjection(years) {
 // 4. What-If: Run 2 scenarios side-by-side
 // ------------------------------
 export async function runWhatIfSim(scenarioName) {
+  const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+
   try {
-    const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
     if (!latestSelfie) throw new Error("Take a selfie first!");
 
     // Simulate to age 50 (common comparison point)
@@ -179,6 +202,36 @@ export async function runWhatIfSim(scenarioName) {
     deltas.skinAge = Math.round((scenarioB.finalSkinAge - scenarioA.finalSkinAge) * 10) / 10;
 
     return { success: true, scenarioA, scenarioB, deltas, targetAge: TARGET_AGE };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ------------------------------
+// 5. Onboarding: Save user profile
+// ------------------------------
+
+export async function completeOnboarding(data) {
+  try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) redirect('/sign-in');
+
+    const { birthDate, sex, skinType, goals, customGoal } = data;
+    
+    await User.findOneAndUpdate(
+      { clerkId: clerkUser.id },
+      {
+        birthDate: new Date(birthDate),
+        sex: sex.toLowerCase(), 
+        skinType: skinType, 
+        goals: goals, 
+        customGoal: customGoal || "",
+        onboardingComplete: true
+      },
+      { upsert: true }
+    );
+
+    return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }

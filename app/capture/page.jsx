@@ -81,8 +81,11 @@ export default function CapturePage() {
                         ) : (
                             <CldUploadButton
                                 uploadPreset="ml_default"
-                                onUpload={handleUpload}
-                                options={{ maxFiles: 1, resourceType: "image" }}
+                                onSuccess={handleUpload}
+                                options={{ 
+                                    maxFiles: 1, 
+                                    resourceType: "image",
+                                }}
                                 disabled={loading}
                                 className="tk-pill-btn tk-btn-primary w-full max-w-[240px] shadow-[0_8px_24px_rgba(44,62,80,0.15)]"
                             >

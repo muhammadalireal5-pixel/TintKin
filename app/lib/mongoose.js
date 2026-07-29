@@ -20,6 +20,10 @@ const UserSchema = new mongoose.Schema({
     clerkId: {type: String, unique:true, required:true},
     birthDate: {type: Date, required: true},
     sex: {type: String, required: true},
+    skinType: {type: String},
+    goals: [String],
+    customGoal: String,
+    onboardingComplete: {type: Boolean, default: false},
     baselineSelfie: String,
 });
 
@@ -32,6 +36,9 @@ const SelfieSchema = new mongoose.Schema({
     scores: { wrinkles: Number, firmness: Number, spots: Number, radiance: Number },
     maskUrls: Object,
     youCamTaskId: String,
+    critique: String,
+    habits: [String],
+    facialWorkout: String,
 });
 
 
