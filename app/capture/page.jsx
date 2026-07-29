@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CldUploadButton } from "next-cloudinary";
+import { CldUploadWidget } from "next-cloudinary";
 import { analyzeAndSaveSelfie } from "@/app/lib/actions";
 
 export default function CapturePage() {
@@ -79,18 +79,63 @@ export default function CapturePage() {
                                 </div>
                             </div>
                         ) : (
-                            <CldUploadButton
+                            <CldUploadWidget
                                 uploadPreset="ml_default"
                                 onSuccess={handleUpload}
                                 options={{ 
                                     maxFiles: 1, 
                                     resourceType: "image",
+                                    sources: ['camera', 'local'],
+                                    multiple: false,
+                                    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+                                    styles: {
+                                        palette: {
+                                            window: "#FAFAFA",
+                                            sourceBg: "#FFFFFF",
+                                            windowBorder: "#E6E6FA",
+                                            tabIcon: "#2C3E50",
+                                            inactiveTabIcon: "#9BA3AF",
+                                            menuIcons: "#2C3E50",
+                                            link: "#8A9A5B",
+                                            action: "#8A9A5B",
+                                            inProgress: "#8A9A5B",
+                                            complete: "#8A9A5B",
+                                            error: "#E05454",
+                                            textDark: "#2C3E50",
+                                            textLight: "#FFFFFF"
+                                        },
+                                        fonts: {
+                                            default: null,
+                                            "'Inter', sans-serif": {
+                                                url: "https://fonts.googleapis.com/css?family=Inter",
+                                                active: true
+                                            }
+                                        }
+                                    }
                                 }}
-                                disabled={loading}
-                                className="tk-pill-btn tk-btn-primary w-full max-w-[240px] shadow-[0_8px_24px_rgba(44,62,80,0.15)]"
                             >
-                                Tap to capture
-                            </CldUploadButton>
+                                {({ open }) => {
+                                    return (
+                                        <button 
+                                            onClick={() => open()}
+                                            disabled={loading}
+                                            className="group relative flex flex-col items-center justify-center gap-3 w-full max-w-[260px] py-5 rounded-[2rem] bg-gradient-to-b from-white to-white/60 border border-white shadow-[0_8px_30px_rgba(44,62,80,0.06)] hover:shadow-[0_12px_40px_rgba(44,62,80,0.1)] hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-b from-sage/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                            
+                                            <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-[0_4px_12px_rgba(44,62,80,0.2)] group-hover:scale-105 group-hover:bg-primary/90 transition-all duration-300 z-10 relative">
+                                                <div className="absolute inset-0 rounded-full border border-white/20 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-500"></div>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                                            </div>
+                                            
+                                            <div className="z-10 flex flex-col items-center">
+                                                <span className="text-primary font-medium tracking-wide text-base">Tap to capture</span>
+                                                <span className="text-muted text-xs mt-1">Take a fresh photo</span>
+                                            </div>
+                                        </button>
+                                    );
+                                }}
+                            </CldUploadWidget>
                         )}
                     </div>
                 </div>

@@ -57,7 +57,7 @@ export default function OnboardingPage() {
         try {
             const res = await completeOnboarding(formData);
             if (res.success) {
-                router.push("/dashboard");
+                router.push("/capture");
             } else {
                 setError(res.error || "Something went wrong.");
                 setLoading(false);
@@ -69,8 +69,8 @@ export default function OnboardingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-base tk-mesh-bg flex items-center justify-center p-6">
-            <div className="max-w-md w-full tk-glass p-8 relative tk-anim-1">
+        <div className="min-h-screen bg-base tk-mesh-bg flex items-center justify-center p-4 sm:p-6">
+            <div className="max-w-md w-full tk-glass p-6 sm:p-8 relative tk-anim-1">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-display font-medium text-primary mb-2">Welcome to TintKin</h1>
                     <p className="text-muted text-sm">Let's personalize your skin journey.</p>
