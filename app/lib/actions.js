@@ -58,8 +58,34 @@ export async function analyzeAndSaveSelfie(imageUrl) {
     const overallScore = data.overall_score ?? data.score ?? 75;
     const skinAge = data.skin_age ?? 27;
 
-    // Call Qwen to generate personalized advice based on scores and user goals
-    const advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
+    // Check if we can reuse previous advice
+    const lastSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
+    let useCachedAdvice = false;
+
+    if (lastSelfie && lastSelfie.scores && lastSelfie.critique) {
+      if (
+        lastSelfie.overallScore === overallScore &&
+        lastSelfie.skinAge === skinAge &&
+        lastSelfie.scores.wrinkles === scores.wrinkles &&
+        lastSelfie.scores.firmness === scores.firmness &&
+        lastSelfie.scores.spots === scores.spots &&
+        lastSelfie.scores.radiance === scores.radiance
+      ) {
+        useCachedAdvice = true;
+      }
+    }
+
+    let advice;
+    if (useCachedAdvice) {
+      advice = {
+        critique: lastSelfie.critique,
+        habits: lastSelfie.habits,
+        facialWorkout: lastSelfie.facialWorkout,
+      };
+    } else {
+      // Call Qwen to generate personalized advice based on scores and user goals
+      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
+    }
 
     // Save selfie to DB along with the generated advice
     const selfie = await Selfie.create({

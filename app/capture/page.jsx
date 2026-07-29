@@ -1,161 +1,499 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CldUploadWidget } from "next-cloudinary";
 import { analyzeAndSaveSelfie } from "@/app/lib/actions";
+
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = "ml_default";
 
 export default function CapturePage() {
     const router = useRouter();
-    const [status, setStatus] = useState("Upload a clear, front-facing photo in good lighting.");
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
+
+    const [status, setStatus] = useState(null); // { type: "info"|"success"|"error", msg: string }
     const [loading, setLoading] = useState(false);
+    const [preview, setPreview] = useState(null);
 
-    const handleUpload = async (result) => {
-        const imgUrl = result?.info?.secure_url;
-        if (!imgUrl) {
-            setStatus("Upload failed. Let's try again.");
-            return;
-        }
+    const uploadToCloudinary = async (file) => {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("upload_preset", UPLOAD_PRESET);
 
-        setLoading(true);
-        setStatus("Taking a gentle look at your skin... (3-5s)");
-
-        const res = await analyzeAndSaveSelfie(imgUrl);
-        setLoading(false);
-
-        if (res.success) {
-            setStatus("Done! Opening your journal...");
-            setTimeout(() => router.push("/dashboard"), 1000);
-        } else {
-            setStatus(`Oops: ${res.error}`);
-        }
+        const res = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+            { method: "POST", body: form }
+        );
+        if (!res.ok) throw new Error("Upload failed");
+        const data = await res.json();
+        return data.secure_url;
     };
 
-    const isDone = status.includes("Done!");
-    const isError = status.includes("Oops");
+    const handleFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Show preview immediately
+        setPreview(URL.createObjectURL(file));
+        setLoading(true);
+        setStatus({ type: "info", msg: "Uploading photo…" });
+
+        try {
+            const imgUrl = await uploadToCloudinary(file);
+            setStatus({ type: "info", msg: "Analysing your skin… (3–5s)" });
+
+            const res = await analyzeAndSaveSelfie(imgUrl);
+
+            if (res.success) {
+                setStatus({ type: "success", msg: "Done! Opening your journal…" });
+                setTimeout(() => router.push("/dashboard"), 900);
+            } else {
+                setStatus({ type: "error", msg: `Oops: ${res.error}` });
+                setLoading(false);
+            }
+        } catch {
+            setStatus({ type: "error", msg: "Upload failed. Please try again." });
+            setLoading(false);
+        }
+
+        // Reset input so same file can be re-selected
+        e.target.value = "";
+    };
 
     return (
-        <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center p-6 bg-base relative overflow-hidden tk-mesh-bg">
-            
-            <div className="w-full max-w-md relative z-10 tk-anim-1">
-                
+        <div className="capture-page">
+            {/* Hidden native inputs */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handleFile}
+                className="sr-only"
+                aria-hidden="true"
+            />
+            <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFile}
+                className="sr-only"
+                aria-hidden="true"
+            />
+
+            {/* Ambient blobs */}
+            <div className="blob blob-1" aria-hidden="true" />
+            <div className="blob blob-2" aria-hidden="true" />
+
+            <div className="capture-card">
                 {/* Header */}
-                <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-lavender text-primary shadow-[0_8px_32px_rgba(230,230,250,0.8)] mb-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                <div className="capture-header">
+                    <div className="camera-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                            <circle cx="12" cy="13" r="3" />
+                        </svg>
                     </div>
-                    <h1 className="text-4xl font-display font-medium text-primary mb-3">
-                        Today's Entry
-                    </h1>
-                    <p className="text-muted text-sm px-4">
-                        Let's capture a moment in your skin's journey.
+                    <h1 className="capture-title">Today's Entry</h1>
+                    <p className="capture-subtitle">
+                        A clear, front-facing photo in good lighting gives the best results.
                     </p>
                 </div>
 
-                {/* Main Upload Box (Pill/Soft Rectangle) */}
-                <div className="tk-glass p-8 relative overflow-hidden shadow-[0_0_40px_rgba(230,230,250,0.6)] mb-6 flex flex-col items-center justify-center min-h-[260px]">
-                    
-                    {/* Tooltip for alignment (only visible when not loading) */}
-                    {!loading && (
-                        <div className="absolute top-4 bg-white/60 backdrop-blur-sm px-4 py-1.5 rounded-full text-xs font-medium text-primary shadow-sm tk-tooltip-anim">
-                            Ensure your face is centered
-                        </div>
-                    )}
-
-                    <div className="flex flex-col items-center gap-6 text-center z-10 w-full">
-                        <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500 ${loading ? 'bg-sage/20 text-sage scale-110 shadow-[0_0_30px_rgba(138,154,91,0.4)]' : 'bg-primary/5 text-primary'}`}>
-                            {loading ? (
-                                <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                            )}
-                        </div>
-
-                        {loading ? (
-                            <div className="w-full max-w-[200px]">
-                                <p className="text-sm text-primary font-medium mb-3">Analysing...</p>
-                                <div className="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
-                                    <div className="h-full bg-sage rounded-full animate-pulse w-full"></div>
-                                </div>
+                {/* Preview or CTA */}
+                {preview ? (
+                    <div className="preview-wrap">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt="Your selfie preview" className="preview-img" />
+                        {loading && (
+                            <div className="preview-overlay">
+                                <div className="spinner-ring" />
                             </div>
-                        ) : (
-                            <CldUploadWidget
-                                uploadPreset="ml_default"
-                                onSuccess={handleUpload}
-                                options={{ 
-                                    maxFiles: 1, 
-                                    resourceType: "image",
-                                    sources: ['camera', 'local'],
-                                    multiple: false,
-                                    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
-                                    styles: {
-                                        palette: {
-                                            window: "#FAFAFA",
-                                            sourceBg: "#FFFFFF",
-                                            windowBorder: "#E6E6FA",
-                                            tabIcon: "#2C3E50",
-                                            inactiveTabIcon: "#9BA3AF",
-                                            menuIcons: "#2C3E50",
-                                            link: "#8A9A5B",
-                                            action: "#8A9A5B",
-                                            inProgress: "#8A9A5B",
-                                            complete: "#8A9A5B",
-                                            error: "#E05454",
-                                            textDark: "#2C3E50",
-                                            textLight: "#FFFFFF"
-                                        },
-                                        fonts: {
-                                            default: null,
-                                            "'Inter', sans-serif": {
-                                                url: "https://fonts.googleapis.com/css?family=Inter",
-                                                active: true
-                                            }
-                                        }
-                                    }
-                                }}
-                            >
-                                {({ open }) => {
-                                    return (
-                                        <button 
-                                            onClick={() => open()}
-                                            disabled={loading}
-                                            className="group relative flex flex-col items-center justify-center gap-3 w-full max-w-[260px] py-5 rounded-[2rem] bg-gradient-to-b from-white to-white/60 border border-white shadow-[0_8px_30px_rgba(44,62,80,0.06)] hover:shadow-[0_12px_40px_rgba(44,62,80,0.1)] hover:-translate-y-1 transition-all duration-300 overflow-hidden"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-b from-sage/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                            
-                                            <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-[0_4px_12px_rgba(44,62,80,0.2)] group-hover:scale-105 group-hover:bg-primary/90 transition-all duration-300 z-10 relative">
-                                                <div className="absolute inset-0 rounded-full border border-white/20 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all duration-500"></div>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
-                                            </div>
-                                            
-                                            <div className="z-10 flex flex-col items-center">
-                                                <span className="text-primary font-medium tracking-wide text-base">Tap to capture</span>
-                                                <span className="text-muted text-xs mt-1">Take a fresh photo</span>
-                                            </div>
-                                        </button>
-                                    );
-                                }}
-                            </CldUploadWidget>
                         )}
                     </div>
-                </div>
+                ) : (
+                    <div className="cta-group">
+                        {/* Camera */}
+                        <button
+                            className="cta-btn cta-primary"
+                            onClick={() => cameraInputRef.current?.click()}
+                            disabled={loading}
+                        >
+                            <span className="cta-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                                    <circle cx="12" cy="13" r="3" />
+                                </svg>
+                            </span>
+                            <span className="cta-text">
+                                <span className="cta-label">Take a Photo</span>
+                                <span className="cta-hint">Opens your camera directly</span>
+                            </span>
+                            <span className="cta-arrow">→</span>
+                        </button>
 
-                {/* Status indicator */}
-                <div className={`px-5 py-2.5 rounded-full text-center text-sm font-medium transition-colors ${
-                    isDone ? 'bg-sage/15 text-sage border border-sage/20' : 
-                    isError ? 'bg-red-100 text-red-700 border border-red-200' : 
-                    'bg-white/50 text-muted border border-white/40'
-                }`}>
-                    {status}
-                </div>
+                        <div className="or-divider">
+                            <span /><p>or</p><span />
+                        </div>
 
-                {/* Privacy Assurance */}
-                <p className="text-center text-xs text-faint mt-8 flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    Your entry is private and securely processed.
+                        {/* Gallery */}
+                        <button
+                            className="cta-btn cta-secondary"
+                            onClick={() => galleryInputRef.current?.click()}
+                            disabled={loading}
+                        >
+                            <span className="cta-icon cta-icon-gallery">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
+                                </svg>
+                            </span>
+                            <span className="cta-text">
+                                <span className="cta-label">Upload from Gallery</span>
+                                <span className="cta-hint">Choose an existing photo</span>
+                            </span>
+                        </button>
+                    </div>
+                )}
+
+                {/* Status pill */}
+                {status && (
+                    <div className={`status-pill status-${status.type}`}>
+                        {status.type === "success" && (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        )}
+                        {status.type === "error" && (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                        )}
+                        {status.type === "info" && (
+                            <svg className="spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                            </svg>
+                        )}
+                        {status.msg}
+                    </div>
+                )}
+
+                {/* Retake option when preview is shown and not loading */}
+                {preview && !loading && (
+                    <button
+                        className="retake-btn"
+                        onClick={() => { setPreview(null); setStatus(null); }}
+                    >
+                        ← Try a different photo
+                    </button>
+                )}
+
+                {/* Privacy note */}
+                <p className="privacy-note">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Private &amp; securely processed
                 </p>
-
             </div>
+
+            <style>{`
+                .capture-page {
+                    min-height: calc(100vh - 64px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1.25rem;
+                    background-color: var(--tk-bg);
+                    position: relative;
+                    overflow: hidden;
+                }
+
+                /* ── Blobs ─────────────────────────────────────────── */
+                .blob {
+                    position: absolute;
+                    border-radius: 50%;
+                    filter: blur(80px);
+                    pointer-events: none;
+                    z-index: 0;
+                }
+                .blob-1 {
+                    width: 320px; height: 320px;
+                    top: -80px; left: -60px;
+                    background: rgba(230,230,250,0.6);
+                    animation: orbFloat 14s ease-in-out infinite;
+                }
+                .blob-2 {
+                    width: 260px; height: 260px;
+                    bottom: -60px; right: -40px;
+                    background: rgba(255,218,185,0.5);
+                    animation: orbFloat 18s ease-in-out infinite reverse;
+                }
+
+                /* ── Card ──────────────────────────────────────────── */
+                .capture-card {
+                    position: relative;
+                    z-index: 1;
+                    width: 100%;
+                    max-width: 400px;
+                    background: rgba(255,255,255,0.6);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255,255,255,0.4);
+                    border-radius: 2rem;
+                    padding: 2rem 1.5rem 1.5rem;
+                    box-shadow: 0 8px 40px rgba(44,62,80,0.08);
+                    animation: fadeInUp 0.6s ease both;
+                }
+
+                /* ── Header ────────────────────────────────────────── */
+                .capture-header { text-align: center; margin-bottom: 1.75rem; }
+
+                .camera-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 58px; height: 58px;
+                    border-radius: 50%;
+                    background: var(--tk-accent-lavender);
+                    color: var(--tk-text-primary);
+                    box-shadow: 0 6px 20px rgba(230,230,250,0.9);
+                    margin-bottom: 1rem;
+                }
+
+                .capture-title {
+                    font-family: var(--font-display);
+                    font-size: clamp(1.75rem, 6vw, 2.2rem);
+                    font-weight: 600;
+                    color: var(--tk-text-primary);
+                    margin: 0 0 0.5rem;
+                    line-height: 1.2;
+                }
+                .capture-subtitle {
+                    font-size: 0.875rem;
+                    color: var(--tk-text-muted);
+                    line-height: 1.55;
+                    margin: 0;
+                }
+
+                /* ── CTAs ──────────────────────────────────────────── */
+                .cta-group {
+                    display: flex;
+                    flex-direction: column;
+                    margin-bottom: 1.25rem;
+                }
+
+                .cta-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.875rem;
+                    width: 100%;
+                    padding: 1rem 1.1rem;
+                    border-radius: 1.25rem;
+                    border: none;
+                    cursor: pointer;
+                    transition: all 0.22s ease;
+                    font-family: var(--font-body);
+                    -webkit-tap-highlight-color: transparent;
+                    text-align: left;
+                }
+                .cta-btn:disabled { opacity: 0.5; pointer-events: none; }
+                .cta-btn:active { transform: scale(0.97); }
+
+                /* Primary — camera */
+                .cta-primary {
+                    background: var(--tk-text-primary);
+                    color: #fff;
+                    box-shadow: 0 6px 24px rgba(44,62,80,0.22);
+                }
+                .cta-primary:hover {
+                    background: #3a5068;
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 30px rgba(44,62,80,0.28);
+                }
+
+                /* Secondary — gallery */
+                .cta-secondary {
+                    background: rgba(255,255,255,0.85);
+                    color: var(--tk-text-primary);
+                    border: 1px solid rgba(44,62,80,0.1);
+                    box-shadow: 0 2px 10px rgba(44,62,80,0.06);
+                }
+                .cta-secondary:hover {
+                    background: #fff;
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 18px rgba(44,62,80,0.1);
+                }
+
+                .cta-icon {
+                    flex-shrink: 0;
+                    width: 42px; height: 42px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: transform 0.22s ease;
+                }
+                .cta-primary .cta-icon { background: rgba(255,255,255,0.15); }
+                .cta-icon-gallery {
+                    background: var(--tk-accent-lavender);
+                    color: var(--tk-text-primary);
+                }
+                .cta-btn:hover .cta-icon { transform: scale(1.08); }
+
+                .cta-text {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.1rem;
+                    flex: 1;
+                    min-width: 0;
+                }
+                .cta-label {
+                    font-size: 0.9375rem;
+                    font-weight: 600;
+                    line-height: 1.2;
+                }
+                .cta-hint {
+                    font-size: 0.75rem;
+                    opacity: 0.6;
+                }
+                .cta-arrow {
+                    font-size: 1rem;
+                    opacity: 0.4;
+                    flex-shrink: 0;
+                }
+
+                /* ── OR divider ────────────────────────────────────── */
+                .or-divider {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.875rem 0;
+                }
+                .or-divider span {
+                    flex: 1;
+                    height: 1px;
+                    background: rgba(44,62,80,0.1);
+                }
+                .or-divider p {
+                    font-size: 0.7rem;
+                    color: var(--tk-text-faint);
+                    font-weight: 600;
+                    margin: 0;
+                    text-transform: uppercase;
+                    letter-spacing: 0.07em;
+                }
+
+                /* ── Photo preview ─────────────────────────────────── */
+                .preview-wrap {
+                    position: relative;
+                    width: 100%;
+                    aspect-ratio: 3/4;
+                    border-radius: 1.25rem;
+                    overflow: hidden;
+                    margin-bottom: 1.25rem;
+                    background: var(--tk-accent-lavender);
+                    box-shadow: 0 4px 20px rgba(44,62,80,0.12);
+                }
+                .preview-img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+                .preview-overlay {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(253,251,247,0.7);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .spinner-ring {
+                    width: 48px; height: 48px;
+                    border-radius: 50%;
+                    border: 3px solid rgba(138,154,91,0.2);
+                    border-top-color: var(--tk-accent-sage);
+                    animation: spin 0.85s linear infinite;
+                }
+
+                /* ── Status pill ───────────────────────────────────── */
+                .status-pill {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.45rem;
+                    padding: 0.6rem 1.1rem;
+                    border-radius: 9999px;
+                    font-size: 0.8125rem;
+                    font-weight: 500;
+                    margin-bottom: 1rem;
+                    animation: fadeIn 0.3s ease both;
+                }
+                .status-success { background: rgba(138,154,91,0.12); color: var(--tk-accent-sage); border: 1px solid rgba(138,154,91,0.2); }
+                .status-error   { background: rgba(224,84,84,0.08);  color: #c94444;               border: 1px solid rgba(224,84,84,0.2); }
+                .status-info    { background: rgba(230,230,250,0.5); color: var(--tk-text-primary); border: 1px solid rgba(230,230,250,0.4); }
+
+                /* ── Retake ────────────────────────────────────────── */
+                .retake-btn {
+                    display: block;
+                    width: 100%;
+                    text-align: center;
+                    font-size: 0.8125rem;
+                    color: var(--tk-text-muted);
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 0.25rem 0 0.75rem;
+                    font-family: var(--font-body);
+                    transition: color 0.2s;
+                }
+                .retake-btn:hover { color: var(--tk-text-primary); }
+
+                /* ── Privacy note ──────────────────────────────────── */
+                .privacy-note {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.4rem;
+                    font-size: 0.75rem;
+                    color: var(--tk-text-faint);
+                    margin: 0;
+                }
+
+                /* ── Animations ────────────────────────────────────── */
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .spin { animation: spin 1.1s linear infinite; }
+
+                /* sr-only */
+                .sr-only {
+                    position: absolute;
+                    width: 1px; height: 1px;
+                    padding: 0; margin: -1px;
+                    overflow: hidden;
+                    clip: rect(0,0,0,0);
+                    white-space: nowrap;
+                    border-width: 0;
+                }
+            `}</style>
         </div>
     );
 }

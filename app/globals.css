@@ -117,6 +117,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--tk-text-faint); }
 
+/* Hide scrollbar but keep scroll (for mobile nav) */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Mobile safe-area helper */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0); }
+
 /* ============================================================
    UTILITY CLASSES
    ============================================================ */
@@ -181,3 +191,4 @@ h1, h2, h3, h4, h5, h6 {
 .tk-tooltip-anim {
   animation: tooltipFade 4s ease-in-out forwards;
 }
+
