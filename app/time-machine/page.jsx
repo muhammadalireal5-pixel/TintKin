@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { getAgedProjection } from "@/app/lib/actions";
+import { useState, useEffect } from "react";
+import { getAgedProjection, getLatestData } from "@/app/lib/actions";
 import Image from "next/image";
+import Link from "next/link";
 
 const YEARS = [5, 10, 20];
 
@@ -11,6 +12,13 @@ export default function TimeMachinePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hasSelfie, setHasSelfie] = useState(true);
+
+  useEffect(() => {
+    getLatestData().then((d) => {
+      if (!d.latestSelfie) setHasSelfie(false);
+    }).catch(() => {});
+  }, []);
 
   const handleProject = async (years) => {
     setSelectedYears(years);
@@ -42,6 +50,18 @@ export default function TimeMachinePage() {
             See how consistent care today blossoms in the years to come.
           </p>
         </div>
+
+        {/* No Selfie Notice */}
+        {!hasSelfie && (
+          <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-12 text-center">
+            <p className="text-primary font-medium mb-2">No selfie found yet</p>
+            <p className="text-muted text-sm mb-5">Take a quick photo first so we can project your skin's journey.</p>
+            <Link href="/capture" className="tk-pill-btn tk-btn-primary inline-flex items-center gap-2">
+              Take a Selfie
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </Link>
+          </div>
+        )}
 
         {/* Year Selector */}
         <div className="flex flex-wrap gap-4 mb-12 tk-anim-2 justify-center max-w-2xl mx-auto">

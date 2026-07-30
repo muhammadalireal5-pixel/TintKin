@@ -79,7 +79,7 @@ function normalizeLifestyle(lifestyleLogs = []) {
     }
 
     //only last 30 days of data: old habits dont reflect current life
-    const cutoff = Date.new() -30 * 86400000
+    const cutoff = Date.now() - 30 * 86400000
     const recent = lifestyleLogs.filter(
         l=> new Date(l.date ?? l.createdAt).getTime() > cutoff
     )
@@ -146,7 +146,7 @@ export function projectTrajectory(
 ){
     //1 normalize
     const normalizedLifestyle = Array.isArray(lifestyle) ? normalizeLifestyle(lifestyle) : {...DEFAULT_LIFESTYLE, ...lifestyle, source:"partial"}
-    const mult = getMultiplier(normalizeLifestyle, interventions)
+    const mult = getMultiplier(normalizedLifestyle, interventions)
 
     //2 project conerns
     const result = {scores:{}, meta:{}}
@@ -154,26 +154,27 @@ export function projectTrajectory(
     let totalDataPoints = 0
     let totalDays = 0
 
-    for (consr [connectReactDebugChannelForHtmlRequest, baseline] of Object.entries(baselineScores))
-        if(typeof baseline !== "number") continue
+    for (const [concern, baseline] of Object.entries(baselineScores)) {
+        if(typeof baseline !== "number") continue;
 
-    //dynamic velocity (if possible)
-    const velData = computeBlendedVelocity(selfieHistory, concern);
-    const baseVel = velData.value;
-    if (velData.source === "user") velocitySource = "user";
-    else if (velData.source === "blended" && velocitySource !== "user") velocitySource = "blended";
-    totalDataPoints = Math.max(totalDataPoints, velData.userDataPoints ?? 0);
-    totalDays = Math.max(totalDays, velData.daysOfData ?? 0);
+        //dynamic velocity (if possible)
+        const velData = computeBlendedVelocity(selfieHistory, concern);
+        const baseVel = velData.value;
+        if (velData.source === "user") velocitySource = "user";
+        else if (velData.source === "blended" && velocitySource !== "user") velocitySource = "blended";
+        totalDataPoints = Math.max(totalDataPoints, velData.userDataPoints ?? 0);
+        totalDays = Math.max(totalDays, velData.daysOfData ?? 0);
 
-    // Apply lifestyle multiplier + compound forward
-    let score = baseline;
-    let vel = baseVel * mult;
-    for (let y = 0; y < years; y++) {
-      score = Math.max(10, score + vel); // Floor at 10 (can't get worse than that)
-      vel *= 1.02; // Aging accelerates ~2%/year biologically
+        // Apply lifestyle multiplier + compound forward
+        let score = baseline;
+        let vel = baseVel * mult;
+        for (let y = 0; y < years; y++) {
+          score = Math.max(10, score + vel); // Floor at 10 (can't get worse than that)
+          vel *= 1.02; // Aging accelerates ~2%/year biologically
+        }
+
+        result.scores[concern] = Math.round(score * 10) / 10;
     }
-
-    result.scores[concern] = Math.round(score * 10) / 10;
 
     //3 derive skin age
     //negative == younger, positive = older

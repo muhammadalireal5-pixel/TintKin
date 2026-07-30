@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { User, Selfie, Lifestyle } from "./mongoose";
-import { analyzeSkin, ageFace } from "./youcam";
+import { analyzeSkin, ageFace, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice } from "./qwen";
 
@@ -40,23 +40,57 @@ export async function analyzeAndSaveSelfie(imageUrl) {
     const youCamResult = await analyzeSkin(imageUrl);
     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
-    // Helper to extract score regardless of field naming variations
-    const getScore = (key1, key2) => {
-      const item = data[key1] || data[key2];
-      if (typeof item === 'number') return item;
-      if (typeof item === 'object' && item !== null && 'score' in item) return item.score;
-      return 70;
+    // Extract scores using the unified parser (handles inline JSON + ZIP shapes)
+    const scoreInfo = await extractScoreInfo(data);
+    console.log("[Scores] Extracted scoreInfo:", JSON.stringify(scoreInfo, null, 2));
+
+    // Read individual concern scores (prefer ui_score, fall back to raw_score)
+    const readScore = (key, label) => {
+      const entry = scoreInfo[key];
+      if (!entry) {
+        console.warn(`[Scores] ⚠️ Key "${key}" missing from scoreInfo — no score available for ${label}`);
+        return null;
+      }
+      if (typeof entry === "number") return entry;
+      const val = entry.ui_score ?? entry.raw_score ?? entry.score ?? entry.value;
+      if (val === undefined || val === null) {
+        console.warn(`[Scores] ⚠️ Key "${key}" present but has no ui_score/raw_score:`, entry);
+        return null;
+      }
+      return val;
     };
 
     const scores = {
-      wrinkles: getScore("wrinkles", "wrinkle"),
-      firmness: getScore("firmness", "firmness"),
-      spots: getScore("spots", "age_spot"),
-      radiance: getScore("radiance", "radiance"),
+      wrinkles: readScore("wrinkle", "wrinkles"),
+      firmness: readScore("firmness", "firmness"),
+      spots: readScore("age_spot", "spots"),
+      radiance: readScore("radiance", "radiance"),
     };
-    
-    const overallScore = data.overall_score ?? data.score ?? 75;
-    const skinAge = data.skin_age ?? 27;
+
+    // Warn loudly if any score is null (genuinely missing from the API response)
+    for (const [label, val] of Object.entries(scores)) {
+      if (val === null) {
+        console.warn(`[Scores] ⚠️ "${label}" resolved to null — check YouCam response shape`);
+      }
+    }
+
+    // Overall score & skin age
+    const overallScore = scoreInfo.all?.score ?? scoreInfo.overall_score ?? null;
+    const skinAge = scoreInfo.skin_age ?? scoreInfo.age ?? null;
+
+    if (overallScore === null) {
+      console.warn("[Scores] ⚠️ overall score missing from scoreInfo:", JSON.stringify(scoreInfo, null, 2));
+    }
+    if (skinAge === null) {
+      console.warn("[Scores] ⚠️ skin age missing from scoreInfo:", JSON.stringify(scoreInfo, null, 2));
+    }
+
+    // Log fully parsed results before saving
+    console.log("[Scores] ✅ Final parsed values:", {
+      scores,
+      overallScore,
+      skinAge,
+    });
 
     // Check if we can reuse previous advice
     const lastSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
@@ -77,6 +111,7 @@ export async function analyzeAndSaveSelfie(imageUrl) {
 
     let advice;
     if (useCachedAdvice) {
+      console.log("[Scores] Using cached advice (scores unchanged from previous selfie)");
       advice = {
         critique: lastSelfie.critique,
         habits: lastSelfie.habits,
@@ -178,45 +213,55 @@ export async function runWhatIfSim(scenarioName) {
   try {
     if (!latestSelfie) throw new Error("Take a selfie first!");
 
-    // Simulate to age 50 (common comparison point)
-    const TARGET_AGE = 50;
-    const totalYears = TARGET_AGE - realAge;
-    if (totalYears <= 0) throw new Error("You're already 50+—pick a higher target!");
-
+    // Simulate treatment over 1 year (12 months)
+    const TARGET_YEARS = 1;
     let scenarioA, scenarioB;
 
-    // Preset: Retinol @25 vs @35
     if (scenarioName === "retinol") {
-      const retinolStartAgeA = 25; // Start NOW
-      const retinolStartAgeB = 35; // Start in 10 years
+      // Scenario A: Retinol for 1 year
+      const projA = projectTrajectory(latestSelfie.scores, TARGET_YEARS, lifestyleLogs, ["retinol"], allSelfies);
+      // Scenario B: No treatment for 1 year
+      const projB = projectTrajectory(latestSelfie.scores, TARGET_YEARS, lifestyleLogs, [], allSelfies);
 
-      // Scenario A: Retinol from now
-      const yearsWithA = Math.max(0, TARGET_AGE - retinolStartAgeA);
-      const yearsWithoutA = totalYears - yearsWithA;
-      let projA = projectTrajectory(latestSelfie.scores, yearsWithoutA, lifestyleLogs, [], allSelfies);
-      projA = projectTrajectory(projA.scores, yearsWithA, lifestyleLogs, ["retinol"], allSelfies);
-      const agedA = await ageFace(latestSelfie.imageUrl, TARGET_AGE, projA.lifestyleMultiplier * 0.9);
+      // Helper to calculate intensity (0.0 to 1.0) based on score improvement
+      const getIntensity = (baseline, projected) => {
+          const improvement = projected - baseline;
+          if (improvement <= 0) return 0.0;
+          return Math.min(1.0, improvement / 15); // e.g. 15 points = max intensity
+      };
 
-      // Scenario B: Retinol at 35
-      const yearsWithoutB = Math.max(0, retinolStartAgeB - realAge);
-      const yearsWithB = totalYears - yearsWithoutB;
-      let projB = projectTrajectory(latestSelfie.scores, yearsWithoutB, lifestyleLogs, [], allSelfies);
-      projB = projectTrajectory(projB.scores, yearsWithB, lifestyleLogs, ["retinol"], allSelfies);
-      const agedB = await ageFace(latestSelfie.imageUrl, TARGET_AGE, projB.lifestyleMultiplier * 1.1);
+      const intensitiesA = {
+          wrinkle: getIntensity(latestSelfie.scores.wrinkles, projA.scores.wrinkles),
+          age_spot: getIntensity(latestSelfie.scores.spots, projA.scores.spots),
+          radiance: getIntensity(latestSelfie.scores.radiance, projA.scores.radiance),
+      };
+
+      const intensitiesB = {
+          wrinkle: getIntensity(latestSelfie.scores.wrinkles, projB.scores.wrinkles),
+          age_spot: getIntensity(latestSelfie.scores.spots, projB.scores.spots),
+          radiance: getIntensity(latestSelfie.scores.radiance, projB.scores.radiance),
+      };
+
+      // API requires at least one parameter > 0
+      if (Object.values(intensitiesA).every(v => v === 0)) intensitiesA.radiance = 0.01;
+      if (Object.values(intensitiesB).every(v => v === 0)) intensitiesB.radiance = 0.01;
+
+      const simA = await simulateSkin(latestSelfie.imageUrl, intensitiesA);
+      const simB = await simulateSkin(latestSelfie.imageUrl, intensitiesB);
 
       scenarioA = {
-        label: "Retinol @ 25",
+        label: "1 Year w/ Retinol",
         projectedScores: projA.scores,
         skinAgeDelta: projA.skinAgeDelta,
-        finalSkinAge: TARGET_AGE + projA.skinAgeDelta,
-        imageUrl: agedA.result.output_image_url,
+        finalSkinAge: realAge + TARGET_YEARS + projA.skinAgeDelta,
+        imageUrl: simA.output_image_url || simA.result?.output_image_url || simA.data?.output_image_url || simA.url,
       };
       scenarioB = {
-        label: "Retinol @ 35",
+        label: "1 Year w/o Treatment",
         projectedScores: projB.scores,
         skinAgeDelta: projB.skinAgeDelta,
-        finalSkinAge: TARGET_AGE + projB.skinAgeDelta,
-        imageUrl: agedB.result.output_image_url,
+        finalSkinAge: realAge + TARGET_YEARS + projB.skinAgeDelta,
+        imageUrl: simB.output_image_url || simB.result?.output_image_url || simB.data?.output_image_url || simB.url,
       };
     }
 
@@ -227,7 +272,7 @@ export async function runWhatIfSim(scenarioName) {
     }
     deltas.skinAge = Math.round((scenarioB.finalSkinAge - scenarioA.finalSkinAge) * 10) / 10;
 
-    return { success: true, scenarioA, scenarioB, deltas, targetAge: TARGET_AGE };
+    return { success: true, scenarioA, scenarioB, deltas, targetAge: realAge + TARGET_YEARS };
   } catch (err) {
     return { success: false, error: err.message };
   }

@@ -4,6 +4,19 @@ import {
   RadarChart, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip
 } from "recharts";
 
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg border border-white/40">
+        <p className="text-primary font-medium">{data.subject}</p>
+        <p className="text-sage text-sm">{data.tag}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function RadarChartClient({ scores }) {
   const getSupportiveTag = (subject, value) => {
     if (value >= 80) return "Glowing";
@@ -16,19 +29,6 @@ export default function RadarChartClient({ scores }) {
     value,
     tag: getSupportiveTag(subject, value)
   }));
-
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg border border-white/40">
-          <p className="text-primary font-medium">{data.subject}</p>
-          <p className="text-sage text-sm">{data.tag}</p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="h-full w-full absolute inset-0 pb-6">

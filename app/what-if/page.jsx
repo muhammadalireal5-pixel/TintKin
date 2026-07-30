@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { runWhatIfSim } from "@/app/lib/actions";
+import { useState, useEffect } from "react";
+import { runWhatIfSim, getLatestData } from "@/app/lib/actions";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
+import Link from "next/link";
 
 const PRESETS = [
   { id: "retinol", label: "Retinol @ 25 vs Retinol @ 35" },
@@ -13,6 +14,13 @@ export default function WhatIfPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hasSelfie, setHasSelfie] = useState(true);
+
+  useEffect(() => {
+    getLatestData().then((d) => {
+      if (!d.latestSelfie) setHasSelfie(false);
+    }).catch(() => {});
+  }, []);
 
   const handleRun = async () => {
     setLoading(true);
@@ -42,6 +50,18 @@ export default function WhatIfPage() {
             Gently explore how small choices today shape your skin decades later.
           </p>
         </div>
+
+        {/* No Selfie Notice */}
+        {!hasSelfie && (
+          <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-12 text-center">
+            <p className="text-primary font-medium mb-2">No selfie found yet</p>
+            <p className="text-muted text-sm mb-5">Take a quick photo first so we can simulate your what-if scenarios.</p>
+            <Link href="/capture" className="tk-pill-btn tk-btn-primary inline-flex items-center gap-2">
+              Take a Selfie
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </Link>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="tk-glass p-6 md:p-8 rounded-3xl mb-12 tk-anim-2 flex flex-col md:flex-row gap-6 items-end">
