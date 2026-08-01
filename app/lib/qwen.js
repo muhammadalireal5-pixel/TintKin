@@ -16,20 +16,36 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 
     Analyze the following user profile and skin analysis scores to generate a personalized skincare critique, daily habits, and a facial workout.
-    
+
     User Profile:
     ${userProfile}
 
     Skin Analysis Scores (0-100, higher is better):
     ${skinData}
 
-    Provide the response strictly in the following JSON format:
+    Provide the response strictly in the following JSON format. You MUST NOT include any conversational text or markdown formatting (like \`\`\`json) in your response, just the raw JSON object:
     {
       "critique": "A 2-3 sentence personalized analysis highlighting their strengths and areas for improvement based on their goals and scores.",
       "habits": ["Habit 1", "Habit 2", "Habit 3"],
-      "facialWorkout": "A specific, actionable facial exercise or massage routine name and brief instructions (e.g., 'Gua Sha Jawline Sculpting: ...') that directly addresses their lowest score or primary goal."
-    }`;
+      "facialWorkout": "A specific, actionable facial exercise or massage routine name and brief instructions (e.g., 'Gua Sha Jawline Sculpting: ...') that directly addresses their lowest score or primary goal.",
+      "products": [
+        {
+          "type": "Cleanser", 
+          "formula": "e.g., Salicylic Acid or Gentle Oat",
+          "description": "Brief explanation of why this helps their specific skin concerns."
+        },
+        ... (Exactly 3 product recommendations)
+      ]
+    }
 
+    CRITICAL product selection guidelines:
+    - The 3 products MUST be chosen based on the user's unique profile, their lowest scores, and their stated goals.
+    - Each product's "type" must be exactly one of: "Cleanser", "Serum", "Moisturizer", "Sunscreen", or "Exfoliant". No other types are allowed.
+    - At least one product should be a targeted treatment (e.g., Serum, Exfoliant, or Sunscreen) that specifically improves their weakest area (e.g., wrinkles, firmness, spots, or radiance).
+    - Include a cleanser appropriate for their skin type (from the user profile).
+    - The third product should support barrier repair or provide daily protection (e.g., a moisturizer or sunscreen).
+    - Avoid generic, one-size-fits-all products. Each recommendation must be justified by the user's data.`;
+    
     const response = await openai.chat.completions.create({
       model: process.env.QWEN_MODEL_NAME || "qwen-plus",
       messages: [
@@ -39,11 +55,10 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
       response_format: { type: "json_object" }
     });
 
-    let content = response.choices[0].message.content;
-    // Strip markdown if it somehow leaked
-    if (content.startsWith("```json")) {
-        content = content.replace(/```json/g, "").replace(/```/g, "").trim();
-    }
+    let content = response.choices[0].message.content.trim();
+    
+    // Aggressively strip markdown if it leaked
+    content = content.replace(/^```json/im, "").replace(/^```/im, "").replace(/```$/im, "").trim();
     const result = JSON.parse(content);
     return result;
   } catch (error) {
@@ -52,7 +67,12 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     return {
       critique: "Your skin shows a unique balance. Keep up with consistent hydration and sun protection to maintain your glow.",
       habits: ["Drink 8 glasses of water", "Apply SPF 50 daily", "Cleanse before bed"],
-      facialWorkout: "Gentle upward facial massage during your cleansing routine to promote lymphatic drainage."
+      facialWorkout: "Gentle upward facial massage during your cleansing routine to promote lymphatic drainage.",
+      products: [
+        { type: "Cleanser", formula: "Gentle Hydrating Cleanser", description: "To maintain your skin barrier without stripping natural oils." },
+        { type: "Serum", formula: "Vitamin C", description: "To boost radiance and provide antioxidant protection." },
+        { type: "Moisturizer", formula: "Ceramide Cream", description: "To lock in moisture and keep skin plump throughout the day." }
+      ]
     };
   }
 }

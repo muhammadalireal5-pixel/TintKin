@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { User, Selfie, Lifestyle } from "./mongoose";
-import { analyzeSkin, ageFace, simulateSkin, extractScoreInfo } from "./youcam";
+import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice } from "./qwen";
 
@@ -116,10 +116,32 @@ export async function analyzeAndSaveSelfie(imageUrl) {
         critique: lastSelfie.critique,
         habits: lastSelfie.habits,
         facialWorkout: lastSelfie.facialWorkout,
+        products: lastSelfie.recommendedProducts,
       };
     } else {
       // Call Qwen to generate personalized advice based on scores and user goals
       advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
+    }
+
+    let recommendedProducts = advice.products || []
+    if(!Array.isArray(recommendedProducts) || recommendedProducts.length !== 3 ){
+      recommendedProducts = [
+    {
+      type: "Cleanser",
+      formula: "Gentle Hydrating Cleanser",
+      description: "Mild cleanser that maintains your skin barrier.",
+    },
+    {
+      type: "Serum",
+      formula: "Vitamin C + Niacinamide",
+      description: "Brightens tone and fades dark spots.",
+    },
+    {
+      type: "Moisturizer",
+      formula: "Ceramide Cream",
+      description: "Locks in moisture and strengthens barrier.",
+    },
+    ]
     }
 
     // Save selfie to DB along with the generated advice
@@ -134,6 +156,7 @@ export async function analyzeAndSaveSelfie(imageUrl) {
       critique: advice.critique,
       habits: advice.habits,
       facialWorkout: advice.facialWorkout,
+      recommendedProducts,
     });
 
     // Update user's baseline selfie
@@ -162,115 +185,70 @@ export async function getLatestData() {
   return JSON.parse(JSON.stringify(data));
 }
 
-// ------------------------------
-// 3. Time Machine: Age face + project scores
-// ------------------------------
-export async function getAgedProjection(years) {
-  const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
-
-  try {
-    if (!latestSelfie) throw new Error("Take a selfie first!");
-
-    const targetAge = realAge + years;
-
-    // 1. Predict future scores
-    const projection = projectTrajectory(
-      latestSelfie.scores,
-      years,
-      lifestyleLogs,
-      [],
-      allSelfies
-    );
-
-    // 2. Generate aged face via YouCam (intensity = lifestyle multiplier)
-    const agedResult = await ageFace(
-      latestSelfie.imageUrl,
-      targetAge,
-      projection.lifestyleMultiplier
-    );
-
-    return {
-      success: true,
-      targetAge,
-      realAge,
-      currentSkinAge: latestSelfie.skinAge,
-      projectedScores: projection.scores,
-      skinAgeDelta: projection.skinAgeDelta,
-      agedImageUrl: agedResult.result.output_image_url,
-      meta: projection.meta,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
 
 // ------------------------------
 // 4. What-If: Run 2 scenarios side-by-side
 // ------------------------------
-export async function runWhatIfSim(scenarioName) {
+export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "") {
   const { latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
   try {
-    if (!latestSelfie) throw new Error("Take a selfie first!");
+    if (!latestSelfie) throw new Error("Please take a selfie first to run the AI simulation!");
 
-    // Simulate treatment over 1 year (12 months)
     const TARGET_YEARS = 1;
-    let scenarioA, scenarioB;
+    const baseline = latestSelfie.scores;
 
-    if (scenarioName === "retinol") {
-      // Scenario A: Retinol for 1 year
-      const projA = projectTrajectory(latestSelfie.scores, TARGET_YEARS, lifestyleLogs, ["retinol"], allSelfies);
-      // Scenario B: No treatment for 1 year
-      const projB = projectTrajectory(latestSelfie.scores, TARGET_YEARS, lifestyleLogs, [], allSelfies);
+    const listA = Array.isArray(interventionsA) ? interventionsA : (interventionsA ? [interventionsA] : []);
+    const listB = Array.isArray(interventionsB) ? interventionsB : (interventionsB ? [interventionsB] : []);
 
-      // Helper to calculate intensity (0.0 to 1.0) based on score improvement
-      const getIntensity = (baseline, projected) => {
-          const improvement = projected - baseline;
-          if (improvement <= 0) return 0.0;
-          return Math.min(1.0, improvement / 15); // e.g. 15 points = max intensity
+    // Helper to compute scenario for a given intervention list
+    const buildScenario = async (interventions, label) => {
+      const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
+      const getIntensity = (base, projected) => {
+        const improvement = projected - base;
+        if (improvement <= 0) return 0.0;
+        return Math.min(1.0, improvement / 15);
       };
 
-      const intensitiesA = {
-          wrinkle: getIntensity(latestSelfie.scores.wrinkles, projA.scores.wrinkles),
-          age_spot: getIntensity(latestSelfie.scores.spots, projA.scores.spots),
-          radiance: getIntensity(latestSelfie.scores.radiance, projA.scores.radiance),
+      const intensities = {
+        wrinkle: getIntensity(baseline.wrinkles, proj.scores.wrinkles),
+        age_spot: getIntensity(baseline.spots, proj.scores.spots),
+        radiance: getIntensity(baseline.radiance, proj.scores.radiance),
+      };
+      // Ensure at least minor simulation intensity so YouCam API requirement is satisfied
+      if (Object.values(intensities).every(v => v === 0)) {
+        intensities.radiance = 0.05;
+      }
+
+      // Call the simulation API
+      const sim = await simulateSkin(latestSelfie.imageUrl, intensities);
+
+      const extractSimUrl = (sim) => {
+        if (sim.output_image_url) return sim.output_image_url;
+        if (sim.results?.output_image_url) return sim.results.output_image_url;
+        if (Array.isArray(sim.results?.output) && sim.results.output.length > 0) {
+          return sim.results.output[0].url;
+        }
+        return sim.result?.output_image_url || sim.data?.output_image_url || sim.url;
       };
 
-      const intensitiesB = {
-          wrinkle: getIntensity(latestSelfie.scores.wrinkles, projB.scores.wrinkles),
-          age_spot: getIntensity(latestSelfie.scores.spots, projB.scores.spots),
-          radiance: getIntensity(latestSelfie.scores.radiance, projB.scores.radiance),
+      return {
+        label,
+        projectedScores: proj.scores,
+        skinAgeDelta: proj.skinAgeDelta,
+        finalSkinAge: realAge + TARGET_YEARS + proj.skinAgeDelta,
+        imageUrl: extractSimUrl(sim),
       };
+    };
 
-      // API requires at least one parameter > 0
-      if (Object.values(intensitiesA).every(v => v === 0)) intensitiesA.radiance = 0.01;
-      if (Object.values(intensitiesB).every(v => v === 0)) intensitiesB.radiance = 0.01;
+    const nameA = labelA || (listA.length > 0 ? `With ${listA.join(" + ")}` : "Baseline Routine");
+    const nameB = labelB || (listB.length > 0 ? `With ${listB.join(" + ")}` : "Without Routine");
 
-      const simA = await simulateSkin(latestSelfie.imageUrl, intensitiesA);
-      const simB = await simulateSkin(latestSelfie.imageUrl, intensitiesB);
+    const scenarioA = await buildScenario(listA, nameA);
+    const scenarioB = await buildScenario(listB, nameB);
 
-      scenarioA = {
-        label: "1 Year w/ Retinol",
-        projectedScores: projA.scores,
-        skinAgeDelta: projA.skinAgeDelta,
-        finalSkinAge: realAge + TARGET_YEARS + projA.skinAgeDelta,
-        imageUrl: simA.output_image_url || simA.result?.output_image_url || simA.data?.output_image_url || simA.url,
-      };
-      scenarioB = {
-        label: "1 Year w/o Treatment",
-        projectedScores: projB.scores,
-        skinAgeDelta: projB.skinAgeDelta,
-        finalSkinAge: realAge + TARGET_YEARS + projB.skinAgeDelta,
-        imageUrl: simB.output_image_url || simB.result?.output_image_url || simB.data?.output_image_url || simB.url,
-      };
-    }
-
-    // Calculate deltas (A - B: positive = A is BETTER)
-    const deltas = {};
-    for (const key of Object.keys(scenarioA.projectedScores)) {
-      deltas[key] = Math.round((scenarioA.projectedScores[key] - scenarioB.projectedScores[key]) * 10) / 10;
-    }
-    deltas.skinAge = Math.round((scenarioB.finalSkinAge - scenarioA.finalSkinAge) * 10) / 10;
+    // Compute deltas (A - B)
+    const deltas = computeDeltas(scenarioA, scenarioB);
 
     return { success: true, scenarioA, scenarioB, deltas, targetAge: realAge + TARGET_YEARS };
   } catch (err) {
@@ -278,6 +256,15 @@ export async function runWhatIfSim(scenarioName) {
   }
 }
 
+// Helper to compute deltas
+function computeDeltas(scenarioA, scenarioB) {
+  const deltas = {};
+  for (const key of Object.keys(scenarioA.projectedScores)) {
+    deltas[key] = Math.round((scenarioA.projectedScores[key] - scenarioB.projectedScores[key]) * 10) / 10;
+  }
+  deltas.skinAge = Math.round((scenarioB.finalSkinAge - scenarioA.finalSkinAge) * 10) / 10;
+  return deltas;
+}
 // ------------------------------
 // 5. Onboarding: Save user profile
 // ------------------------------

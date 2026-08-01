@@ -26,6 +26,12 @@ function formatYouCamError(errStr) {
   if (errStr.includes("error_src_face_not_found")) {
     return "No face was detected. Please ensure your face is clearly visible and well-lit.";
   }
+  if (errStr.includes("error_src_face_out_of_bound")) {
+    return "The face in your photo is partially out of bounds or cropped too tightly. Please ensure your full face (forehead to chin) is visible in the frame.";
+  }
+  if (errStr.includes("error_lighting_dark")) {
+    return "The lighting in your photo is too dark for accurate simulation. Please use a clear, well-lit photo.";
+  }
   return errStr;
 }
 
@@ -163,31 +169,7 @@ export async function analyzeSkin(imageUrl) {
   return pollTask("skin-analysis", taskId);
 }
 
-export async function ageFace(imageUrl, targetAge, intensity = 1) {
-  const croppedUrl = faceCroppedUrl(imageUrl);
-  const effAge = Math.round(25 + (targetAge - 25) * intensity);
-  const response = await fetch(`${BASE}/s2s/v2.0/task/aging`, {
-    method: "POST",
-    headers: { 
-      Authorization: `Bearer ${KEY}`, 
-      "Content-Type": "application/json" 
-    },
-    body: JSON.stringify({ 
-      src_file_url: croppedUrl, 
-      target_age: effAge 
-    })
-  });
 
-  const res = await response.json();
-  const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
-
-  if (!taskId) {
-    const rawErr = res.error_message || res.error || JSON.stringify(res);
-    throw new Error(formatYouCamError(rawErr));
-  }
-
-  return pollTask("aging", taskId);
-}
 
 /**
  * AI Skin Simulation API: Visualizes treatment progress by enhancing specific skin concerns.
@@ -196,31 +178,66 @@ export async function ageFace(imageUrl, targetAge, intensity = 1) {
  *                               e.g., { wrinkle: 0.5, age_spot: 0.8, radiance: 0.4 }
  */
 export async function simulateSkin(imageUrl, intensities = {}) {
-  const croppedUrl = faceCroppedUrl(imageUrl);
-  console.log("[YouCam] simulateSkin request for:", croppedUrl, "with intensities:", intensities);
-
-  const payload = {
-    src_file_url: croppedUrl,
-    ...intensities
-  };
-
-  const response = await fetch(`${BASE}/s2s/v2.0/task/skin-simulation`, {
-    method: "POST",
-    headers: { 
-      Authorization: `Bearer ${KEY}`, 
-      "Content-Type": "application/json" 
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const res = await response.json();
-  const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
-
-  if (!taskId) {
-    const rawErr = res.error_message || res.error || JSON.stringify(res);
-    throw new Error(formatYouCamError(rawErr));
+  const payloadIntensities = { ...intensities };
+  if (Object.values(payloadIntensities).length === 0 || Object.values(payloadIntensities).every(v => !v || v === 0)) {
+    payloadIntensities.radiance = 0.05;
   }
 
-  return pollTask("skin-simulation", taskId);
+  const candidates = [];
+  if (imageUrl.includes("/upload/")) {
+    candidates.push(imageUrl.replace("/upload/", "/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/"));
+    candidates.push(imageUrl.replace("/upload/", "/upload/c_thumb,g_face,z_0.9,w_1200,h_1200/"));
+  }
+  if (!candidates.includes(imageUrl)) {
+    candidates.push(imageUrl);
+  }
+
+  let lastError;
+  for (let i = 0; i < candidates.length; i++) {
+    const candidateUrl = candidates[i];
+    console.log(`[YouCam] simulateSkin attempt ${i + 1}/${candidates.length} using URL:`, candidateUrl, "with intensities:", payloadIntensities);
+
+    try {
+      const response = await fetch(`${BASE}/s2s/v2.0/task/skin-simulation`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${KEY}`, 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
+          src_file_url: candidateUrl,
+          ...payloadIntensities
+        })
+      });
+
+      const res = await response.json();
+      const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
+
+      if (!taskId) {
+        const rawErr = res.error_message || res.error || JSON.stringify(res);
+        throw new Error(formatYouCamError(rawErr));
+      }
+
+      const taskResult = await pollTask("skin-simulation", taskId);
+      return taskResult;
+    } catch (err) {
+      lastError = err;
+      const errMsg = err.message || "";
+      const isRetryable =
+        errMsg.includes("error_src_face_too_small") ||
+        errMsg.includes("too small") ||
+        errMsg.includes("error_src_face_out_of_bound") ||
+        errMsg.includes("out of bound");
+
+      if (isRetryable && i < candidates.length - 1) {
+        console.log(`[YouCam] simulateSkin candidate ${i + 1} failed with face positioning error: "${errMsg}". Retrying next candidate...`);
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw lastError;
 }
 

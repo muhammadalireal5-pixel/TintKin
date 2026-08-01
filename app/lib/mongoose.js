@@ -39,6 +39,17 @@ const SelfieSchema = new mongoose.Schema({
     critique: String,
     habits: [String],
     facialWorkout: String,
+    recommendedProducts: {
+    type: [{
+      type: { type: String, enum: ["Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant"] },
+      formula: { type: String, required: true },
+      description: { type: String, required: true }
+    }],
+    validate: {
+      validator: function(v) { return Array.isArray(v) && v.length === 3; },
+      message: 'Exactly 3 recommended products are required.'
+    }
+    }
 });
 
 

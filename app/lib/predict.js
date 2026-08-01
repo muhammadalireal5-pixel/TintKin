@@ -108,8 +108,8 @@ function normalizeLifestyle(lifestyleLogs = []) {
 }
 
 function getMultiplier(lifestyle = {}, interventions = []) {
-    const l = {...DEFAULT_LIFESTYLE, ...lifestyle}
-    let m = 1
+    const l = {...DEFAULT_LIFESTYLE, ...lifestyle};
+    let m = 1;
 
     // Apply coefficients (only if value crosses the threshold)
     if (l.sleepHours < 6) m *= MULTIPLIERS.lowSleep;
@@ -120,11 +120,17 @@ function getMultiplier(lifestyle = {}, interventions = []) {
     if (l.spfUsed) m *= MULTIPLIERS.spfDaily;
 
     // Override with what-if interventions (HIGHEST priority)
-    if (interventions.includes("retinol")) m *= MULTIPLIERS.retinol;
-    if (interventions.includes("no_sugar")) m /= MULTIPLIERS.highSugar;
-    if (interventions.includes("daily_spf")) m = m / (l.spfUsed ? 1 : 1) * MULTIPLIERS.spfDaily;
+    const list = Array.isArray(interventions) ? interventions : [interventions].filter(Boolean);
+    for (const item of list) {
+      if (item === "retinol" || item === "Serum") m *= 0.65;
+      else if (item === "daily_spf" || item === "Sunscreen") m *= 0.60;
+      else if (item === "exfoliant" || item === "Exfoliant") m *= 0.70;
+      else if (item === "moisturizer" || item === "Moisturizer") m *= 0.80;
+      else if (item === "cleanser" || item === "Cleanser") m *= 0.88;
+      else if (item === "no_sugar") m /= MULTIPLIERS.highSugar;
+    }
 
-    return Math.max(0., Math.min(2.2, m)) 
+    return Math.max(0.3, Math.min(2.2, m));
 }
 
 /**
@@ -194,11 +200,3 @@ export function projectTrajectory(
 
     return result;
 }
-
-
-
-
-
-
-
-
