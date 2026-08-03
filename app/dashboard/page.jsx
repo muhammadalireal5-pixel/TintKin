@@ -2,6 +2,10 @@ import { getLatestData } from "@/app/lib/actions";
 import { redirect } from "next/navigation";
 import RadarChartClient from "./RadarChartClient";
 import ProgressChart from "./ProgressChart";
+import ScoreCarousel from "./ScoreCarousel";
+import Link from "next/link";
+import Image from "next/image";
+import ProductImage from "./ProductImage";
 
 export default async function DashboardPage() {
     const { user, latestSelfie, allSelfies, realAge } = await getLatestData();
@@ -13,6 +17,26 @@ export default async function DashboardPage() {
     const { overallScore, skinAge, scores, critique, habits, facialWorkout } = latestSelfie;
     const skinOlder = skinAge > realAge;
     const ageDelta = Math.abs(skinAge - realAge);
+
+    const products = (latestSelfie?.recommendedProducts && latestSelfie.recommendedProducts.length > 0)
+        ? latestSelfie.recommendedProducts
+        : [
+            {
+                type: "Cleanser",
+                formula: "Gentle Hydrating Cleanser",
+                description: "Mild cleanser that maintains your skin barrier.",
+            },
+            {
+                type: "Serum",
+                formula: "Vitamin C + Niacinamide",
+                description: "Brightens tone and fades dark spots.",
+            },
+            {
+                type: "Moisturizer",
+                formula: "Ceramide Cream",
+                description: "Locks in moisture and strengthens barrier.",
+            },
+        ];
 
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-6 lg:px-12">
@@ -121,23 +145,40 @@ export default async function DashboardPage() {
                          )}
                     </div>
 
-                    {/* Metric Details (Small cards) */}
-                    {Object.entries(scores).map(([key, val], i) => (
-                        <div key={key} className="tk-glass p-6 tk-anim-5" style={{ animationDelay: `${0.4 + i * 0.1}s` }}>
-                            <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">{key}</p>
-                            <p className="text-3xl font-display text-primary mb-6">{val}</p>
-                            <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full rounded-full transition-all duration-1000 ease-out"
-                                    style={{ 
-                                        width: `${val}%`, 
-                                        backgroundColor: val > 75 ? 'var(--tk-accent-sage)' : val > 50 ? '#FFDAB9' : '#E6E6FA'
-                                    }}
-                                />
-                            </div>
+                    {/* Metric Details (Swipeable Carousel) */}
+                    <ScoreCarousel scores={scores} />
+                    
+                    {/* AI Product Recommendations & What-If Bridge */}
+                    <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">
+                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Products</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {products.map((prod, idx) => (
+                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center tk-anim-5" style={{ animationDelay: `${0.1 * idx}s` }}>
+                                    <div className="relative w-32 h-32 rounded-full overflow-hidden mb-6 shadow-md border-2 border-white/50">
+                                    <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
+                                    </div>
+                                    <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-1">{prod.type}</p>
+                                    <h3 className="text-lg font-display text-primary mb-3">{prod.formula}</h3>
+                                    <p className="text-sm text-muted leading-relaxed">{prod.description}</p>
+                                </div>
+                            ))}
                         </div>
-                    ))}
 
+                        {/* What-If Banner */}
+                        <Link href="/what-if" className="block mt-10">
+                            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer tk-anim-6">
+                                <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
+                                <div className="relative z-10 flex flex-col items-center justify-center">
+                                    <span className="text-3xl mb-4">✨</span>
+                                    <h3 className="text-2xl lg:text-3xl font-display text-primary mb-2">Curious about your progress?</h3>
+                                    <p className="text-muted mb-4 max-w-md mx-auto">Wanna see how improved these recommendations will make you look in 6 months?</p>
+                                    <span className="inline-block bg-white px-6 py-3 rounded-full text-sm font-medium text-primary shadow-sm hover:bg-sage/10 transition-colors">
+                                        Try the What-If Simulator
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

@@ -97,12 +97,6 @@ export function HeroSection() {
               colorClass="bg-sage/10 text-sage"
             />
             <FeatureCard 
-              title="Time Machine" 
-              desc="A soft look forward. See how consistent care today blossoms in the years to come."
-              icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>}
-              colorClass="bg-lavender/50 text-[#792CA2]"
-            />
-            <FeatureCard 
               title="What-If Scenarios" 
               desc="Curious about a new serum? Gently explore how different choices could feel."
               icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.52 16h12.96"></path></svg>}

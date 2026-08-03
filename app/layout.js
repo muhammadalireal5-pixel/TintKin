@@ -18,7 +18,7 @@ const playfair = Playfair_Display({
 
 export const metadata = {
   title: "TintKin — Wellness Journal",
-  description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, aging projections, and personalized insights.",
+  description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
 };
 
 export default function RootLayout({ children }) {
@@ -41,7 +41,6 @@ export default function RootLayout({ children }) {
                 <Show when="signed-in">
                   <Link href="/dashboard" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Dashboard</Link>
                   <Link href="/capture" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Scan</Link>
-                  <Link href="/time-machine" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Time&nbsp;Machine</Link>
                   <Link href="/what-if" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">What-If</Link>
                 </Show>
               </nav>
