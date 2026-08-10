@@ -2,50 +2,69 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeAndSaveSelfie } from "@/app/lib/actions";
+import { analyzeAndSaveSelfie, uploadSelfieServerAction } from "@/app/lib/actions";
+import { useToast } from "@/app/components/ToastProvider";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = "ml_default";
 
 export default function CapturePage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const cameraInputRef = useRef(null);
     const galleryInputRef = useRef(null);
 
     const [status, setStatus] = useState(null); // { type: "info"|"success"|"error", msg: string }
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isFlipped, setIsFlipped] = useState(false);
 
     const uploadToCloudinary = async (file) => {
         const form = new FormData();
         form.append("file", file);
-        form.append("upload_preset", UPLOAD_PRESET);
-
-        const res = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-            { method: "POST", body: form }
-        );
-        if (!res.ok) throw new Error("Upload failed");
-        const data = await res.json();
-        return data.secure_url;
+        if (isFlipped) form.append("flip", "true");
+        
+        const res = await uploadSelfieServerAction(form);
+        if (!res.success) throw new Error(res.error || "Upload failed");
+        
+        return res.url;
     };
 
-    const handleFile = async (e) => {
+    const handleFile = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Show preview immediately
+        // Show preview and wait for confirmation
         setPreview(URL.createObjectURL(file));
+        setSelectedFile(file);
+        setIsFlipped(false); // reset flip state
+        setStatus(null);
+        e.target.value = "";
+    };
+
+    const confirmUpload = async () => {
+        if (!selectedFile) return;
         setLoading(true);
         setStatus({ type: "info", msg: "Uploading photo…" });
 
         try {
-            const imgUrl = await uploadToCloudinary(file);
+            const imgUrl = await uploadToCloudinary(selectedFile);
             setStatus({ type: "info", msg: "Analysing your skin… (3–5s)" });
 
             const res = await analyzeAndSaveSelfie(imgUrl);
 
             if (res.success) {
+                if (res.habitsChanged) {
+                    setTimeout(() => showToast({ type: "habit", title: "New habits recommended", message: "Your habits have been updated based on today's scan." }), 500);
+                }
+                if (res.workoutChanged) {
+                    setTimeout(() => showToast({ type: "workout", title: "New workout suggested", message: "Check your dashboard for a fresh facial workout." }), 1000);
+                }
+                if (res.productsChanged) {
+                    setTimeout(() => showToast({ type: "product", title: "New products recommended", message: "Your 30-day product cycle has refreshed!" }), 1500);
+                }
+
                 setStatus({ type: "success", msg: "Done! Opening your journal…" });
                 setTimeout(() => router.push("/dashboard"), 900);
             } else {
@@ -56,9 +75,6 @@ export default function CapturePage() {
             setStatus({ type: "error", msg: "Upload failed. Please try again." });
             setLoading(false);
         }
-
-        // Reset input so same file can be re-selected
-        e.target.value = "";
     };
 
     return (
@@ -105,12 +121,43 @@ export default function CapturePage() {
 
                 {/* Preview or CTA */}
                 {preview ? (
-                    <div className="preview-wrap">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={preview} alt="Your selfie preview" className="preview-img" />
-                        {loading && (
-                            <div className="preview-overlay">
-                                <div className="spinner-ring" />
+                    <div>
+                        <div className="preview-wrap">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img 
+                                src={preview} 
+                                alt="Your selfie preview" 
+                                className="preview-img" 
+                                style={{ transform: isFlipped ? 'scaleX(-1)' : 'none' }}
+                            />
+                            {loading && (
+                                <div className="preview-overlay">
+                                    <div className="spinner-ring" />
+                                </div>
+                            )}
+                        </div>
+                        
+                        {!loading && (
+                            <div className="preview-actions flex gap-3 mt-4 w-full">
+                                <button 
+                                    className="cta-btn cta-secondary flex-1" 
+                                    onClick={() => setIsFlipped(!isFlipped)}
+                                >
+                                    Flip ↔️
+                                </button>
+                                <button 
+                                    className="cta-btn cta-primary flex-[2]" 
+                                    onClick={confirmUpload}
+                                >
+                                    Analyze
+                                </button>
+                                <button 
+                                    className="cta-btn cta-secondary p-4 flex-none" 
+                                    onClick={() => { setPreview(null); setSelectedFile(null); }}
+                                    aria-label="Cancel"
+                                >
+                                    ✕
+                                </button>
                             </div>
                         )}
                     </div>
@@ -305,7 +352,7 @@ export default function CapturePage() {
                     align-items: center;
                     gap: 0.875rem;
                     width: 100%;
-                    padding: 1rem 1.1rem;
+                    padding: 1.1rem 1.25rem;
                     border-radius: 1.25rem;
                     border: none;
                     cursor: pointer;

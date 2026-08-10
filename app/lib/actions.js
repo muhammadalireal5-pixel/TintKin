@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
-import { User, Selfie, Lifestyle, Simulation } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation } from "./mongoose";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice } from "./qwen";
@@ -62,10 +62,72 @@ async function deleteImageFromCloudinary(imageUrl) {
   }
 }
 
+// ------------------------------------------
+// Helper: Apply face‑crop to a Cloudinary URL
+// ------------------------------------------
+
+function applyFaceCropToCloudinary(url){
+  if (!url || !url.includes('cloudinary.com')) return url;
+  const parts = url.split('/upload/');
+  if(parts.length !== 2) return url
+  return `${parts[0]}/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/${parts[1]}`;
+}
+
+// ------------------------------
+// Helper: Secure Server-Side Upload
+// ------------------------------
+export async function uploadSelfieServerAction(formData) {
+  try {
+    const file = formData.get("file");
+    if (!file) throw new Error("No file provided");
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const isFlipped = formData.get("flip") === "true";
+    
+    // Cloudinary requires signature parameters to be sorted alphabetically
+    let signatureString = "";
+    if (isFlipped) {
+      signatureString = `timestamp=${timestamp}&transformation=a_hflip${process.env.CLOUDINARY_API_SECRET}`;
+    } else {
+      signatureString = `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
+    }
+    
+    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
+
+    const cloudinaryForm = new FormData();
+    cloudinaryForm.append("file", file);
+    cloudinaryForm.append("api_key", process.env.CLOUDINARY_API_KEY);
+    cloudinaryForm.append("timestamp", timestamp);
+    cloudinaryForm.append("signature", signature);
+    
+    if (isFlipped) {
+      cloudinaryForm.append("transformation", "a_hflip");
+    }
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: cloudinaryForm,
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Upload failed: ${errorText}`);
+    }
+
+    const data = await res.json();
+    return { success: true, url: data.secure_url };
+  } catch (err) {
+    console.error("[Cloudinary] Server upload error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ------------------------------
 // Helper: Get/create DB user from Clerk
 // ------------------------------
 async function getDbUser() {
+  await connectDb(); // Ensure DB is connected before querying
+
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
@@ -178,25 +240,41 @@ export async function analyzeAndSaveSelfie(imageUrl) {
       advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
     }
 
-    let recommendedProducts = advice.products || []
+    let recommendedProducts = advice.products || [];
+    let productsChanged = false;
+    
+    // Product Locking Logic (30 days)
+    if (lastSelfie && lastSelfie.recommendedProducts?.length > 0 && user.recommendationsLockedUntil && user.recommendationsLockedUntil > Date.now()) {
+      console.log("[Scores] Products are locked, keeping previous products.");
+      recommendedProducts = lastSelfie.recommendedProducts;
+    } else {
+      if (!useCachedAdvice) {
+        productsChanged = true;
+        // Lock products for 30 days
+        await User.findByIdAndUpdate(user._id, {
+          recommendationsLockedUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        });
+      }
+    }
+
     if(!Array.isArray(recommendedProducts) || recommendedProducts.length !== 3 ){
       recommendedProducts = [
-    {
-      type: "Cleanser",
-      formula: "Gentle Hydrating Cleanser",
-      description: "Mild cleanser that maintains your skin barrier.",
-    },
-    {
-      type: "Serum",
-      formula: "Vitamin C + Niacinamide",
-      description: "Brightens tone and fades dark spots.",
-    },
-    {
-      type: "Moisturizer",
-      formula: "Ceramide Cream",
-      description: "Locks in moisture and strengthens barrier.",
-    },
-    ]
+        {
+          type: "Cleanser",
+          formula: "Gentle Hydrating Cleanser",
+          description: "Mild cleanser that maintains your skin barrier.",
+        },
+        {
+          type: "Serum",
+          formula: "Vitamin C + Niacinamide",
+          description: "Brightens tone and fades dark spots.",
+        },
+        {
+          type: "Moisturizer",
+          formula: "Ceramide Cream",
+          description: "Locks in moisture and strengthens barrier.",
+        },
+      ];
     }
 
     // Auto-delete the previous selfie image from Cloudinary to save space
@@ -223,10 +301,35 @@ export async function analyzeAndSaveSelfie(imageUrl) {
     // Update user's baseline selfie
     await User.findByIdAndUpdate(user._id, { baselineSelfie: imageUrl });
 
-    return { success: true, selfieId: selfie._id.toString() };
+    // Determine what changed for toasts
+    let habitsChanged = false;
+    let workoutChanged = false;
+    if (!useCachedAdvice && lastSelfie) {
+      const oldHabits = lastSelfie.habits?.join(",") || "";
+      const newHabits = advice.habits?.join(",") || "";
+      if (oldHabits !== newHabits) habitsChanged = true;
+      if (lastSelfie.facialWorkout !== advice.facialWorkout) workoutChanged = true;
+    }
+
+    return { 
+      success: true, 
+      selfieId: selfie._id.toString(),
+      productsChanged,
+      habitsChanged,
+      workoutChanged
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+// Helper for ISO week start
+function getISOWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay() || 7; // Convert Sun(0) to 7
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - day + 1);
+  return d;
 }
 
 // ------------------------------
@@ -242,7 +345,40 @@ export async function getLatestData() {
   const ageMs = Date.now() - new Date(user.birthDate).getTime();
   const realAge = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000));
 
-  const data = { user, latestSelfie, allSelfies, lifestyleLogs, realAge };
+  // Compute weekly average (Mon-Sun)
+  let weeklyAverage = null;
+  const now = new Date();
+  const currentWeekStart = getISOWeekStart(now).getTime();
+  const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
+
+  const thisWeekSelfies = allSelfies.filter(s => {
+    const t = new Date(s.takenAt).getTime();
+    return t >= currentWeekStart && t < currentWeekEnd;
+  });
+
+  if (thisWeekSelfies.length > 0) {
+    let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
+    thisWeekSelfies.forEach(s => {
+      sumOverall += s.overallScore || 0;
+      sumWrinkles += s.scores?.wrinkles || 0;
+      sumFirmness += s.scores?.firmness || 0;
+      sumSpots += s.scores?.spots || 0;
+      sumRadiance += s.scores?.radiance || 0;
+    });
+    const count = thisWeekSelfies.length;
+    weeklyAverage = {
+      scanCount: count,
+      overallScore: Math.round(sumOverall / count),
+      scores: {
+        wrinkles: Math.round(sumWrinkles / count),
+        firmness: Math.round(sumFirmness / count),
+        spots: Math.round(sumSpots / count),
+        radiance: Math.round(sumRadiance / count)
+      }
+    };
+  }
+
+  const data = { user, latestSelfie, allSelfies, lifestyleLogs, realAge, weeklyAverage };
   return JSON.parse(JSON.stringify(data));
 }
 
@@ -278,6 +414,10 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       };
       // Skip API if there are no interventions (it's the baseline scenario)
       let finalUrl = latestSelfie.imageUrl;
+      if (interventions.length === 0 && finalUrl && finalUrl.includes("/upload/")) {
+        // Apply the same crop that simulateSkin uses to ensure Slider alignment
+        finalUrl = finalUrl.replace("/upload/", "/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/");
+      }
       
       if (interventions.length > 0) {
         // Ensure at least minor simulation intensity so YouCam API requirement is satisfied
@@ -311,7 +451,10 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         if (finalUrl && finalUrl !== latestSelfie.imageUrl) {
           finalUrl = await uploadUrlToCloudinary(finalUrl);
         }
+      }else{
+          finalUrl = applyFaceCropToCloudinary(latestSelfie.imageUrl);
       }
+      
 
       console.log(`[WhatIf] Scenario "${label}" generated Cloudinary URL:`, finalUrl);
 
@@ -427,4 +570,60 @@ export async function deleteSavedSimulation(simId) {
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+export async function getWeeklyHistory() {
+  const user = await getDbUser();
+  const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: -1 });
+
+  const weeksMap = new Map();
+  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+
+  allSelfies.forEach(s => {
+    const d = new Date(s.takenAt);
+    const day = d.getDay() || 7;
+    const start = new Date(d);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - day + 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    
+    const weekKey = start.getTime();
+    if (!weeksMap.has(weekKey)) {
+      weeksMap.set(weekKey, {
+        weekLabel: `${formatter.format(start)} (Mon) – ${formatter.format(end)} (Sun)`,
+        timestamp: weekKey,
+        selfies: []
+      });
+    }
+    weeksMap.get(weekKey).selfies.push(s);
+  });
+
+  const history = Array.from(weeksMap.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 12) // Cap at 12 weeks
+    .map(week => {
+      let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
+      week.selfies.forEach(s => {
+        sumOverall += s.overallScore || 0;
+        sumWrinkles += s.scores?.wrinkles || 0;
+        sumFirmness += s.scores?.firmness || 0;
+        sumSpots += s.scores?.spots || 0;
+        sumRadiance += s.scores?.radiance || 0;
+      });
+      const count = week.selfies.length;
+      return {
+        weekLabel: week.weekLabel,
+        scanCount: count,
+        avgOverall: Math.round(sumOverall / count),
+        avgScores: {
+          wrinkles: Math.round(sumWrinkles / count),
+          firmness: Math.round(sumFirmness / count),
+          spots: Math.round(sumSpots / count),
+          radiance: Math.round(sumRadiance / count)
+        }
+      };
+    });
+
+  return JSON.parse(JSON.stringify(history));
 }

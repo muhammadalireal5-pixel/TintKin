@@ -8,13 +8,22 @@ import Image from "next/image";
 import ProductImage from "./ProductImage";
 
 export default async function DashboardPage() {
-    const { user, latestSelfie, allSelfies, realAge } = await getLatestData();
+    const { user, latestSelfie, allSelfies, realAge, weeklyAverage } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
     
     // Ensure user has completed onboarding
     if (!user.onboardingComplete) redirect("/onboarding");
 
     const { overallScore, skinAge, scores, critique, habits, facialWorkout } = latestSelfie;
+    
+    let lockedDaysRemaining = 0;
+    if (user.recommendationsLockedUntil) {
+        const lockedUntil = new Date(user.recommendationsLockedUntil).getTime();
+        const now = Date.now();
+        if (lockedUntil > now) {
+            lockedDaysRemaining = Math.ceil((lockedUntil - now) / (1000 * 60 * 60 * 24));
+        }
+    }
     const skinOlder = skinAge > realAge;
     const ageDelta = Math.abs(skinAge - realAge);
 
@@ -39,7 +48,7 @@ export default async function DashboardPage() {
         ];
 
     return (
-        <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-6 lg:px-12">
+        <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
             <div className="max-w-6xl mx-auto">
                 
                 {/* Page Title */}
@@ -53,21 +62,52 @@ export default async function DashboardPage() {
                 </div>
 
                 {/* Bento Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 overflow-hidden">
                     
                     {/* Overall Score (Large spanning card) */}
-                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-2">
+                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-2 relative">
                         <div>
-                            <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Overall Harmony</p>
-                            <p className="text-sm text-primary mb-6">Your skin's overall balance and vitality today.</p>
+                            <div className="flex justify-between items-start mb-2">
+                                <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
+                                <Link href="/history" className="text-xs font-medium text-sage hover:text-primary transition-colors flex items-center gap-1">
+                                    View History <span>→</span>
+                                </Link>
+                            </div>
+                            <p className="text-sm text-primary mb-6">Your skin's overall balance and vitality.</p>
                         </div>
-                        <div className="flex items-end gap-4">
-                            <h2 className="text-6xl lg:text-8xl font-display font-medium text-primary leading-none">
-                                {overallScore}
-                            </h2>
-                            <span className="text-xl text-muted mb-2">/ 100</span>
+                        
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-10">
+                            {/* Today */}
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
+                                <div className="flex items-end gap-2">
+                                    <h2 className="text-5xl sm:text-6xl font-display font-medium text-primary leading-none">
+                                        {overallScore}
+                                    </h2>
+                                    <span className="text-lg text-muted mb-1">/ 100</span>
+                                </div>
+                            </div>
+                            
+                            {/* Vertical divider on desktop, horizontal on mobile */}
+                            <div className="hidden sm:block w-px h-16 bg-black/10"></div>
+                            <div className="sm:hidden h-px w-full bg-black/5"></div>
+                            
+                            {/* This Week */}
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
+                                <div className="flex items-end gap-2">
+                                    <h2 className="text-5xl sm:text-6xl font-display font-medium text-sage leading-none">
+                                        {weeklyAverage?.overallScore || overallScore}
+                                    </h2>
+                                    <span className="text-lg text-muted mb-1">/ 100</span>
+                                </div>
+                                <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
+                                    ── {weeklyAverage?.scanCount || 1} {weeklyAverage?.scanCount === 1 ? 'scan' : 'scans'} ──
+                                </p>
+                            </div>
                         </div>
-                        <div className="mt-8 pt-6 border-t border-solid">
+
+                        <div className="mt-8 pt-6 border-t border-solid border-black/5">
                             <p className="text-sm text-muted">
                                 {critique || (overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
                             </p>
@@ -101,7 +141,7 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* Progress Chart (New) */}
-                    <div className="tk-glass p-8 md:col-span-4 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
+                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
                         <div className="flex justify-between items-end mb-6">
                             <div>
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Journey</p>
@@ -146,14 +186,27 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* Metric Details (Swipeable Carousel) */}
-                    <ScoreCarousel scores={scores} />
+                    <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
                     
                     {/* AI Product Recommendations & What-If Bridge */}
                     <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Products</p>
+                        {lockedDaysRemaining > 0 && (
+                            <div className="flex items-center gap-2 mb-4">
+                                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage border border-sage/20">
+                                    🔒 Locked for {lockedDaysRemaining} more {lockedDaysRemaining === 1 ? 'day' : 'days'}
+                                </span>
+                                <span className="text-xs text-muted">Stick with this routine for best results.</span>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {products.map((prod, idx) => (
-                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center tk-anim-5" style={{ animationDelay: `${0.1 * idx}s` }}>
+                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center tk-anim-5 relative overflow-hidden" style={{ animationDelay: `${0.1 * idx}s` }}>
+                                    {lockedDaysRemaining > 0 && (
+                                        <div className="absolute top-4 right-4 text-sage/70">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                        </div>
+                                    )}
                                     <div className="relative w-32 h-32 rounded-full overflow-hidden mb-6 shadow-md border-2 border-white/50">
                                     <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
                                     </div>

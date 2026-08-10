@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-export default function ScoreCarousel({ scores }) {
+export default function ScoreCarousel({ scores, weeklyScores }) {
   // We have 4 scores, we want to show 2 at a time.
   // Group 0: Wrinkles & Firmness
   // Group 1: Spots & Radiance
@@ -11,12 +11,12 @@ export default function ScoreCarousel({ scores }) {
 
   const groups = [
     [
-      { key: "wrinkles", val: scores.wrinkles, label: "Wrinkles" },
-      { key: "firmness", val: scores.firmness, label: "Firmness" },
+      { key: "wrinkles", val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: "Wrinkles" },
+      { key: "firmness", val: scores.firmness, weeklyVal: weeklyScores?.firmness, label: "Firmness" },
     ],
     [
-      { key: "spots", val: scores.spots, label: "Spots" },
-      { key: "radiance", val: scores.radiance, label: "Radiance" },
+      { key: "spots", val: scores.spots, weeklyVal: weeklyScores?.spots, label: "Spots" },
+      { key: "radiance", val: scores.radiance, weeklyVal: weeklyScores?.radiance, label: "Radiance" },
     ],
   ];
 
@@ -35,16 +35,16 @@ export default function ScoreCarousel({ scores }) {
   };
 
   // Simple touch swipe logic
-  let touchStartX = 0;
+  const touchStartXRef = useRef(0);
   const onTouchStart = (e) => {
-    touchStartX = e.touches[0].clientX;
+    touchStartXRef.current = e.touches[0].clientX;
     setIsHovered(true);
   };
   const onTouchEnd = (e) => {
     setIsHovered(false);
     const touchEndX = e.changedTouches[0].clientX;
-    if (touchStartX - touchEndX > 50) handleSwipe("left");
-    if (touchStartX - touchEndX < -50) handleSwipe("right");
+    if (touchStartXRef.current - touchEndX > 50) handleSwipe("left");
+    if (touchStartXRef.current - touchEndX < -50) handleSwipe("right");
   };
 
   const currentScores = groups[activeGroup];
@@ -76,21 +76,41 @@ export default function ScoreCarousel({ scores }) {
       </div>
       
       <div className="grid grid-cols-2 gap-4">
-        {currentScores.map(({ key, val, label }) => (
-          <div key={key} className="tk-glass p-6 animate-fade-in transition-all">
+        {currentScores.map(({ key, val, weeklyVal, label }) => {
+          const wVal = weeklyVal || val;
+          const delta = val - wVal;
+          return (
+          <div key={key} className="tk-glass p-6 animate-fade-in transition-all relative overflow-hidden group">
             <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">{label}</p>
-            <p className="text-3xl font-display text-primary mb-6">{val}</p>
-            <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
+            <div className="flex items-baseline gap-2 mb-2">
+              <p className="text-3xl font-display text-primary">{val}</p>
+              {delta !== 0 && (
+                <span className={`text-xs font-semibold ${delta > 0 ? 'text-sage' : 'text-orange-400'}`}>
+                  {delta > 0 ? `+${delta} ↑` : `${delta} ↓`}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-4">
+              Week Avg: {wVal}
+            </p>
+            <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden relative">
                 <div 
-                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    className="absolute h-full rounded-full transition-all duration-1000 ease-out z-10"
                     style={{ 
                         width: `${val}%`, 
                         backgroundColor: val > 75 ? 'var(--tk-accent-sage)' : val > 50 ? '#FFDAB9' : '#E6E6FA'
                     }}
                 />
+                <div 
+                    className="absolute h-full rounded-full transition-all duration-1000 ease-out opacity-30"
+                    style={{ 
+                        width: `${wVal}%`, 
+                        backgroundColor: '#6B7280'
+                    }}
+                />
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );

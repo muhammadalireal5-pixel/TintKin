@@ -185,7 +185,7 @@ export function projectTrajectory(
     //3 derive skin age
     //negative == younger, positive = older
 
-    result.skinAgeDelta = Math.round((1-mult) * years * 10)/10
+    result.skinAgeDelta = Math.round((mult - 1) * years * 10) / 10;
     result.lifestyleMultiplier = Math.round(mult * 100) / 100;
 
     //step 4, metadeta for ui

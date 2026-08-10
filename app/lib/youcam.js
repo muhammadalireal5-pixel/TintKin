@@ -92,7 +92,7 @@ export async function extractScoreInfo(data) {
         result.all = { score: item.score ?? item.ui_score ?? item.raw_score };
       }
       if (item.type === "skin_age" || item.action === "skin_age") {
-        result.skin_age = item.value ?? item.ui_score ?? item.raw_score;
+        result.skin_age = item.score ?? item.value ?? item.ui_score ?? item.raw_score;
       }
     }
     // Also check root-level all/skin_age

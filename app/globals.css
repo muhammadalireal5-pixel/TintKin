@@ -192,3 +192,9 @@ h1, h2, h3, h4, h5, h6 {
   animation: tooltipFade 4s ease-in-out forwards;
 }
 
+/* Overflow-safe card utility */
+.tk-card-safe {
+  min-width: 0;
+  overflow: hidden;
+  word-break: break-word;
+}

@@ -41,10 +41,10 @@ export function HeroSection() {
         </div>
 
         {/* Right Side: 40% Visual & App Mockup */}
-        <div className="w-full lg:w-[40%] relative min-h-[400px] lg:min-h-full tk-mesh-bg flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full lg:w-[40%] relative min-h-[280px] sm:min-h-[400px] lg:min-h-full tk-mesh-bg flex items-center justify-center p-4 sm:p-6 lg:p-12">
           
           {/* Decorative Floating Mockup */}
-          <div className="relative z-10 w-full max-w-[340px] tk-glass tk-anim-5 flex flex-col p-6 shadow-2xl" style={{ animation: 'fadeInUp 1s 0.8s ease both, orbFloat 12s 2s ease-in-out infinite' }}>
+          <div className="relative z-10 w-full max-w-[280px] sm:max-w-[340px] tk-glass tk-anim-5 flex flex-col p-4 sm:p-6 shadow-2xl" style={{ animation: 'fadeInUp 1s 0.8s ease both, orbFloat 12s 2s ease-in-out infinite' }}>
             <div className="flex justify-between items-center mb-6">
               <div>
                 <p className="text-xs font-semibold text-muted tracking-widest uppercase mb-1">Today</p>

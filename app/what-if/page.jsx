@@ -5,6 +5,7 @@ import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
+import ConfirmModal from "@/app/components/ConfirmModal";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -43,6 +44,10 @@ export default function WhatIfPage() {
 
   // History
   const [history, setHistory] = useState([]);
+
+  // Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [simToDelete, setSimToDelete] = useState(null);
 
   useEffect(() => {
     getLatestData()
@@ -122,16 +127,24 @@ export default function WhatIfPage() {
     }
   };
 
-  const handleDeleteSim = async (e, simId) => {
+  const handleDeleteSim = (e, simId) => {
     e.stopPropagation(); // prevent clicking the card
-    const confirmed = window.confirm("Are you sure you want to delete this simulation? This cannot be undone.");
-    if (!confirmed) return;
+    setSimToDelete(simId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteSim = async () => {
+    if (!simToDelete) return;
+    const id = simToDelete;
+    
+    setDeleteModalOpen(false);
+    setSimToDelete(null);
 
     // Optimistic UI update
-    setHistory((prev) => prev.filter((s) => (s.id || s._id) !== simId));
+    setHistory((prev) => prev.filter((s) => (s.id || s._id) !== id));
 
     // Call server action
-    await deleteSavedSimulation(simId);
+    await deleteSavedSimulation(id);
   };
 
   const toggleCustomItem = (index, targetScenario) => {
@@ -502,61 +515,63 @@ export default function WhatIfPage() {
 
             {/* Impact Analysis Table */}
             <div className="tk-glass rounded-3xl overflow-hidden border border-white/50">
-              <div className="p-6 border-b border-white/30 bg-white/40 flex items-center justify-between">
+              <div className="bg-sage/10 border-b border-sage/20 p-4 flex items-center gap-3">
+                <span className="text-2xl">📅</span>
+                <div>
+                  <h4 className="text-sm font-semibold text-primary">Projection: 1 Year of Consistent Use</h4>
+                  <p className="text-xs text-muted">Results assume daily use of the selected product(s) for 12 months.</p>
+                </div>
+              </div>
+              <div className="p-6 border-b border-white/30 bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-display font-medium text-primary m-0">
                     Quantitative Impact Analysis
                   </h3>
-                  <p className="text-xs text-muted">Projected skin score improvements over 1 year</p>
                 </div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30">
-                  Skin Age Delta: -{result.deltas.skinAge || result.scenarioA.skinAgeDelta} yrs ✨
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30 self-start sm:self-auto">
+                  Skin Age Improvement: {Math.abs(result.deltas.skinAge || result.scenarioA.skinAgeDelta)} yrs ✨
                 </span>
               </div>
               
-              <div className="overflow-x-auto">
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-white/20 bg-white/20">
                       <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted">Metric</th>
                       <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">{result.scenarioA.label}</th>
                       <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">{result.scenarioB.label}</th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">Net Improvement</th>
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">Improvement</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Skin Age Row */}
                     <tr className="border-b border-white/10 hover:bg-white/30 transition-colors">
                       <td className="px-6 py-4 font-medium text-primary text-sm">Projected Skin Age</td>
-                      <td className="px-6 py-4 text-center text-muted text-sm font-semibold">{result.scenarioA.finalSkinAge} yrs</td>
+                      <td className="px-6 py-4 text-center text-sage text-sm font-semibold">{result.scenarioA.finalSkinAge} yrs</td>
                       <td className="px-6 py-4 text-center text-muted text-sm font-semibold">{result.scenarioB.finalSkinAge} yrs</td>
                       <td className="px-6 py-4 text-center">
                         <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage border border-sage/20">
-                          -{result.deltas.skinAge || 1} yrs younger
+                          {Math.abs(result.deltas.skinAge || 1)} yrs younger
                         </span>
                       </td>
                     </tr>
-
-                    {/* Scores Rows */}
                     {Object.entries(result.scenarioA.projectedScores).map(([metricKey], idx) => {
                       const scoreA = result.scenarioA.projectedScores[metricKey];
                       const scoreB = result.scenarioB.projectedScores[metricKey];
                       const deltaVal = result.deltas[metricKey];
+                      
+                      const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
+                      const humanLabel = labels[metricKey] || metricKey;
 
                       return (
                         <tr key={metricKey} className={`border-b border-white/10 hover:bg-white/30 transition-colors ${idx % 2 === 0 ? '' : 'bg-white/5'}`}>
-                          <td className="px-6 py-4 font-medium text-primary text-sm capitalize">{metricKey}</td>
-                          <td className="px-6 py-4 text-center text-muted text-sm">{scoreA} / 100</td>
+                          <td className="px-6 py-4 font-medium text-primary text-sm">{humanLabel}</td>
+                          <td className="px-6 py-4 text-center text-sage font-medium text-sm">{scoreA} / 100</td>
                           <td className="px-6 py-4 text-center text-muted text-sm">{scoreB} / 100</td>
                           <td className="px-6 py-4 text-center">
-                            <span className={`inline-flex items-center justify-center min-w-[3.5rem] px-3 py-1 rounded-full text-xs font-semibold border ${
-                              deltaVal > 0 
-                                ? 'bg-sage/15 text-sage border-sage/20' 
-                                : deltaVal < 0
-                                ? 'bg-orange-50 text-orange-500 border-orange-100'
-                                : 'bg-gray-100 text-gray-500 border-gray-200'
+                            <span className={`inline-flex items-center justify-center min-w-[4rem] px-3 py-1 rounded-full text-xs font-semibold border ${
+                              deltaVal > 0 ? 'bg-sage/15 text-sage border-sage/20' : deltaVal < 0 ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-gray-100 text-gray-500 border-gray-200'
                             }`}>
-                              {deltaVal > 0 ? `+${deltaVal}` : deltaVal}
+                              {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
                             </span>
                           </td>
                         </tr>
@@ -564,6 +579,55 @@ export default function WhatIfPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+              
+              {/* Mobile Card Layout */}
+              <div className="sm:hidden flex flex-col p-4 gap-4">
+                <div className="bg-white/50 border border-white/60 rounded-2xl p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-primary mb-3">Projected Skin Age</div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioA.label}:</span>
+                    <span className="text-sm font-semibold text-sage">{result.scenarioA.finalSkinAge} yrs</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioB.label}:</span>
+                    <span className="text-sm font-semibold text-muted">{result.scenarioB.finalSkinAge} yrs</span>
+                  </div>
+                  <div className="pt-3 border-t border-black/5 flex justify-between items-center">
+                    <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
+                    <span className="text-xs font-bold text-sage bg-sage/15 px-2 py-0.5 rounded-md">{Math.abs(result.deltas.skinAge || 1)} yrs younger</span>
+                  </div>
+                </div>
+
+                {Object.entries(result.scenarioA.projectedScores).map(([metricKey]) => {
+                  const scoreA = result.scenarioA.projectedScores[metricKey];
+                  const scoreB = result.scenarioB.projectedScores[metricKey];
+                  const deltaVal = result.deltas[metricKey];
+                  const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
+                  const humanLabel = labels[metricKey] || metricKey;
+
+                  return (
+                    <div key={metricKey} className="bg-white/50 border border-white/60 rounded-2xl p-4 shadow-sm">
+                      <div className="text-sm font-semibold text-primary mb-3">{humanLabel}</div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioA.label}:</span>
+                        <span className="text-sm font-semibold text-sage">{scoreA}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioB.label}:</span>
+                        <span className="text-sm font-semibold text-muted">{scoreB}</span>
+                      </div>
+                      <div className="pt-3 border-t border-black/5 flex justify-between items-center">
+                        <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                          deltaVal > 0 ? 'bg-sage/15 text-sage' : deltaVal < 0 ? 'bg-orange-50 text-orange-500' : 'bg-black/5 text-muted'
+                        }`}>
+                          {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -616,6 +680,17 @@ export default function WhatIfPage() {
         )}
 
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Simulation"
+        message="Are you sure you want to delete this simulation? This cannot be undone."
+        onConfirm={confirmDeleteSim}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setSimToDelete(null);
+        }}
+      />
     </div>
   );
 }

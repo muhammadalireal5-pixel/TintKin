@@ -5,7 +5,7 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
-const connect = async () => {
+export const connectDb = async () => {
     if(cached.conn) return cached.conn
     if(!cached.promise) {
         cached.promise = mongoose.connect(process.env.MONGODB_URI)
@@ -14,7 +14,7 @@ const connect = async () => {
     return cached.conn
 }
 
-connect()
+connectDb()
 
 const UserSchema = new mongoose.Schema({
     clerkId: {type: String, unique:true, required:true},
@@ -25,6 +25,7 @@ const UserSchema = new mongoose.Schema({
     customGoal: String,
     onboardingComplete: {type: Boolean, default: false},
     baselineSelfie: String,
+    recommendationsLockedUntil: { type: Date, default: null },
 });
 
 const SelfieSchema = new mongoose.Schema({

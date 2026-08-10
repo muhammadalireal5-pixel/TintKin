@@ -1,6 +1,7 @@
 import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { Outfit, Playfair_Display } from "next/font/google";
 import Link from "next/link";
+import { ToastProvider } from "./components/ToastProvider";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -28,7 +29,7 @@ export default function RootLayout({ children }) {
         <ClerkProvider>
           {/* ── Header ───────────────────────────────────────── */}
           <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-md border-b border-white/20 transition-all duration-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4 overflow-hidden">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4 overflow-hidden">
 
               {/* Logo */}
               <Link href="/" className="flex items-center gap-1.5 flex-shrink-0 text-primary hover:opacity-80 transition-opacity min-w-0">
@@ -37,7 +38,7 @@ export default function RootLayout({ children }) {
               </Link>
 
               {/* Nav – scrollable on tiny phones */}
-              <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1">
+              <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1 shrink">
                 <Show when="signed-in">
                   <Link href="/dashboard" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Dashboard</Link>
                   <Link href="/capture" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Scan</Link>
@@ -67,7 +68,9 @@ export default function RootLayout({ children }) {
           </header>
 
           {/* ── Page Content ─────────────────────────────────── */}
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </ClerkProvider>
       </body>
     </html>
