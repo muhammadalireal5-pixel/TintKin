@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation } from "@/app/lib/actions";
+import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas } from "@/app/lib/actions";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
+import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight } from "lucide-react";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -48,6 +49,7 @@ export default function WhatIfPage() {
   // Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [simToDelete, setSimToDelete] = useState(null);
+  const [quotas, setQuotas] = useState(null);
 
   useEffect(() => {
     getLatestData()
@@ -65,7 +67,20 @@ export default function WhatIfPage() {
         setHistory(res.simulations);
       }
     });
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    getUsageQuotas(tz).then((data) => setQuotas(data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+  if (result) {
+    const resultsElement = document.getElementById("simulation-results");
+    
+    if (resultsElement) {
+      resultsElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+  }, [result]);
 
   const handleRunSimulation = async () => {
     if (!hasSelfie) {
@@ -112,7 +127,8 @@ export default function WhatIfPage() {
     }
 
     try {
-      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB, tz);
       setLoading(false);
 
       if (res.success) {
@@ -278,7 +294,7 @@ export default function WhatIfPage() {
                             : "bg-white/60 text-primary hover:bg-white hover:shadow-xs"
                         }`}
                       >
-                        {isSelectedSingle ? "Selected for Test ✓" : "Select Product"}
+                        {isSelectedSingle ? <span className="flex items-center justify-center gap-1">Selected for Test <Check size={14}/></span> : "Select Product"}
                       </button>
                     )}
 
@@ -292,7 +308,7 @@ export default function WhatIfPage() {
                               : "bg-white/60 text-primary hover:bg-white"
                           }`}
                         >
-                          {isProdA ? "Set for A ✓" : "Set Product A"}
+                          {isProdA ? <span className="flex items-center justify-center gap-1">Set for A <Check size={14}/></span> : "Set Product A"}
                         </button>
                         <button
                           onClick={() => setProdBIndex(idx)}
@@ -302,7 +318,7 @@ export default function WhatIfPage() {
                               : "bg-white/60 text-primary hover:bg-white"
                           }`}
                         >
-                          {isProdB ? "Set for B ✓" : "Set Product B"}
+                          {isProdB ? <span className="flex items-center justify-center gap-1">Set for B <Check size={14}/></span> : "Set Product B"}
                         </button>
                       </div>
                     )}
@@ -317,7 +333,7 @@ export default function WhatIfPage() {
                               : "bg-white/50 text-muted hover:bg-white"
                           }`}
                         >
-                          {inCustomA ? "In Scenario A ✓" : "+ Add to A"}
+                          {inCustomA ? <span className="flex items-center justify-center gap-1">In Scenario A <Check size={14}/></span> : "+ Add to A"}
                         </button>
                         <button
                           onClick={() => toggleCustomItem(idx, "B")}
@@ -327,14 +343,14 @@ export default function WhatIfPage() {
                               : "bg-white/50 text-muted hover:bg-white"
                           }`}
                         >
-                          {inCustomB ? "In Scenario B ✓" : "+ Add to B"}
+                          {inCustomB ? <span className="flex items-center justify-center gap-1">In Scenario B <Check size={14}/></span> : "+ Add to B"}
                         </button>
                       </div>
                     )}
 
                     {simMode === "full" && (
-                      <div className="py-2 text-center text-xs font-medium text-sage bg-sage/10 rounded-xl">
-                        Included in Full Routine ✓
+                      <div className="py-2 text-center text-xs font-medium text-sage bg-sage/10 rounded-xl flex items-center justify-center gap-1">
+                        Included in Full Routine <Check size={14}/>
                       </div>
                     )}
                   </div>
@@ -359,7 +375,7 @@ export default function WhatIfPage() {
                   : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
               }`}
             >
-              <span className="text-sm">🧪</span>
+              <FlaskConical size={18} className="text-current" />
               <span>1 Product vs None</span>
             </button>
 
@@ -371,7 +387,7 @@ export default function WhatIfPage() {
                   : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
               }`}
             >
-              <span className="text-sm">⚖️</span>
+              <Scale size={18} className="text-current" />
               <span>Product A vs Product B</span>
             </button>
 
@@ -383,7 +399,7 @@ export default function WhatIfPage() {
                   : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
               }`}
             >
-              <span className="text-sm">🌟</span>
+              <Star size={18} className="text-current" />
               <span>Full Routine (All 3)</span>
             </button>
 
@@ -395,7 +411,7 @@ export default function WhatIfPage() {
                   : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
               }`}
             >
-              <span className="text-sm">⚙️</span>
+              <Settings size={18} className="text-current" />
               <span>Custom Selection</span>
             </button>
           </div>
@@ -417,26 +433,33 @@ export default function WhatIfPage() {
               )}
             </div>
 
-            <button
-              onClick={handleRunSimulation}
-              disabled={loading}
-              className={`
-                tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold
-                ${loading ? "bg-primary/70 text-white cursor-not-allowed" : "tk-btn-primary shadow-[0_8px_24px_rgba(44,62,80,0.18)]"}
-              `}
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-                  Running AI Simulation...
-                </>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                  Generate Simulation
-                </>
+            <div className="flex flex-col gap-2 items-center sm:items-end w-full sm:w-auto">
+              <button
+                onClick={handleRunSimulation}
+                disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
+                className={`
+                  tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold
+                  ${(loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)) ? "bg-primary/70 text-white cursor-not-allowed" : "tk-btn-primary shadow-[0_8px_24px_rgba(44,62,80,0.18)]"}
+                `}
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+                    Running AI Simulation...
+                  </>
+                ) : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    Generate Simulation
+                  </>
+                )}
+              </button>
+              {quotas && (
+                <div className={`text-xs font-semibold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-primary/5 text-primary border border-primary/10'}`}>
+                  {quotas.simulations.used >= quotas.simulations.limit ? '4/4 simulations used this week. Resets Monday!' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </div>
 
@@ -465,7 +488,7 @@ export default function WhatIfPage() {
 
         {/* Section 3: Interactive Results */}
         {result && !loading && (
-          <div className="flex flex-col gap-8 tk-anim-4">
+          <div id="simulation-results" className="flex flex-col gap-8 tk-anim-4 scroll-mt-24">
 
             {/* Compare Slider Card */}
             <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border border-white/50">
@@ -473,14 +496,14 @@ export default function WhatIfPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/50 border-b border-white/30 gap-3">
                 <div className="inline-flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-sage"></span>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sage/15 text-sage border border-sage/20">
-                    ← {result.scenarioA.label}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sage/15 text-sage border border-sage/20 flex items-center">
+                    <ArrowLeft size={14} className="mr-1" /> {result.scenarioA.label}
                   </span>
                 </div>
 
                 <div className="inline-flex items-center gap-2 justify-end">
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-200/60">
-                    {result.scenarioB.label} →
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-200/60 flex items-center">
+                    {result.scenarioB.label} <ArrowRight size={14} className="ml-1" />
                   </span>
                   <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
                 </div>
@@ -509,14 +532,14 @@ export default function WhatIfPage() {
               
               <div className="flex items-center justify-center gap-2 py-4 bg-white/30 text-xs font-medium text-muted">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 8 8 12 12 16"></polyline><line x1="16" y1="12" x2="8" y2="12"></line></svg>
-                Drag slider to visually compare outcomes at age {result.targetAge}
+                Drag slider to visually compare outcomes {result.targetAge ? `at age ${result.targetAge}` : "after 1 year"}
               </div>
             </div>
 
             {/* Impact Analysis Table */}
             <div className="tk-glass rounded-3xl overflow-hidden border border-white/50">
               <div className="bg-sage/10 border-b border-sage/20 p-4 flex items-center gap-3">
-                <span className="text-2xl">📅</span>
+                <Calendar size={24} className="text-sage" />
                 <div>
                   <h4 className="text-sm font-semibold text-primary">Projection: 1 Year of Consistent Use</h4>
                   <p className="text-xs text-muted">Results assume daily use of the selected product(s) for 12 months.</p>
@@ -528,8 +551,8 @@ export default function WhatIfPage() {
                     Quantitative Impact Analysis
                   </h3>
                 </div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30 self-start sm:self-auto">
-                  Skin Age Improvement: {Math.abs(result.deltas.skinAge || result.scenarioA.skinAgeDelta)} yrs ✨
+                <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30 self-start sm:self-auto">
+                  Skin Age Improvement: {Math.abs(result.deltas.skinAge ?? result.scenarioA.skinAgeDelta)} yrs <Sparkles size={14}/>
                 </span>
               </div>
               
@@ -550,7 +573,7 @@ export default function WhatIfPage() {
                       <td className="px-6 py-4 text-center text-muted text-sm font-semibold">{result.scenarioB.finalSkinAge} yrs</td>
                       <td className="px-6 py-4 text-center">
                         <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage border border-sage/20">
-                          {Math.abs(result.deltas.skinAge || 1)} yrs younger
+                          {Math.abs(result.deltas.skinAge ?? 1)} yrs younger
                         </span>
                       </td>
                     </tr>
@@ -595,7 +618,7 @@ export default function WhatIfPage() {
                   </div>
                   <div className="pt-3 border-t border-black/5 flex justify-between items-center">
                     <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
-                    <span className="text-xs font-bold text-sage bg-sage/15 px-2 py-0.5 rounded-md">{Math.abs(result.deltas.skinAge || 1)} yrs younger</span>
+                    <span className="text-xs font-bold text-sage bg-sage/15 px-2 py-0.5 rounded-md">{Math.abs(result.deltas.skinAge ?? 1)} yrs younger</span>
                   </div>
                 </div>
 
@@ -648,14 +671,24 @@ export default function WhatIfPage() {
                 <div
                   key={simId || idx}
                   onClick={() => {
-                    setResult(sim);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    if (loading) return;
+                    let simToSet = { ...sim };
+                    if (!simToSet.deltas && simToSet.scenarioA && simToSet.scenarioB) {
+                      const computedDeltas = {};
+                      for (const key of Object.keys(simToSet.scenarioA.projectedScores || {})) {
+                        computedDeltas[key] = Math.round((simToSet.scenarioA.projectedScores[key] - simToSet.scenarioB.projectedScores[key]) * 10) / 10;
+                      }
+                      computedDeltas.skinAge = Math.round((simToSet.scenarioB.finalSkinAge - simToSet.scenarioA.finalSkinAge) * 10) / 10;
+                      simToSet.deltas = computedDeltas;
+                    }
+                    setResult(simToSet);
+                    
                   }}
-                  className="tk-glass rounded-2xl p-4 text-left border border-white/40 hover:border-sage/40 hover:shadow-lg transition-all group relative cursor-pointer"
+                  className={`tk-glass rounded-2xl p-4 text-left border border-white/40 hover:border-sage/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   <button
                     onClick={(e) => handleDeleteSim(e, simId)}
-                    className="absolute top-3 right-3 p-1.5 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 z-10"
+                    className="absolute top-3 right-3 p-2 rounded-full bg-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 z-10 shadow-sm sm:focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1"
                     title="Delete simulation"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -671,7 +704,7 @@ export default function WhatIfPage() {
                   </div>
                   <div className="mt-4 text-xs font-semibold text-sage flex justify-between items-center opacity-80 group-hover:opacity-100 transition-opacity">
                     <span className="text-muted/60">{sim.createdAt ? new Date(sim.createdAt).toLocaleDateString() : 'Just now'}</span>
-                    <span>View Details →</span>
+                    <span className="flex items-center gap-1">View Details <ArrowRight size={12} /></span>
                   </div>
                 </div>
               )})}

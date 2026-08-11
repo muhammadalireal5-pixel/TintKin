@@ -147,10 +147,17 @@ async function getDbUser() {
 // ------------------------------
 // 1. Capture: Upload → YouCam → Save to DB
 // ------------------------------
-export async function analyzeAndSaveSelfie(imageUrl) {
+export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
 
   try {
+    const todayStart = getLocalDayStart(timezone);
+    const scansToday = await Selfie.countDocuments({
+      userId: user._id, takenAt: { $gte: todayStart }
+    });
+    if (scansToday >= 1) {
+      return { success: false, error: "SCAN_LIMIT", message: "You've already scanned today. Come back tomorrow!" };
+    }
     if (!imageUrl) throw new Error("No image provided");
 
     // Call YouCam API (server-only)
@@ -241,20 +248,54 @@ export async function analyzeAndSaveSelfie(imageUrl) {
     }
 
     let recommendedProducts = advice.products || [];
-    let productsChanged = false;
+    let habits = advice.habits || [];
+    let facialWorkout = advice.facialWorkout || "";
+    let critique = advice.critique || "";
     
-    // Product Locking Logic (30 days)
-    if (lastSelfie && lastSelfie.recommendedProducts?.length > 0 && user.recommendationsLockedUntil && user.recommendationsLockedUntil > Date.now()) {
-      console.log("[Scores] Products are locked, keeping previous products.");
-      recommendedProducts = lastSelfie.recommendedProducts;
+    let productsChanged = false;
+    let habitsChanged = false;
+    let workoutChanged = false;
+
+    // Recommendations Locking Logic
+    const recommendationsLocked = user.recommendationsLockedUntil && user.recommendationsLockedUntil > Date.now();
+    const workoutLocked = user.workoutLockedUntil && user.workoutLockedUntil > Date.now();
+
+    const updatesToUser = {};
+
+    if (lastSelfie) {
+      if (recommendationsLocked) {
+        console.log("[Scores] Products/Habits are locked, keeping previous.");
+        if (lastSelfie.recommendedProducts?.length > 0) recommendedProducts = lastSelfie.recommendedProducts;
+        if (lastSelfie.habits?.length > 0) habits = lastSelfie.habits;
+      } else {
+        if (!useCachedAdvice) {
+          productsChanged = true;
+          habitsChanged = true;
+          updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        }
+      }
+
+      if (workoutLocked) {
+        console.log("[Scores] Workout is locked, keeping previous.");
+        if (lastSelfie.facialWorkout) facialWorkout = lastSelfie.facialWorkout;
+      } else {
+        if (!useCachedAdvice) {
+          workoutChanged = true;
+          updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        }
+      }
     } else {
       if (!useCachedAdvice) {
         productsChanged = true;
-        // Lock products for 30 days
-        await User.findByIdAndUpdate(user._id, {
-          recommendationsLockedUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        });
+        habitsChanged = true;
+        workoutChanged = true;
+        updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       }
+    }
+
+    if (Object.keys(updatesToUser).length > 0) {
+      await User.findByIdAndUpdate(user._id, updatesToUser);
     }
 
     if(!Array.isArray(recommendedProducts) || recommendedProducts.length !== 3 ){
@@ -292,9 +333,9 @@ export async function analyzeAndSaveSelfie(imageUrl) {
       scores,
       maskUrls: youCamResult.masks ?? {},
       youCamTaskId: youCamResult.task_id,
-      critique: advice.critique,
-      habits: advice.habits,
-      facialWorkout: advice.facialWorkout,
+      critique: critique,
+      habits: habits,
+      facialWorkout: facialWorkout,
       recommendedProducts,
     });
 
@@ -302,14 +343,7 @@ export async function analyzeAndSaveSelfie(imageUrl) {
     await User.findByIdAndUpdate(user._id, { baselineSelfie: imageUrl });
 
     // Determine what changed for toasts
-    let habitsChanged = false;
-    let workoutChanged = false;
-    if (!useCachedAdvice && lastSelfie) {
-      const oldHabits = lastSelfie.habits?.join(",") || "";
-      const newHabits = advice.habits?.join(",") || "";
-      if (oldHabits !== newHabits) habitsChanged = true;
-      if (lastSelfie.facialWorkout !== advice.facialWorkout) workoutChanged = true;
-    }
+    // (flags are already computed above based on lock expirations)
 
     return { 
       success: true, 
@@ -386,10 +420,17 @@ export async function getLatestData() {
 // ------------------------------
 // 4. What-If: Run 2 scenarios side-by-side
 // ------------------------------
-export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "") {
+export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC") {
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
   try {
+    const weekStart = getLocalISOWeekStart(timezone);
+    const simsThisWeek = await Simulation.countDocuments({
+      userId: user._id, createdAt: { $gte: weekStart }
+    });
+    if (simsThisWeek >= 4) {
+      return { success: false, error: "SIM_LIMIT", message: "You've used all 4 simulations this week. Resets Monday!" };
+    }
     if (!latestSelfie) throw new Error("Please take a selfie first to run the AI simulation!");
 
     const TARGET_YEARS = 1;
@@ -482,6 +523,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       name: `${nameA} vs ${nameB}`,
       scenarioA: { ...scenarioA, products: listA },
       scenarioB: { ...scenarioB, products: listB },
+      deltas,
+      targetAge: realAge + TARGET_YEARS
     });
 
     return { 
@@ -534,6 +577,99 @@ export async function completeOnboarding(data) {
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+function getLocalDayStart(timezone) {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  const parts = formatter.format(now).split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  
+  // Create a string that represents midnight in the target timezone
+  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
+  
+  // Create date considering it's in the target timezone, but Javascript creates it in local time if we aren't careful
+  // A robust way in JS without external libraries is getting the UTC time, then adjusting.
+  // We can just use the fact that new Date('YYYY-MM-DDThh:mm:ss') parses as local time.
+  // Instead, let's format the date to find its offset.
+  
+  // Simpler approach for server-side Node: Use Intl to format the date in the timezone, find the offset.
+  // Actually, in Node, we can just do this to get a UTC date object that corresponds to midnight in that timezone:
+  const dt = new Date();
+  const tzStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false
+  }).format(dt);
+  // This gives "MM/DD/YYYY, HH:mm:ss". We can extract the components and build the midnight UTC.
+  // Let's use a simpler string manipulation that works everywhere:
+  const options = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'shortOffset' };
+  const str = new Intl.DateTimeFormat('en-US', options).format(dt); // e.g. "08/11/2026, 18:24:36 GMT+05:00"
+  // It's just easier to find the offset and apply it.
+  
+  // The most foolproof way in native JS: 
+  // Let `today` be the date string in the local TZ.
+  const midnight = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+  midnight.setHours(0,0,0,0);
+  
+  // Since server might be in a different timezone, we need to calculate the difference
+  const serverOffset = new Date().getTimezoneOffset() * 60000;
+  
+  // We need the UTC time when it was midnight in the target timezone.
+  // Let's rely on standard parsing
+  const formatter2 = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  const formattedDate = formatter2.format(now); // "MM/DD/YYYY"
+  const [mm, dd, yyyy] = formattedDate.split('/');
+  
+  // Create a date in server's local time for that day at midnight
+  const targetMidnightLocal = new Date(Number(yyyy), Number(mm)-1, Number(dd), 0, 0, 0);
+  
+  // Now find the offset of the target timezone at this time
+  const targetMidnightStr = targetMidnightLocal.toLocaleString('en-US', {timeZone: timezone});
+  // This is too complex.
+  
+  // The best robust native way:
+  const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  tzDate.setHours(0, 0, 0, 0);
+  const diff = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: timezone })).getTime();
+  return new Date(tzDate.getTime() + diff);
+}
+
+function getLocalISOWeekStart(timezone) {
+  const todayStart = getLocalDayStart(timezone);
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' });
+  const weekdayStr = formatter.format(todayStart); 
+  
+  const dayOffsets = { "Sun": 6, "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5 };
+  const offset = dayOffsets[weekdayStr] || 0;
+  
+  return new Date(todayStart.getTime() - offset * 24 * 60 * 60 * 1000);
+}
+
+export async function getUsageQuotas(timezone = "UTC") {
+  const user = await getDbUser();
+  const todayStart = getLocalDayStart(timezone);
+  const weekStart = getLocalISOWeekStart(timezone);
+
+  const scansToday = await Selfie.countDocuments({
+    userId: user._id, takenAt: { $gte: todayStart }
+  });
+  const simsThisWeek = await Simulation.countDocuments({
+    userId: user._id, createdAt: { $gte: weekStart }
+  });
+
+  return {
+    scans: { used: scansToday, limit: 1 },
+    simulations: { used: simsThisWeek, limit: 4 }
+  };
 }
 
 export async function getSavedSimulations() {

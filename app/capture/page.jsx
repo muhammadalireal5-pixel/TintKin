@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeAndSaveSelfie, uploadSelfieServerAction } from "@/app/lib/actions";
+import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
+import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft } from "lucide-react";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = "ml_default";
@@ -19,6 +20,20 @@ export default function CapturePage() {
     const [preview, setPreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [isFlipped, setIsFlipped] = useState(false);
+    const [quotas, setQuotas] = useState(null);
+
+    useEffect(() => {
+        const fetchQuotas = async () => {
+            try {
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const data = await getUsageQuotas(tz);
+                setQuotas(data);
+            } catch (err) {
+                console.error("Failed to fetch quotas", err);
+            }
+        };
+        fetchQuotas();
+    }, []);
 
     const uploadToCloudinary = async (file) => {
         const form = new FormData();
@@ -52,7 +67,8 @@ export default function CapturePage() {
             const imgUrl = await uploadToCloudinary(selectedFile);
             setStatus({ type: "info", msg: "Analysing your skin… (3–5s)" });
 
-            const res = await analyzeAndSaveSelfie(imgUrl);
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const res = await analyzeAndSaveSelfie(imgUrl, tz);
 
             if (res.success) {
                 if (res.habitsChanged) {
@@ -106,12 +122,7 @@ export default function CapturePage() {
                 {/* Header */}
                 <div className="capture-header">
                     <div className="camera-badge">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                            <circle cx="12" cy="13" r="3" />
-                        </svg>
+                        <Camera size={26} strokeWidth={2} />
                     </div>
                     <h1 className="capture-title">Today's Entry</h1>
                     <p className="capture-subtitle">
@@ -138,50 +149,54 @@ export default function CapturePage() {
                         </div>
                         
                         {!loading && (
-                            <div className="preview-actions flex gap-3 mt-4 w-full">
+                            <div className="preview-actions flex gap-2 mt-4 w-full">
                                 <button 
-                                    className="cta-btn cta-secondary flex-1" 
+                                    className="cta-btn cta-secondary flex-1 justify-center" 
                                     onClick={() => setIsFlipped(!isFlipped)}
                                 >
-                                    Flip ↔️
+                                    Flip <FlipHorizontal size={18} className="ml-1" />
                                 </button>
                                 <button 
-                                    className="cta-btn cta-primary flex-[2]" 
+                                    className="cta-btn cta-primary flex-[2] justify-center" 
                                     onClick={confirmUpload}
                                 >
                                     Analyze
                                 </button>
                                 <button 
-                                    className="cta-btn cta-secondary p-4 flex-none" 
+                                    className="cta-btn cta-secondary cta-cancel justify-center" 
                                     onClick={() => { setPreview(null); setSelectedFile(null); }}
                                     aria-label="Cancel"
                                 >
-                                    ✕
+                                    <X size={20} />
                                 </button>
                             </div>
                         )}
                     </div>
                 ) : (
                     <div className="cta-group">
+                        {quotas && quotas.scans.used >= quotas.scans.limit && (
+                            <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-100 text-orange-800 text-sm flex items-start gap-2">
+                                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="font-semibold text-base">Daily Scan Limit Reached</p>
+                                    <p className="mt-0.5 opacity-90">You've used your 1 scan for today. Come back tomorrow for a new scan!</p>
+                                </div>
+                            </div>
+                        )}
                         {/* Camera */}
                         <button
                             className="cta-btn cta-primary"
                             onClick={() => cameraInputRef.current?.click()}
-                            disabled={loading}
+                            disabled={loading || (quotas && quotas.scans.used >= quotas.scans.limit)}
                         >
                             <span className="cta-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                                    <circle cx="12" cy="13" r="3" />
-                                </svg>
+                                <Camera size={22} strokeWidth={2} />
                             </span>
                             <span className="cta-text">
                                 <span className="cta-label">Take a Photo</span>
                                 <span className="cta-hint">Opens your camera directly</span>
                             </span>
-                            <span className="cta-arrow">→</span>
+                            <span className="cta-arrow"><ArrowRight size={16} /></span>
                         </button>
 
                         <div className="or-divider">
@@ -192,16 +207,10 @@ export default function CapturePage() {
                         <button
                             className="cta-btn cta-secondary"
                             onClick={() => galleryInputRef.current?.click()}
-                            disabled={loading}
+                            disabled={loading || (quotas && quotas.scans.used >= quotas.scans.limit)}
                         >
                             <span className="cta-icon cta-icon-gallery">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                    <circle cx="8.5" cy="8.5" r="1.5" />
-                                    <polyline points="21 15 16 10 5 21" />
-                                </svg>
+                                <ImageIcon size={20} strokeWidth={2} />
                             </span>
                             <span className="cta-text">
                                 <span className="cta-label">Upload from Gallery</span>
@@ -214,27 +223,9 @@ export default function CapturePage() {
                 {/* Status pill */}
                 {status && (
                     <div className={`status-pill status-${status.type}`}>
-                        {status.type === "success" && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                        )}
-                        {status.type === "error" && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
-                        )}
-                        {status.type === "info" && (
-                            <svg className="spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                        )}
+                        {status.type === "success" && <CheckCircle2 size={16} />}
+                        {status.type === "error" && <AlertCircle size={16} />}
+                        {status.type === "info" && <Loader2 size={16} className="spin" />}
                         {status.msg}
                     </div>
                 )}
@@ -242,21 +233,16 @@ export default function CapturePage() {
                 {/* Retake option when preview is shown and not loading */}
                 {preview && !loading && (
                     <button
-                        className="retake-btn"
+                        className="retake-btn flex items-center justify-center w-full mt-2"
                         onClick={() => { setPreview(null); setStatus(null); }}
                     >
-                        ← Try a different photo
+                        <ArrowLeft size={14} className="mr-1" /> Try a different photo
                     </button>
                 )}
 
                 {/* Privacy note */}
-                <p className="privacy-note">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
+                <p className="privacy-note mt-6">
+                    <Lock size={12} strokeWidth={2} />
                     Private &amp; securely processed
                 </p>
             </div>
@@ -300,14 +286,21 @@ export default function CapturePage() {
                     z-index: 1;
                     width: 100%;
                     max-width: 400px;
-                    background: rgba(255,255,255,0.6);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255,255,255,0.4);
+                    background: rgba(255, 255, 255, 0.35);
+                    backdrop-filter: blur(24px);
+                    -webkit-backdrop-filter: blur(24px);
+                    border: 1px solid rgba(255, 255, 255, 0.4);
                     border-radius: 2rem;
-                    padding: 2rem 1.5rem 1.5rem;
-                    box-shadow: 0 8px 40px rgba(44,62,80,0.08);
+                    padding: 1.5rem;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
                     animation: fadeInUp 0.6s ease both;
+                }
+                
+                @media (min-width: 640px) {
+                    .capture-card {
+                        padding: 2.25rem 2rem 2rem;
+                        border-radius: 2.5rem;
+                    }
                 }
 
                 /* ── Header ────────────────────────────────────────── */
@@ -368,25 +361,30 @@ export default function CapturePage() {
                 .cta-primary {
                     background: var(--tk-text-primary);
                     color: #fff;
-                    box-shadow: 0 6px 24px rgba(44,62,80,0.22);
+                    box-shadow: 0 6px 24px rgba(44,62,80,0.18);
                 }
                 .cta-primary:hover {
                     background: #3a5068;
                     transform: translateY(-2px);
-                    box-shadow: 0 10px 30px rgba(44,62,80,0.28);
+                    box-shadow: 0 10px 30px rgba(44,62,80,0.25);
                 }
 
                 /* Secondary — gallery */
                 .cta-secondary {
-                    background: rgba(255,255,255,0.85);
+                    background: rgba(255,255,255,0.6);
                     color: var(--tk-text-primary);
-                    border: 1px solid rgba(44,62,80,0.1);
-                    box-shadow: 0 2px 10px rgba(44,62,80,0.06);
+                    border: 1px solid rgba(44,62,80,0.06);
+                    box-shadow: 0 2px 10px rgba(44,62,80,0.04);
                 }
                 .cta-secondary:hover {
-                    background: #fff;
+                    background: rgba(255,255,255,0.85);
                     transform: translateY(-1px);
-                    box-shadow: 0 6px 18px rgba(44,62,80,0.1);
+                    box-shadow: 0 6px 18px rgba(44,62,80,0.08);
+                }
+                .cta-cancel {
+                    width: auto;
+                    flex: 0 0 auto;
+                    padding: 1rem;
                 }
 
                 .cta-icon {

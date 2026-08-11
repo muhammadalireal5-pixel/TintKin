@@ -26,6 +26,7 @@ const UserSchema = new mongoose.Schema({
     onboardingComplete: {type: Boolean, default: false},
     baselineSelfie: String,
     recommendationsLockedUntil: { type: Date, default: null },
+    workoutLockedUntil: { type: Date, default: null },
 });
 
 const SelfieSchema = new mongoose.Schema({
@@ -68,6 +69,8 @@ const SimulationSchema = new mongoose.Schema({
     name: String,
     scenarioA: Object,
     scenarioB: Object,
+    deltas: Object,
+    targetAge: Number,
     resultA: Object,
     resultB: Object,
     createdAt: { type: Date, default: Date.now },

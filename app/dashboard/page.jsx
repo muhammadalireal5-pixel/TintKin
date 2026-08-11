@@ -6,6 +6,7 @@ import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
 import Image from "next/image";
 import ProductImage from "./ProductImage";
+import { Sparkles, ArrowRight, Lock } from "lucide-react";
 
 export default async function DashboardPage() {
     const { user, latestSelfie, allSelfies, realAge, weeklyAverage } = await getLatestData();
@@ -70,7 +71,7 @@ export default async function DashboardPage() {
                             <div className="flex justify-between items-start mb-2">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
                                 <Link href="/history" className="text-xs font-medium text-sage hover:text-primary transition-colors flex items-center gap-1">
-                                    View History <span>→</span>
+                                    View History <ArrowRight size={14} />
                                 </Link>
                             </div>
                             <p className="text-sm text-primary mb-6">Your skin's overall balance and vitality.</p>
@@ -194,7 +195,7 @@ export default async function DashboardPage() {
                         {lockedDaysRemaining > 0 && (
                             <div className="flex items-center gap-2 mb-4">
                                 <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage border border-sage/20">
-                                    🔒 Locked for {lockedDaysRemaining} more {lockedDaysRemaining === 1 ? 'day' : 'days'}
+                                    <Lock size={14} className="inline mr-1.5" /> Locked for {lockedDaysRemaining} more {lockedDaysRemaining === 1 ? 'day' : 'days'}
                                 </span>
                                 <span className="text-xs text-muted">Stick with this routine for best results.</span>
                             </div>
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
                             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer tk-anim-6">
                                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
                                 <div className="relative z-10 flex flex-col items-center justify-center">
-                                    <span className="text-3xl mb-4">✨</span>
+                                    <Sparkles size={32} strokeWidth={2} className="text-sage mb-4" />
                                     <h3 className="text-2xl lg:text-3xl font-display text-primary mb-2">Curious about your progress?</h3>
                                     <p className="text-muted mb-4 max-w-md mx-auto">Wanna see how improved these recommendations will make you look in 6 months?</p>
                                     <span className="inline-block bg-white px-6 py-3 rounded-full text-sm font-medium text-primary shadow-sm hover:bg-sage/10 transition-colors">
