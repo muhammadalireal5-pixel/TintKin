@@ -5,7 +5,13 @@ import { Resend } from "resend";
 import { cookies } from "next/headers";
 
 // ── Resend client ─────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient = null;
+function getResendClient() {
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 // ── Constants ─────────────────────────────────────────────
 const ADMIN_EMAIL = "muhammad0alire@gmail.com";
@@ -60,6 +66,7 @@ export async function sendAdminOTP(email) {
   };
 
   try {
+    const resend = getResendClient();
     await resend.emails.send({
       from: "TintKin Admin <onboarding@resend.dev>",
       to: [ADMIN_EMAIL],
