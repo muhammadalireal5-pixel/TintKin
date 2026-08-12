@@ -27,6 +27,8 @@ const UserSchema = new mongoose.Schema({
     baselineSelfie: String,
     recommendationsLockedUntil: { type: Date, default: null },
     workoutLockedUntil: { type: Date, default: null },
+    isSubscribed: { type: Boolean, default: false },
+    subscribedAt: { type: Date, default: null },
 });
 
 const SelfieSchema = new mongoose.Schema({
