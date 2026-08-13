@@ -7,6 +7,7 @@ import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
 import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight } from "lucide-react";
+import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -489,6 +490,7 @@ export default function WhatIfPage() {
         {/* Section 3: Interactive Results */}
         {result && !loading && (
           <div id="simulation-results" className="flex flex-col gap-8 tk-anim-4 scroll-mt-24">
+            <ComponentErrorFallback title="Simulation Results">
 
             {/* Compare Slider Card */}
             <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border border-white/50">
@@ -654,6 +656,7 @@ export default function WhatIfPage() {
               </div>
             </div>
 
+            </ComponentErrorFallback>
           </div>
         )}
 

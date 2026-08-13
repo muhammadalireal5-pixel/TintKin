@@ -4,18 +4,19 @@ const BASE = "https://yce-api-01.makeupar.com";
 const KEY = process.env.YOUCAM_API_KEY;
 
 /**
- * Injects a Cloudinary face-detection crop into the URL so YouCam
+ * Injects a Cloudflare Image Resizing parameters into the URL so YouCam
  * always receives a face-centered, reasonably-sized image.
- * g_face   → auto-detects and centers on the face
- * c_thumb  → face-aware thumbnail crop
- * z_1.3    → zooms IN (70-75% face width, perfectly in YouCam's 60-80% sweet spot)
+ * gravity=auto or gravity=face   → auto-detects and centers on the face
+ * fit=crop  → face-aware thumbnail crop
+ * zoom=1.3    → zooms IN (70-75% face width, perfectly in YouCam's 60-80% sweet spot)
  * w/h 1200 → high resolution for accurate skin analysis
  */
-function faceCroppedUrl(cloudinaryUrl) {
-  return cloudinaryUrl.replace(
-    "/upload/",
-    "/upload/c_thumb,g_face,z_1.3,w_1200,h_1200/"
-  );
+function faceCroppedUrl(r2Url) {
+  if (!r2Url || !r2Url.startsWith('http')) return r2Url;
+  const urlObj = new URL(r2Url);
+  const CF_IMAGES_DOMAIN = process.env.NEXT_PUBLIC_CF_IMAGES_DOMAIN || urlObj.host;
+  
+  return `https://${CF_IMAGES_DOMAIN}/cdn-cgi/image/fit=crop,gravity=auto,zoom=1.3,w=1200,h=1200${urlObj.pathname}`;
 }
 
 function formatYouCamError(errStr) {

@@ -7,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ProductImage from "./ProductImage";
 import { Sparkles, ArrowRight, Lock } from "lucide-react";
-
+import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 export default async function DashboardPage() {
     const { user, latestSelfie, allSelfies, realAge, weeklyAverage } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
@@ -137,7 +137,9 @@ export default async function DashboardPage() {
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-1 min-h-[300px] flex flex-col tk-anim-4">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-6">Profile Radar</p>
                         <div className="flex-1 w-full relative">
-                            <RadarChartClient scores={scores} />
+                            <ComponentErrorFallback title="Radar Chart">
+                                <RadarChartClient scores={scores} />
+                            </ComponentErrorFallback>
                         </div>
                     </div>
 
@@ -150,7 +152,9 @@ export default async function DashboardPage() {
                             </div>
                         </div>
                         <div className="flex-1 w-full relative">
-                            <ProgressChart allSelfies={allSelfies} />
+                            <ComponentErrorFallback title="Progress Chart">
+                                <ProgressChart allSelfies={allSelfies} />
+                            </ComponentErrorFallback>
                         </div>
                     </div>
 
@@ -187,7 +191,9 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* Metric Details (Swipeable Carousel) */}
-                    <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
+                    <ComponentErrorFallback title="Score Carousel">
+                        <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
+                    </ComponentErrorFallback>
                     
                     {/* AI Product Recommendations & What-If Bridge */}
                     <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">

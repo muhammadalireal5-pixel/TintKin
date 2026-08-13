@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getWeeklyHistory } from "@/app/lib/actions";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Activity } from "lucide-react";
+import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([]);
@@ -63,6 +64,7 @@ export default function HistoryPage() {
         {/* History List */}
         {!loading && history.length > 0 && (
           <div className="flex flex-col gap-6 tk-anim-3">
+            <ComponentErrorFallback title="History List">
             {history.map((week, idx) => (
               <div key={idx} className="tk-glass rounded-3xl p-6 sm:p-8 border border-white/50 hover:border-white/80 transition-colors bg-white/40 group relative overflow-hidden">
                 {/* Decoration */}
@@ -147,6 +149,7 @@ export default function HistoryPage() {
                 </div>
               </div>
             ))}
+            </ComponentErrorFallback>
           </div>
         )}
       </div>

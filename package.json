@@ -9,10 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.621.0",
     "@clerk/nextjs": "^7.6.1",
+    "@opennextjs/cloudflare": "^0.3.0",
     "adm-zip": "^0.6.0",
     "lucide-react": "^1.27.0",
-    "mongoose": "^9.8.0",
+    "mongoose": "^8.5.2",
     "next": "16.2.12",
     "next-cloudinary": "^6.17.5",
     "openai": "^6.49.0",
@@ -23,6 +25,7 @@
     "resend": "^6.19.0"
   },
   "devDependencies": {
+    "wrangler": "^3.60.0",
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",

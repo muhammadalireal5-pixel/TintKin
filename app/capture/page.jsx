@@ -2,9 +2,10 @@
 
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas } from "@/app/lib/actions";
+import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft } from "lucide-react";
+import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = "ml_default";
@@ -17,10 +18,46 @@ export default function CapturePage() {
 
     const [status, setStatus] = useState(null); // { type: "info"|"success"|"error", msg: string }
     const [loading, setLoading] = useState(false);
+    const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+    const [loadingTextIndex, setLoadingTextIndex] = useState(0);
     const [preview, setPreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [isFlipped, setIsFlipped] = useState(false);
     const [quotas, setQuotas] = useState(null);
+
+    const loadingTexts = [
+        "Analyzing your skin tone...",
+        "Checking for blemishes and dark spots...",
+        "Evaluating skin texture...",
+        "Calculating your true skin age...",
+        "Formulating personalized recommendations...",
+        "Just a moment, almost there...",
+        "Polishing the final results..."
+    ];
+
+    useEffect(() => {
+        let interval;
+        if (loading && status?.type === "info") {
+            interval = setInterval(() => {
+                setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
+            }, 2500);
+        } else {
+            setLoadingTextIndex(0);
+        }
+        return () => clearInterval(interval);
+    }, [loading, status?.type]);
+
+    const handleActionClick = async (type) => {
+        setCheckingOnboarding(true);
+        const res = await checkOnboardingStatus();
+        setCheckingOnboarding(false);
+        if (!res.complete) {
+            router.push("/onboarding");
+            return;
+        }
+        if (type === 'camera') cameraInputRef.current?.click();
+        else galleryInputRef.current?.click();
+    };
 
     useEffect(() => {
         const fetchQuotas = async () => {
@@ -119,6 +156,7 @@ export default function CapturePage() {
             <div className="blob blob-2" aria-hidden="true" />
 
             <div className="capture-card">
+                <ComponentErrorFallback title="Camera Access Error">
                 {/* Header */}
                 <div className="capture-header">
                     <div className="camera-badge">
@@ -186,8 +224,8 @@ export default function CapturePage() {
                         {/* Camera */}
                         <button
                             className="cta-btn cta-primary"
-                            onClick={() => cameraInputRef.current?.click()}
-                            disabled={loading || (quotas && quotas.scans.used >= quotas.scans.limit)}
+                            onClick={() => handleActionClick('camera')}
+                            disabled={loading || checkingOnboarding || (quotas && quotas.scans.used >= quotas.scans.limit)}
                         >
                             <span className="cta-icon">
                                 <Camera size={22} strokeWidth={2} />
@@ -206,8 +244,8 @@ export default function CapturePage() {
                         {/* Gallery */}
                         <button
                             className="cta-btn cta-secondary"
-                            onClick={() => galleryInputRef.current?.click()}
-                            disabled={loading || (quotas && quotas.scans.used >= quotas.scans.limit)}
+                            onClick={() => handleActionClick('gallery')}
+                            disabled={loading || checkingOnboarding || (quotas && quotas.scans.used >= quotas.scans.limit)}
                         >
                             <span className="cta-icon cta-icon-gallery">
                                 <ImageIcon size={20} strokeWidth={2} />
@@ -226,7 +264,7 @@ export default function CapturePage() {
                         {status.type === "success" && <CheckCircle2 size={16} />}
                         {status.type === "error" && <AlertCircle size={16} />}
                         {status.type === "info" && <Loader2 size={16} className="spin" />}
-                        {status.msg}
+                        {loading && status.type === "info" ? loadingTexts[loadingTextIndex] : status.msg}
                     </div>
                 )}
 
@@ -245,6 +283,7 @@ export default function CapturePage() {
                     <Lock size={12} strokeWidth={2} />
                     Private &amp; securely processed
                 </p>
+                </ComponentErrorFallback>
             </div>
 
             <style>{`

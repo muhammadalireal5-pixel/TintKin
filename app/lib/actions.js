@@ -8,69 +8,74 @@ import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice } from "./qwen";
 import crypto from "crypto";
 
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = "ml_default";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-async function uploadUrlToCloudinary(imageUrl) {
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "skin-selfies";
+const CF_IMAGES_DOMAIN = process.env.NEXT_PUBLIC_CF_IMAGES_DOMAIN || "example.com"; // Set this to the public domain for your R2 bucket / CF Images
+
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
+
+async function uploadUrlToR2(imageUrl) {
   if (!imageUrl || !imageUrl.startsWith('http')) return imageUrl;
   
-  const form = new FormData();
-  form.append("file", imageUrl);
-  form.append("upload_preset", UPLOAD_PRESET);
-  
   try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    return data.secure_url;
+    const response = await fetch(imageUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    const key = `simulations/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+    
+    await s3Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: "image/jpeg"
+    }));
+    
+    return `https://${CF_IMAGES_DOMAIN}/${key}`;
   } catch (e) {
-    console.error("[Cloudinary] Failed to upload simulation image:", e);
-    return imageUrl; // Fallback to YouCam URL if upload fails
+    console.error("[R2] Failed to upload simulation image:", e);
+    return imageUrl; 
   }
 }
 
-async function deleteImageFromCloudinary(imageUrl) {
-  if (!imageUrl || !imageUrl.includes("cloudinary.com")) return;
+async function deleteImageFromR2(imageUrl) {
+  if (!imageUrl || !imageUrl.includes(CF_IMAGES_DOMAIN)) return;
 
   try {
-    const parts = imageUrl.split("/upload/");
-    if (parts.length !== 2) return;
-    const pathPart = parts[1];
-    const publicIdWithExt = pathPart.substring(pathPart.indexOf("/") + 1);
-    const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf("."));
-
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signatureString = `public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
-
-    const form = new FormData();
-    form.append("public_id", publicId);
-    form.append("api_key", process.env.CLOUDINARY_API_KEY);
-    form.append("timestamp", timestamp);
-    form.append("signature", signature);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
-      method: "POST",
-      body: form,
-    });
-    console.log(`[Cloudinary] Deleted ${publicId}:`, await res.text());
+    const url = new URL(imageUrl);
+    const key = url.pathname.substring(1); // remove leading slash
+    
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key
+    }));
+    console.log(`[R2] Deleted ${key}`);
   } catch (e) {
-    console.error("[Cloudinary] Destroy error:", e);
+    console.error("[R2] Destroy error:", e);
   }
 }
 
 // ------------------------------------------
-// Helper: Apply face‑crop to a Cloudinary URL
+// Helper: Apply face‑crop via Cloudflare Images
 // ------------------------------------------
 
-function applyFaceCropToCloudinary(url){
-  if (!url || !url.includes('cloudinary.com')) return url;
-  const parts = url.split('/upload/');
-  if(parts.length !== 2) return url
-  return `${parts[0]}/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/${parts[1]}`;
+function applyFaceCropToCFImages(url){
+  if (!url || !url.includes(CF_IMAGES_DOMAIN)) return url;
+  const urlObj = new URL(url);
+  // Using Cloudflare image resizing via workers or URL format:
+  // e.g. /cdn-cgi/image/fit=crop,gravity=auto,zoom=1.05,w=1200,h=1200/path/to/img
+  return `https://${CF_IMAGES_DOMAIN}/cdn-cgi/image/fit=crop,gravity=auto,zoom=1.05,w=1200,h=1200${urlObj.pathname}`;
 }
 
 // ------------------------------
@@ -81,43 +86,25 @@ export async function uploadSelfieServerAction(formData) {
     const file = formData.get("file");
     if (!file) throw new Error("No file provided");
 
-    const timestamp = Math.floor(Date.now() / 1000);
-    const isFlipped = formData.get("flip") === "true";
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const extension = file.name.split('.').pop() || 'jpg';
     
-    // Cloudinary requires signature parameters to be sorted alphabetically
-    let signatureString = "";
-    if (isFlipped) {
-      signatureString = `timestamp=${timestamp}&transformation=a_hflip${process.env.CLOUDINARY_API_SECRET}`;
-    } else {
-      signatureString = `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    }
+    // We omit image flipping logic on the server because R2 is just object storage.
+    // If flipping is required, we should flip on the client before upload via canvas.
+    // For now, we upload the raw bytes.
+    const key = `selfies/${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
     
-    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
+    await s3Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: file.type
+    }));
 
-    const cloudinaryForm = new FormData();
-    cloudinaryForm.append("file", file);
-    cloudinaryForm.append("api_key", process.env.CLOUDINARY_API_KEY);
-    cloudinaryForm.append("timestamp", timestamp);
-    cloudinaryForm.append("signature", signature);
-    
-    if (isFlipped) {
-      cloudinaryForm.append("transformation", "a_hflip");
-    }
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: "POST",
-      body: cloudinaryForm,
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Upload failed: ${errorText}`);
-    }
-
-    const data = await res.json();
-    return { success: true, url: data.secure_url };
+    return { success: true, url: `https://${CF_IMAGES_DOMAIN}/${key}` };
   } catch (err) {
-    console.error("[Cloudinary] Server upload error:", err);
+    console.error("[R2] Server upload error:", err);
     return { success: false, error: err.message };
   }
 }
@@ -142,6 +129,14 @@ async function getDbUser() {
     redirect("/onboarding");
   }
   return user;
+}
+
+export async function checkOnboardingStatus() {
+  await connectDb();
+  const clerkUser = await currentUser();
+  if (!clerkUser) return { complete: false };
+  const user = await User.findOne({ clerkId: clerkUser.id });
+  return { complete: user?.onboardingComplete || false };
 }
 
 // ------------------------------
@@ -318,9 +313,9 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       ];
     }
 
-    // Auto-delete the previous selfie image from Cloudinary to save space
+    // Auto-delete the previous selfie image from R2 to save space
     if (lastSelfie && lastSelfie.imageUrl) {
-      await deleteImageFromCloudinary(lastSelfie.imageUrl);
+      await deleteImageFromR2(lastSelfie.imageUrl);
       await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
     }
 
@@ -490,14 +485,14 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         finalUrl = extractSimUrl(sim);
 
         if (finalUrl && finalUrl !== latestSelfie.imageUrl) {
-          finalUrl = await uploadUrlToCloudinary(finalUrl);
+          finalUrl = await uploadUrlToR2(finalUrl);
         }
       }else{
-          finalUrl = applyFaceCropToCloudinary(latestSelfie.imageUrl);
+          finalUrl = applyFaceCropToCFImages(latestSelfie.imageUrl);
       }
       
 
-      console.log(`[WhatIf] Scenario "${label}" generated Cloudinary URL:`, finalUrl);
+      console.log(`[WhatIf] Scenario "${label}" generated R2/CF Image URL:`, finalUrl);
 
       return {
         label,
@@ -698,8 +693,8 @@ export async function deleteSavedSimulation(simId) {
     const sim = await Simulation.findOne({ _id: simId, userId: user._id });
     if (!sim) throw new Error("Simulation not found");
 
-    if (sim.scenarioA?.imageUrl) await deleteImageFromCloudinary(sim.scenarioA.imageUrl);
-    if (sim.scenarioB?.imageUrl) await deleteImageFromCloudinary(sim.scenarioB.imageUrl);
+    if (sim.scenarioA?.imageUrl) await deleteImageFromR2(sim.scenarioA.imageUrl);
+    if (sim.scenarioB?.imageUrl) await deleteImageFromR2(sim.scenarioB.imageUrl);
 
     await Simulation.deleteOne({ _id: simId });
     return { success: true };

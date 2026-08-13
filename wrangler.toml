@@ -1,0 +1,8 @@
+name = "skin"
+compatibility_date = "2026-08-12"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".open-next/cloudflare"
+
+[[r2_buckets]]
+binding = "MY_BUCKET"
+bucket_name = "skin-selfies"
