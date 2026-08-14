@@ -1,22 +1,21 @@
-import AdmZip from "adm-zip";
+import { unzipSync, strFromU8 } from "fflate";
 
 const BASE = "https://yce-api-01.makeupar.com";
 const KEY = process.env.YOUCAM_API_KEY;
 
 /**
- * Injects a Cloudflare Image Resizing parameters into the URL so YouCam
+ * Injects a Cloudinary face-detection crop into the URL so YouCam
  * always receives a face-centered, reasonably-sized image.
- * gravity=auto or gravity=face   → auto-detects and centers on the face
- * fit=crop  → face-aware thumbnail crop
- * zoom=1.3    → zooms IN (70-75% face width, perfectly in YouCam's 60-80% sweet spot)
+ * g_face   → auto-detects and centers on the face
+ * c_thumb  → face-aware thumbnail crop
+ * z_1.3    → zooms IN (70-75% face width, perfectly in YouCam's 60-80% sweet spot)
  * w/h 1200 → high resolution for accurate skin analysis
  */
-function faceCroppedUrl(r2Url) {
-  if (!r2Url || !r2Url.startsWith('http')) return r2Url;
-  const urlObj = new URL(r2Url);
-  const CF_IMAGES_DOMAIN = process.env.NEXT_PUBLIC_CF_IMAGES_DOMAIN || urlObj.host;
-  
-  return `https://${CF_IMAGES_DOMAIN}/cdn-cgi/image/fit=crop,gravity=auto,zoom=1.3,w=1200,h=1200${urlObj.pathname}`;
+function faceCroppedUrl(cloudinaryUrl) {
+  return cloudinaryUrl.replace(
+    "/upload/",
+    "/upload/c_thumb,g_face,z_1.3,w_1200,h_1200/"
+  );
 }
 
 function formatYouCamError(errStr) {
@@ -110,21 +109,20 @@ export async function extractScoreInfo(data) {
     if (!zipResponse.ok) {
       throw new Error(`Failed to download score ZIP: ${zipResponse.status} ${zipResponse.statusText}`);
     }
-    const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
-    const zip = new AdmZip(zipBuffer);
-    const entries = zip.getEntries();
+    const zipBuffer = new Uint8Array(await zipResponse.arrayBuffer());
+    const unzipped = unzipSync(zipBuffer);
 
     // Look for score_info.json inside the ZIP (may be in skinanalysisResult/ subfolder)
-    const scoreEntry = entries.find(
-      (e) => e.entryName.endsWith("score_info.json") && !e.isDirectory
+    const scoreEntryName = Object.keys(unzipped).find(
+      (name) => name.endsWith("score_info.json")
     );
 
-    if (!scoreEntry) {
-      console.warn("[YouCam] score_info.json not found in ZIP. Entries:", entries.map(e => e.entryName));
+    if (!scoreEntryName) {
+      console.warn("[YouCam] score_info.json not found in ZIP. Entries:", Object.keys(unzipped));
       throw new Error("score_info.json not found inside YouCam results ZIP");
     }
 
-    const scoreJson = JSON.parse(scoreEntry.getData().toString("utf8"));
+    const scoreJson = JSON.parse(strFromU8(unzipped[scoreEntryName]));
     console.log("[YouCam] Extracted score_info.json:", JSON.stringify(scoreJson, null, 2));
     return scoreJson;
   }

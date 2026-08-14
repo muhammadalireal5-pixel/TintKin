@@ -14,8 +14,6 @@ export const connectDb = async () => {
     return cached.conn
 }
 
-connectDb()
-
 const UserSchema = new mongoose.Schema({
     clerkId: {type: String, unique:true, required:true},
     birthDate: {type: Date, required: true},

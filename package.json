@@ -6,13 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.621.0",
     "@clerk/nextjs": "^7.6.1",
-    "@opennextjs/cloudflare": "^0.3.0",
-    "adm-zip": "^0.6.0",
+    "@opennextjs/cloudflare": "^1.20.2",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.27.0",
     "mongoose": "^8.5.2",
     "next": "16.2.12",
@@ -25,12 +25,12 @@
     "resend": "^6.19.0"
   },
   "devDependencies": {
-    "wrangler": "^3.60.0",
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "wrangler": "^4.123.0"
   },
   "ignoreScripts": [
     "sharp",
