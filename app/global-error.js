@@ -17,7 +17,7 @@ const playfair = Playfair_Display({
   style: ["normal", "italic"],
 });
 
-export default function GlobalError({ error, unstable_retry }) {
+export default function GlobalError({ error, reset }) {
   return (
     <html lang="en" className={`${outfit.variable} ${playfair.variable}`}>
       <head>
@@ -38,7 +38,7 @@ export default function GlobalError({ error, unstable_retry }) {
           </p>
           
           <button 
-            onClick={() => unstable_retry()} 
+            onClick={() => reset()} 
             className="tk-btn-primary w-full flex items-center justify-center gap-2"
           >
             <RotateCcw className="w-4 h-4" /> Reload Application

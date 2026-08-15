@@ -178,6 +178,7 @@ h1, h2, h3, h4, h5, h6 {
 .tk-anim-3 { animation: fadeInUp 0.8s 0.3s ease both; }
 .tk-anim-4 { animation: fadeInUp 0.8s 0.45s ease both; }
 .tk-anim-5 { animation: fadeInUp 0.8s 0.6s ease both; }
+.tk-anim-6 { animation: fadeInUp 0.8s 0.75s ease both; }
 
 /* Mesh Background for 40% split */
 .tk-mesh-bg {

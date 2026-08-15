@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
 
-export default function Error({ error, unstable_retry }) {
+export default function Error({ error, reset }) {
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -26,7 +26,7 @@ export default function Error({ error, unstable_retry }) {
         
         <div className="flex flex-col sm:flex-row gap-4 w-full tk-anim-5">
           <button 
-            onClick={() => unstable_retry()} 
+            onClick={() => reset()} 
             className="tk-btn-primary flex-1 flex items-center justify-center gap-2"
           >
             <RotateCcw className="w-4 h-4" /> Try Again

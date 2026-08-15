@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { ShieldX, RotateCcw } from "lucide-react";
 
-export default function AdminError({ error, unstable_retry }) {
+export default function AdminError({ error, reset }) {
   useEffect(() => {
     console.error("Admin Error:", error);
   }, [error]);
@@ -24,7 +24,7 @@ export default function AdminError({ error, unstable_retry }) {
         </p>
         
         <button 
-          onClick={() => unstable_retry()} 
+          onClick={() => reset()} 
           className="tk-btn-primary w-full flex items-center justify-center gap-2 tk-anim-5"
         >
           <RotateCcw className="w-4 h-4" /> Try Loading Again

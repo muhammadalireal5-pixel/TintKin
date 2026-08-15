@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();

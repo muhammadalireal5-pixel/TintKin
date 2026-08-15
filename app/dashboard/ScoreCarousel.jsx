@@ -11,11 +11,11 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
 
   const groups = [
     [
-      { key: "wrinkles", val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: "Wrinkles" },
+      { key: "wrinkles", val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: "Wrinkle Smoothness" },
       { key: "firmness", val: scores.firmness, weeklyVal: weeklyScores?.firmness, label: "Firmness" },
     ],
     [
-      { key: "spots", val: scores.spots, weeklyVal: weeklyScores?.spots, label: "Spots" },
+      { key: "spots", val: scores.spots, weeklyVal: weeklyScores?.spots, label: "Spot Clarity" },
       { key: "radiance", val: scores.radiance, weeklyVal: weeklyScores?.radiance, label: "Radiance" },
     ],
   ];
@@ -29,8 +29,9 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
     return () => clearInterval(interval);
   }, [isHovered]);
 
+  const timerRef = useRef(null);
+
   const handleSwipe = (direction) => {
-    // If direction is 'left', go to next. If 'right', go to prev.
     setActiveGroup((prev) => (prev === 0 ? 1 : 0));
   };
 
@@ -66,7 +67,8 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
               onClick={() => {
                 setActiveGroup(idx);
                 setIsHovered(true);
-                setTimeout(() => setIsHovered(false), 3000); // Resume auto after 3s
+                clearTimeout(timerRef.current);
+                timerRef.current = setTimeout(() => setIsHovered(false), 3000);
               }}
               className={`w-2 h-2 rounded-full transition-all ${activeGroup === idx ? "bg-primary w-4" : "bg-primary/20 hover:bg-primary/40"}`}
               aria-label={`Show metrics group ${idx + 1}`}
@@ -77,7 +79,7 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
       
       <div className="grid grid-cols-2 gap-4">
         {currentScores.map(({ key, val, weeklyVal, label }) => {
-          const wVal = weeklyVal || val;
+          const wVal = weeklyVal ?? val;
           const delta = val - wVal;
           return (
           <div key={key} className="tk-glass p-6 animate-fade-in transition-all relative overflow-hidden group">
@@ -98,7 +100,7 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
                     className="absolute h-full rounded-full transition-all duration-1000 ease-out z-10"
                     style={{ 
                         width: `${val}%`, 
-                        backgroundColor: val > 75 ? 'var(--tk-accent-sage)' : val > 50 ? '#FFDAB9' : '#E6E6FA'
+                        backgroundColor: val > 75 ? 'var(--tk-accent-sage)' : val > 50 ? '#E8A838' : '#D4614B'
                     }}
                 />
                 <div 
@@ -109,6 +111,8 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
                     }}
                 />
             </div>
+            {val > 75 && <p className="text-[10px] text-sage font-medium mt-2 leading-tight">Great health indicator.</p>}
+            {key === 'wrinkles' && val > 75 && <p className="text-[10px] text-sage font-medium mt-2 leading-tight">Your skin is {val}% wrinkle proof!</p>}
           </div>
         )})}
       </div>

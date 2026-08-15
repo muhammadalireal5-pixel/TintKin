@@ -9,7 +9,7 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const showToast = useCallback(({ type, title, message, duration = 4000 }) => {
-    const id = Date.now().toString();
+    const id = Date.now().toString() + Math.random().toString(36).slice(2);
     setToasts((prev) => {
       // Keep max 3 toasts visible
       const newToasts = [...prev, { id, type, title, message, duration }];

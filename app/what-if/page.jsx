@@ -701,9 +701,8 @@ export default function WhatIfPage() {
                     <br/><span className="text-[10px] uppercase font-bold text-muted/70 tracking-wider">vs</span><br/>
                     <span className="text-orange-500">{sim.scenarioB?.label || sim.name?.split(" vs ")[1] || "Scenario B"}</span>
                   </p>
-                  <div className="flex gap-1 h-24 rounded-lg overflow-hidden bg-black/5 border border-white/50">
-                    {sim.scenarioA?.imageUrl ? <img src={sim.scenarioA.imageUrl} className="w-1/2 h-full object-cover" alt="" /> : <div className="w-1/2 h-full bg-black/5"></div>}
-                    {sim.scenarioB?.imageUrl ? <img src={sim.scenarioB.imageUrl} className="w-1/2 h-full object-cover" alt="" /> : <div className="w-1/2 h-full bg-black/5"></div>}
+                  <div className="h-24 rounded-lg overflow-hidden bg-black/5 border border-white/50">
+                    {sim.scenarioA?.imageUrl ? <img src={sim.scenarioA.imageUrl} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full bg-black/5"></div>}
                   </div>
                   <div className="mt-4 text-xs font-semibold text-sage flex justify-between items-center opacity-80 group-hover:opacity-100 transition-opacity">
                     <span className="text-muted/60">{sim.createdAt ? new Date(sim.createdAt).toLocaleDateString() : 'Just now'}</span>

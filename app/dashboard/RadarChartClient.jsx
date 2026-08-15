@@ -18,6 +18,8 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function RadarChartClient({ scores }) {
+  if (!scores) return null;
+
   const getSupportiveTag = (subject, value) => {
     if (value >= 80) return "Glowing";
     if (value >= 60) return "Balanced";

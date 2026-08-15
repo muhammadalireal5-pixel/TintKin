@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 
-export default function DashboardError({ error, unstable_retry }) {
+export default function DashboardError({ error, reset }) {
   useEffect(() => {
     console.error("Dashboard Error:", error);
   }, [error]);
@@ -24,7 +24,7 @@ export default function DashboardError({ error, unstable_retry }) {
         </p>
         
         <button 
-          onClick={() => unstable_retry()} 
+          onClick={() => reset()} 
           className="tk-btn-primary w-full flex items-center justify-center gap-2 tk-anim-5"
         >
           <RotateCcw className="w-4 h-4" /> Try Loading Again

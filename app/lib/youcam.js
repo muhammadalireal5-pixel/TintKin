@@ -41,8 +41,6 @@ async function pollTask(taskType, taskId) {
       headers: { Authorization: `Bearer ${KEY}` }
     }).then(r => r.json());
 
-    console.log(`[YouCam] Poll #${i + 1} for ${taskType}/${taskId}:`, JSON.stringify(res, null, 2));
-
     const data = res.data || res.result || res;
     const status = data.task_status || data.status || res.task_status;
 
@@ -76,7 +74,6 @@ async function pollTask(taskType, taskId) {
 export async function extractScoreInfo(data) {
   // --- Shape 1: Inline JSON array (data.output) ---
   if (Array.isArray(data.output)) {
-    console.log("[YouCam] Parsing inline JSON output (format=json response)");
     const result = {};
     for (const item of data.output) {
       const key = item.type || item.action;
@@ -104,7 +101,6 @@ export async function extractScoreInfo(data) {
   // --- Shape 2: ZIP URL (data.url or data.results.url) ---
   const zipUrl = data.url || data.results?.url;
   if (zipUrl && typeof zipUrl === "string") {
-    console.log("[YouCam] Response is a ZIP URL, downloading and extracting:", zipUrl);
     const zipResponse = await fetch(zipUrl);
     if (!zipResponse.ok) {
       throw new Error(`Failed to download score ZIP: ${zipResponse.status} ${zipResponse.statusText}`);
@@ -123,7 +119,6 @@ export async function extractScoreInfo(data) {
     }
 
     const scoreJson = JSON.parse(strFromU8(unzipped[scoreEntryName]));
-    console.log("[YouCam] Extracted score_info.json:", JSON.stringify(scoreJson, null, 2));
     return scoreJson;
   }
 
@@ -157,7 +152,6 @@ export async function analyzeSkin(imageUrl) {
   });
 
   const res = await response.json();
-  console.log("[YouCam] Task creation response:", JSON.stringify(res, null, 2));
   const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
 
   if (!taskId) {
@@ -194,7 +188,6 @@ export async function simulateSkin(imageUrl, intensities = {}) {
   let lastError;
   for (let i = 0; i < candidates.length; i++) {
     const candidateUrl = candidates[i];
-    console.log(`[YouCam] simulateSkin attempt ${i + 1}/${candidates.length} using URL:`, candidateUrl, "with intensities:", payloadIntensities);
 
     try {
       const response = await fetch(`${BASE}/s2s/v2.0/task/skin-simulation`, {

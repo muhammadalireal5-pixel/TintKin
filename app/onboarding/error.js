@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 
-export default function OnboardingError({ error, unstable_retry }) {
+export default function OnboardingError({ error, reset }) {
   useEffect(() => {
     console.error("Onboarding Error:", error);
   }, [error]);
@@ -24,7 +24,7 @@ export default function OnboardingError({ error, unstable_retry }) {
         </p>
         
         <button 
-          onClick={() => unstable_retry()} 
+          onClick={() => reset()} 
           className="tk-btn-primary w-full flex items-center justify-center gap-2 tk-anim-5"
         >
           <RotateCcw className="w-4 h-4" /> Try Again

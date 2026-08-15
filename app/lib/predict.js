@@ -122,7 +122,7 @@ function getMultiplier(lifestyle = {}, interventions = []) {
     // Override with what-if interventions (HIGHEST priority)
     const list = Array.isArray(interventions) ? interventions : [interventions].filter(Boolean);
     for (const item of list) {
-      if (item === "retinol" || item === "Serum") m *= 0.65;
+      if (item === "retinol" || item === "Serum") m *= MULTIPLIERS.retinol;
       else if (item === "daily_spf" || item === "Sunscreen") m *= 0.60;
       else if (item === "exfoliant" || item === "Exfoliant") m *= 0.70;
       else if (item === "moisturizer" || item === "Moisturizer") m *= 0.80;

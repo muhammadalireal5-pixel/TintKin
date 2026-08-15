@@ -11,7 +11,13 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
   try {
     const goalsList = user.goals ? user.goals.join(", ") : "General Improvement";
     const customGoal = user.customGoal ? ` (Specifically: ${user.customGoal})` : "";
-    const userProfile = `Age: ${user.birthDate ? new Date().getFullYear() - new Date(user.birthDate).getFullYear() : 'Unknown'}, Sex: ${user.sex}, Skin Type: ${user.skinType || 'Unknown'}, Goals: ${goalsList}${customGoal}`;
+    let userAge = "Unknown";
+    if (user.birthDate) {
+      const birthYear = new Date(user.birthDate).getFullYear();
+      const currentYear = new Date().getFullYear();
+      userAge = currentYear - birthYear;
+    }
+    const userProfile = `Age: ${userAge}, Sex: ${user.sex}, Skin Type: ${user.skinType || 'Unknown'}, Goals: ${goalsList}${customGoal}`;
     const skinData = `Overall Score: ${overallScore}/100, Skin Age: ${skinAge}, Wrinkles: ${scores.wrinkles}, Firmness: ${scores.firmness}, Spots: ${scores.spots}, Radiance: ${scores.radiance}`;
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 

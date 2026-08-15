@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Sparkles, Activity, Clock, FlaskConical } from "lucide-react"; // Wait, I need to check if lucide-react is installed. If not, I'll use standard SVGs. Let's stick to inline SVGs to avoid dependency issues.
 
 export function HeroSection() {
   return (
@@ -89,7 +88,7 @@ export function HeroSection() {
             <p className="text-muted leading-relaxed">Embrace a routine that listens to your skin's unique needs, backed by thoughtful intelligence.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <FeatureCard 
               title="Daily Check-ins" 
               desc="Snap a quick, filter-free photo to log your skin's mood and hydration levels instantly."

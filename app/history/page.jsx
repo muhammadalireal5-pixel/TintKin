@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getWeeklyHistory } from "@/app/lib/actions";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Activity } from "lucide-react";
+import { ArrowLeft, Calendar } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
 export default function HistoryPage() {

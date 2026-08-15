@@ -384,8 +384,12 @@ export async function getLatestData() {
   const lifestyleLogs = await Lifestyle.find({ userId: user._id }).sort({ date: -1 });
 
   // Calculate real chronological age
-  const ageMs = Date.now() - new Date(user.birthDate).getTime();
-  const realAge = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000));
+  let realAge = null;
+  if (user.birthDate) {
+    const birthYear = new Date(user.birthDate).getFullYear();
+    const currentYear = new Date().getFullYear();
+    realAge = currentYear - birthYear;
+  }
 
   // Compute weekly average (Mon-Sun)
   let weeklyAverage = null;
