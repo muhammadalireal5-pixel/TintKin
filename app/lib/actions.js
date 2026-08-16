@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { currentUser } from "@clerk/nextjs/server";
+import { getAuthenticatedUser } from "@/app/lib/firebase/admin";
 import { connectDb, User, Selfie, Lifestyle, Simulation } from "./mongoose";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
@@ -118,7 +118,7 @@ export async function uploadSelfieServerAction(formData) {
     return { success: true, url: data.secure_url };
   } catch (err) {
     console.error("[Cloudinary] Server upload error:", err);
-    return { success: false, error: err.message };
+    return { success: false, error: "Upload failed. Please try again later." };
   }
 }
 
@@ -128,16 +128,42 @@ export async function uploadSelfieServerAction(formData) {
 async function getDbUser() {
   await connectDb(); // Ensure DB is connected before querying
 
-  const clerkUser = await currentUser();
-  if (!clerkUser) redirect("/sign-in");
+  let decoded;
+  try {
+    decoded = await getAuthenticatedUser();
+  } catch (err) {
+    redirect("/sign-in");
+  }
+  if (!decoded) redirect("/sign-in");
 
-  let user = await User.findOne({ clerkId: clerkUser.id });
+  let user = await User.findOne({ firebaseUid: decoded.uid });
+
+  if (!user && decoded.email) {
+    const candidates = await User.find({ email: decoded.email });
+    if (candidates.length === 1) {
+      const candidate = candidates[0];
+      if (candidate.firebaseUid && candidate.firebaseUid !== decoded.uid) {
+        throw new Error("Firebase identity does not match the existing user");
+      }
+      if (!candidate.firebaseUid) {
+        candidate.firebaseUid = decoded.uid;
+        candidate.displayName = decoded.name || candidate.displayName;
+        candidate.photoURL = decoded.picture || candidate.photoURL;
+        await candidate.save();
+        user = candidate;
+      }
+    }
+  }
+
   if (!user) {
-    // Create user if first login (fill birthDate/sex in onboarding later—hardcode demo for now)
     user = await User.create({
-      clerkId: clerkUser.id,
+      firebaseUid: decoded.uid,
+      email: decoded.email,
+      displayName: decoded.name || "",
+      photoURL: decoded.picture || "",
     });
   }
+
   if (!user.onboardingComplete) {
     redirect("/onboarding");
   }
@@ -146,9 +172,18 @@ async function getDbUser() {
 
 export async function checkOnboardingStatus() {
   await connectDb();
-  const clerkUser = await currentUser();
-  if (!clerkUser) return { complete: false };
-  const user = await User.findOne({ clerkId: clerkUser.id });
+  let decoded;
+  try {
+    decoded = await getAuthenticatedUser();
+  } catch (e) {
+    return { complete: false };
+  }
+  if (!decoded) return { complete: false };
+  
+  let user = await User.findOne({ firebaseUid: decoded.uid });
+  if (!user && decoded.email) {
+    user = await User.findOne({ email: decoded.email });
+  }
   return { complete: user?.onboardingComplete || false };
 }
 
@@ -361,7 +396,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       workoutChanged
     };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("[analyzeAndSaveSelfie] Error:", err);
+    return { success: false, error: "Analysis failed. Please try a clearer photo or try again later." };
   }
 }
 
@@ -548,7 +584,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS 
     };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("[runWhatIfSim] Error:", err);
+    return { success: false, error: "Simulation failed. Please try again later." };
   }
 }
 
@@ -567,13 +604,13 @@ function computeDeltas(scenarioA, scenarioB) {
 
 export async function completeOnboarding(data) {
   try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) redirect('/sign-in');
+    const decoded = await getAuthenticatedUser();
+    if (!decoded) redirect('/sign-in');
 
     const { birthDate, sex, skinType, goals, customGoal } = data;
     
     await User.findOneAndUpdate(
-      { clerkId: clerkUser.id },
+      { firebaseUid: decoded.uid },
       {
         birthDate: new Date(birthDate),
         sex: sex.toLowerCase(), 
@@ -700,7 +737,8 @@ export async function getSavedSimulations() {
       }))
     };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("[getSavedSimulations] Error:", err);
+    return { success: false, error: "Failed to load simulations." };
   }
 }
 
@@ -716,7 +754,8 @@ export async function deleteSavedSimulation(simId) {
     await Simulation.deleteOne({ _id: simId });
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("[deleteSavedSimulation] Error:", err);
+    return { success: false, error: "Failed to delete simulation." };
   }
 }
 

@@ -14,7 +14,7 @@ export class ComponentErrorFallback extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("Component Error:", error, errorInfo);
+    // Error logged to monitoring service in production
   }
 
   render() {

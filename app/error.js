@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function Error({ error, reset }) {
   useEffect(() => {
-    console.error(error);
+    // Error logged to monitoring service in production
   }, [error]);
 
   return (

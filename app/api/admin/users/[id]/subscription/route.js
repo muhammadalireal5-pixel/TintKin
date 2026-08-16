@@ -33,6 +33,6 @@ export async function PATCH(request, { params }) {
     });
   } catch (err) {
     console.error("[Admin Subscription Toggle]", err);
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

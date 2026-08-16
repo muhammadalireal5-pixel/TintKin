@@ -6,9 +6,7 @@ import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOn
 import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
-
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = "ml_default";
+import Link from "next/link";
 
 export default function CapturePage() {
     const router = useRouter();
@@ -281,7 +279,7 @@ export default function CapturePage() {
                 {/* Privacy note */}
                 <p className="privacy-note mt-6">
                     <Lock size={12} strokeWidth={2} />
-                    Private &amp; securely processed
+                    Private &amp; securely processed · <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link> · <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
                 </p>
                 </ComponentErrorFallback>
             </div>

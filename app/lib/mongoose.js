@@ -15,9 +15,15 @@ export const connectDb = async () => {
 }
 
 const UserSchema = new mongoose.Schema({
-    clerkId: {type: String, unique:true, required:true},
-    birthDate: {type: Date, required: true},
-    sex: {type: String, required: true},
+    clerkId: {type: String, unique: true, sparse: true},
+    firebaseUid: {type: String, unique: true, sparse: true},
+    email: {type: String},
+    displayName: {type: String},
+    photoURL: {type: String},
+    lastLoginAt: {type: Date},
+    createdAt: {type: Date, default: Date.now},
+    birthDate: {type: Date},
+    sex: {type: String},
     skinType: {type: String},
     goals: [String],
     customGoal: String,

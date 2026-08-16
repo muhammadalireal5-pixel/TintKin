@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { connectDb, User, Selfie, Simulation } from "@/app/lib/mongoose";
-import { clerkClient } from "@clerk/nextjs/server";
+import { adminAuth } from "@/app/lib/firebase/admin";
 import AdminDashboard from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -11,32 +11,31 @@ async function fetchAdminData() {
 
   const users = await User.find({}).lean();
 
-  // Fetch Clerk user data
-  const clerk = await clerkClient();
-  let clerkUsers = {};
+  // Fetch Firebase user data
+  let firebaseUsersMap = {};
   try {
-    let allClerkUsers = [];
-    let offset = 0;
-    const limit = 100;
+    let pageToken = undefined;
     let hasMore = true;
     while (hasMore) {
-      const res = await clerk.users.getUserList({ limit, offset });
-      allClerkUsers = allClerkUsers.concat(res.data);
-      hasMore = res.data.length === limit;
-      offset += limit;
+      const listUsersResult = await adminAuth.listUsers(1000, pageToken);
+      listUsersResult.users.forEach((u) => {
+        firebaseUsersMap[u.uid] = {
+          email: u.email || "N/A",
+          firstName: u.displayName ? u.displayName.split(" ")[0] : "",
+          lastName: u.displayName ? u.displayName.split(" ").slice(1).join(" ") : "",
+          imageUrl: u.photoURL || null,
+          lastSignInAt: u.metadata.lastSignInTime ? new Date(u.metadata.lastSignInTime).toISOString() : null,
+          createdAt: u.metadata.creationTime ? new Date(u.metadata.creationTime).toISOString() : null,
+        };
+      });
+      if (listUsersResult.pageToken) {
+        pageToken = listUsersResult.pageToken;
+      } else {
+        hasMore = false;
+      }
     }
-    allClerkUsers.forEach((u) => {
-      clerkUsers[u.id] = {
-        email: u.emailAddresses?.[0]?.emailAddress || "N/A",
-        firstName: u.firstName || "",
-        lastName: u.lastName || "",
-        imageUrl: u.imageUrl || null,
-        lastSignInAt: u.lastSignInAt ? new Date(u.lastSignInAt).toISOString() : null,
-        createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
-      };
-    });
   } catch (err) {
-    console.error("[Admin] Clerk fetch error:", err);
+    console.error("[Admin] Firebase fetch error:", err);
   }
 
   const userIds = users.map((u) => u._id);
@@ -81,18 +80,18 @@ async function fetchAdminData() {
 
   const enrichedUsers = users.map((u) => {
     const uid = u._id.toString();
-    const clerkData = clerkUsers[u.clerkId] || {};
+    const firebaseData = firebaseUsersMap[u.firebaseUid] || {};
     const scanInfo = lastScanMap[uid] || {};
     const lastScanDate = scanInfo.lastScan ? new Date(scanInfo.lastScan) : null;
     const isActive = lastScanDate && lastScanDate > sevenDaysAgo;
 
     return {
       _id: uid,
-      clerkId: u.clerkId,
-      email: clerkData.email || "N/A",
-      firstName: clerkData.firstName || "",
-      lastName: clerkData.lastName || "",
-      imageUrl: clerkData.imageUrl || null,
+      firebaseUid: u.firebaseUid,
+      email: firebaseData.email || u.email || "N/A",
+      firstName: firebaseData.firstName || u.displayName?.split(" ")[0] || "",
+      lastName: firebaseData.lastName || u.displayName?.split(" ").slice(1).join(" ") || "",
+      imageUrl: firebaseData.imageUrl || u.photoURL || null,
       sex: u.sex || "N/A",
       skinType: u.skinType || "N/A",
       goals: u.goals || [],
@@ -107,8 +106,8 @@ async function fetchAdminData() {
       latestScore: scanInfo.latestScore ?? null,
       latestSkinAge: scanInfo.latestSkinAge ?? null,
       isActive,
-      clerkCreatedAt: clerkData.createdAt || null,
-      lastSignInAt: clerkData.lastSignInAt || null,
+      createdAt: firebaseData.createdAt || (u.createdAt ? new Date(u.createdAt).toISOString() : null),
+      lastSignInAt: firebaseData.lastSignInAt || (u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : null),
     };
   });
 

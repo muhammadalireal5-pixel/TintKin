@@ -1,4 +1,5 @@
-import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
+import { AuthProvider } from "./context/AuthContext";
+import { HeaderAuth } from "./components/HeaderAuth";
 import { Outfit, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import { ToastProvider } from "./components/ToastProvider";
@@ -18,15 +19,45 @@ const playfair = Playfair_Display({
 });
 
 export const metadata = {
-  title: "TintKin — Wellness Journal",
+  metadataBase: new URL("https://tintkin.com"),
+  title: {
+    template: "%s | TintKin",
+    default: "TintKin — Wellness Journal",
+  },
   description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
+  openGraph: {
+    title: "TintKin — Wellness Journal",
+    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
+    url: "https://tintkin.com",
+    siteName: "TintKin",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "TintKin Open Graph Image",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TintKin — Wellness Journal",
+    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${outfit.variable} ${playfair.variable}`}>
       <body className="tk-body">
-        <ClerkProvider>
+        <AuthProvider>
           {/* ── Header ───────────────────────────────────────── */}
           <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-md border-b border-white/20 transition-all duration-300">
             <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
@@ -37,33 +68,7 @@ export default function RootLayout({ children }) {
                 <span className="text-lg sm:text-2xl font-bold font-display tracking-tight text-primary truncate">TintKin</span>
               </Link>
 
-              {/* Nav – scrollable on tiny phones */}
-              <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1 shrink">
-                <Show when="signed-in">
-                  <Link href="/dashboard" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Dashboard</Link>
-                  <Link href="/capture" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Scan</Link>
-                  <Link href="/what-if" className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">What-If</Link>
-                </Show>
-              </nav>
-
-              {/* Auth */}
-              <div className="flex gap-1.5 sm:gap-3 items-center flex-shrink-0">
-                <Show when="signed-out">
-                  <SignInButton mode="modal">
-                    <button className="tk-pill-btn tk-btn-ghost text-xs sm:text-sm px-3 sm:px-5 py-1.5 sm:py-2.5 whitespace-nowrap">Sign In</button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <button className="tk-pill-btn tk-btn-primary text-xs sm:text-sm px-3 sm:px-5 py-1.5 sm:py-2.5 shadow-[0_4px_14px_rgba(44,62,80,0.15)] whitespace-nowrap">Start</button>
-                  </SignUpButton>
-                </Show>
-                <Show when="signed-in">
-                  <div className="rounded-full p-1 bg-lavender shadow-[0_4px_14px_rgba(230,230,250,0.6)] flex-shrink-0">
-                    <div className="rounded-full overflow-hidden bg-base">
-                      <UserButton />
-                    </div>
-                  </div>
-                </Show>
-              </div>
+              <HeaderAuth />
             </div>
           </header>
 
@@ -71,7 +76,42 @@ export default function RootLayout({ children }) {
           <ToastProvider>
             {children}
           </ToastProvider>
-        </ClerkProvider>
+
+          {/* ── Global Footer ─────────────────────────────────── */}
+          <footer className="mt-auto border-t border-black/5 bg-base/80 backdrop-blur-md">
+            <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-lavender text-primary shadow-[0_2px_8px_rgba(230,230,250,0.8)] flex-shrink-0 text-[10px]">✦</span>
+                <span className="text-sm font-display text-primary font-medium">© {new Date().getFullYear()} TintKin. All rights reserved.</span>
+              </div>
+              <div className="flex items-center gap-6">
+                <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy Policy</Link>
+                <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms of Service</Link>
+                <a href="mailto:support@tintkin.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
+              </div>
+            </div>
+          </footer>
+
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                name: "TintKin",
+                url: "https://tintkin.com",
+                description: "AI-powered skincare wellness journal and analysis.",
+                applicationCategory: "HealthAndFitnessApplication",
+                operatingSystem: "Web",
+                offers: {
+                  "@type": "Offer",
+                  price: "0",
+                  priceCurrency: "USD",
+                },
+              }),
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   );

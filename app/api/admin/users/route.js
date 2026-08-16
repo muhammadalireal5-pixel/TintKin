@@ -1,6 +1,6 @@
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { connectDb, User, Selfie, Simulation } from "@/app/lib/mongoose";
-import { clerkClient } from "@clerk/nextjs/server";
+import { adminAuth } from "@/app/lib/firebase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -16,34 +16,31 @@ export async function GET() {
     // Fetch all users from MongoDB
     const users = await User.find({}).lean();
 
-    // Fetch Clerk user data for all users
-    const clerk = await clerkClient();
-    let clerkUsers = {};
+    // Fetch Firebase user data for all users
+    let firebaseUsersMap = {};
     try {
-      // Batch fetch all Clerk users (paginated)
-      let allClerkUsers = [];
-      let offset = 0;
-      const limit = 100;
+      let pageToken = undefined;
       let hasMore = true;
       while (hasMore) {
-        const res = await clerk.users.getUserList({ limit, offset });
-        allClerkUsers = allClerkUsers.concat(res.data);
-        hasMore = res.data.length === limit;
-        offset += limit;
+        const listUsersResult = await adminAuth.listUsers(1000, pageToken);
+        listUsersResult.users.forEach((u) => {
+          firebaseUsersMap[u.uid] = {
+            email: u.email || "N/A",
+            firstName: u.displayName ? u.displayName.split(" ")[0] : "",
+            lastName: u.displayName ? u.displayName.split(" ").slice(1).join(" ") : "",
+            imageUrl: u.photoURL || null,
+            lastSignInAt: u.metadata.lastSignInTime ? new Date(u.metadata.lastSignInTime).getTime() : null,
+            createdAt: u.metadata.creationTime ? new Date(u.metadata.creationTime).getTime() : null,
+          };
+        });
+        if (listUsersResult.pageToken) {
+          pageToken = listUsersResult.pageToken;
+        } else {
+          hasMore = false;
+        }
       }
-      // Index by Clerk ID for quick lookup
-      allClerkUsers.forEach((u) => {
-        clerkUsers[u.id] = {
-          email: u.emailAddresses?.[0]?.emailAddress || "N/A",
-          firstName: u.firstName || "",
-          lastName: u.lastName || "",
-          imageUrl: u.imageUrl || null,
-          lastSignInAt: u.lastSignInAt,
-          createdAt: u.createdAt,
-        };
-      });
     } catch (err) {
-      console.error("[Admin Users] Clerk fetch error:", err);
+      console.error("[Admin Users] Firebase fetch error:", err);
     }
 
     // Aggregate scan and simulation counts per user
@@ -84,18 +81,18 @@ export async function GET() {
     // Enrich users
     const enrichedUsers = users.map((u) => {
       const uid = u._id.toString();
-      const clerkData = clerkUsers[u.clerkId] || {};
+      const firebaseData = firebaseUsersMap[u.firebaseUid] || {};
       const scanInfo = lastScanMap[uid] || {};
       const lastScanDate = scanInfo.lastScan ? new Date(scanInfo.lastScan) : null;
       const isActive = lastScanDate && lastScanDate > sevenDaysAgo;
 
       return {
         _id: uid,
-        clerkId: u.clerkId,
-        email: clerkData.email || "N/A",
-        firstName: clerkData.firstName || "",
-        lastName: clerkData.lastName || "",
-        imageUrl: clerkData.imageUrl || null,
+        firebaseUid: u.firebaseUid,
+        email: firebaseData.email || u.email || "N/A",
+        firstName: firebaseData.firstName || u.displayName?.split(" ")[0] || "",
+        lastName: firebaseData.lastName || u.displayName?.split(" ").slice(1).join(" ") || "",
+        imageUrl: firebaseData.imageUrl || u.photoURL || null,
         sex: u.sex || "N/A",
         skinType: u.skinType || "N/A",
         goals: u.goals || [],
@@ -110,8 +107,8 @@ export async function GET() {
         latestScore: scanInfo.latestScore ?? null,
         latestSkinAge: scanInfo.latestSkinAge ?? null,
         isActive,
-        clerkCreatedAt: clerkData.createdAt || null,
-        lastSignInAt: clerkData.lastSignInAt || null,
+        createdAt: firebaseData.createdAt || u.createdAt || null,
+        lastSignInAt: firebaseData.lastSignInAt || u.lastLoginAt || null,
       };
     });
 
@@ -137,6 +134,6 @@ export async function GET() {
     return Response.json({ success: true, users: enrichedUsers, stats });
   } catch (err) {
     console.error("[Admin Users] Error:", err);
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

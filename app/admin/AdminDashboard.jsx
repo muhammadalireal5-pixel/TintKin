@@ -292,7 +292,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                           {formatRelativeTime(user.lastSignInAt || user.lastScan)}
                         </td>
                         <td className="px-6 py-4 text-[var(--tk-text-muted)]">
-                          {formatDate(user.clerkCreatedAt)}
+                          {formatDate(user.createdAt)}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button 
