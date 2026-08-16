@@ -19,6 +19,7 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  serverExternalPackages: ['firebase-admin'],
 };
 
 export default nextConfig;
