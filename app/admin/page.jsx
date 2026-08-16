@@ -163,21 +163,7 @@ export default async function AdminPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                background: "var(--tk-accent-lavender)",
-                fontSize: "16px",
-                color: "var(--tk-text-primary)",
-              }}
-            >
-              ✦
-            </span>
+            <img src="/icon.png" alt="TintKin Admin Logo" style={{ width: "288px", height: "auto", objectFit: "contain", marginLeft: "-8px" }} />
             <span
               style={{
                 fontSize: "18px",
@@ -187,7 +173,7 @@ export default async function AdminPage() {
                 letterSpacing: "-0.5px",
               }}
             >
-              TintKin Admin
+              Admin
             </span>
             <span
               style={{

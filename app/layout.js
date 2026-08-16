@@ -24,6 +24,9 @@ export const metadata = {
     template: "%s | TintKin",
     default: "TintKin — Wellness Journal",
   },
+  icons: {
+    icon: "/favicon.png",
+  },
   description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
   openGraph: {
     title: "TintKin — Wellness Journal",
@@ -64,8 +67,7 @@ export default function RootLayout({ children }) {
 
               {/* Logo */}
               <Link href="/" className="flex items-center gap-1.5 flex-shrink-0 text-primary hover:opacity-80 transition-opacity min-w-0">
-                <span className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-lavender text-primary shadow-[0_4px_14px_rgba(230,230,250,0.8)] flex-shrink-0">✦</span>
-                <span className="text-lg sm:text-2xl font-bold font-display tracking-tight text-primary truncate">TintKin</span>
+                <img src="/icon.png" alt="TintKin Logo" className="w-32 sm:w-48 md:w-72 h-auto object-contain -ml-2" />
               </Link>
 
               <HeaderAuth />

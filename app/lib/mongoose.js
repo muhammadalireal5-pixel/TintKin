@@ -6,12 +6,33 @@ if (!cached) {
 }
 
 export const connectDb = async () => {
-    if(cached.conn) return cached.conn
-    if(!cached.promise) {
-        cached.promise = mongoose.connect(process.env.MONGODB_URI)
+    if (cached.conn && mongoose.connection.readyState === 1) {
+        return cached.conn;
     }
-    cached.conn = await cached.promise
-    return cached.conn
+
+    if (!cached.promise || mongoose.connection.readyState === 0) {
+        const opts = {
+            bufferCommands: false,
+            maxIdleTimeMS: 10000,
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+        };
+        cached.promise = mongoose.connect(process.env.MONGODB_URI, opts)
+            .then(mongoose => mongoose)
+            .catch(error => {
+                cached.promise = null;
+                throw error;
+            });
+    }
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+    
+    return cached.conn;
 }
 
 const UserSchema = new mongoose.Schema({
