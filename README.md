@@ -3,7 +3,7 @@
   <h1>TintKin</h1>
   <p><strong>A daily AI-powered wellness journal unlocking the true potential of your skin.</strong></p>
   <p>
-    <a href="[Live Live URL]">[Live Live URL]</a> | <a href="[Insert Video Demo Link Here]">[Insert Video Demo Link Here]</a>
+    <a href="https://tint-kin.vercel.app/">[Live Live URL]</a> | <a href="[Insert Video Demo Link Here]">[Insert Video Demo Link Here]</a>
   </p>
 </div>
 
