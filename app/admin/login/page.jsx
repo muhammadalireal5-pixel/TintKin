@@ -6,7 +6,7 @@ import { Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1 = email, 2 = OTP
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -15,7 +15,6 @@ export default function AdminLoginPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpRefs = useRef([]);
 
-  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setInterval(() => setResendCooldown((c) => c - 1), 1000);
@@ -66,7 +65,6 @@ export default function AdminLoginPage() {
       otpRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all 6 digits entered
     if (value && index === 5 && newOtp.every((d) => d)) {
       verifyOTP(newOtp.join(""));
     }
@@ -136,7 +134,6 @@ export default function AdminLoginPage() {
         overflow: "hidden",
       }}
     >
-      {/* Background orbs */}
       <div
         style={{
           position: "absolute",
@@ -164,7 +161,6 @@ export default function AdminLoginPage() {
         }}
       />
 
-      {/* Login Card */}
       <div
         style={{
           width: "100%",
@@ -183,7 +179,6 @@ export default function AdminLoginPage() {
           zIndex: 1,
         }}
       >
-        {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "36px" }}>
           <div
             style={{
@@ -222,7 +217,6 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        {/* Step 1: Email */}
         {step === 1 && (
           <form onSubmit={handleSendOTP} style={{ animation: "fadeIn 0.3s ease" }}>
             <div style={{ position: "relative", marginBottom: "20px" }}>
@@ -291,7 +285,6 @@ export default function AdminLoginPage() {
           </form>
         )}
 
-        {/* Step 2: OTP */}
         {step === 2 && (
           <div style={{ animation: "fadeIn 0.3s ease" }}>
             <div
@@ -360,7 +353,6 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            {/* Resend OTP */}
             <div style={{ textAlign: "center", marginTop: "8px" }}>
               {resendCooldown > 0 ? (
                 <p style={{ fontSize: "13px", color: "var(--tk-text-muted)", margin: 0 }}>
@@ -389,7 +381,6 @@ export default function AdminLoginPage() {
               )}
             </div>
 
-            {/* Back to email */}
             <div style={{ textAlign: "center", marginTop: "16px" }}>
               <button
                 onClick={() => { setStep(1); setOtp(["", "", "", "", "", ""]); setError(""); }}
@@ -411,7 +402,6 @@ export default function AdminLoginPage() {
           </div>
         )}
 
-        {/* Error message */}
         {error && (
           <p
             style={{
@@ -428,7 +418,6 @@ export default function AdminLoginPage() {
         )}
       </div>
 
-      {/* Shake keyframe */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

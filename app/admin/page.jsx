@@ -11,7 +11,6 @@ async function fetchAdminData() {
 
   const users = await User.find({}).lean();
 
-  // Fetch Firebase user data
   let firebaseUsersMap = {};
   try {
     let pageToken = undefined;
@@ -139,7 +138,6 @@ export default async function AdminPage() {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      {/* Admin Header */}
       <header
         style={{
           position: "sticky",
@@ -192,7 +190,6 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      {/* Dashboard */}
       <main style={{ maxWidth: "1400px", margin: "0 auto", padding: "24px" }}>
         <AdminDashboard initialUsers={users} initialStats={stats} />
       </main>

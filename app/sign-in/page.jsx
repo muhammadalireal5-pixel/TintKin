@@ -34,7 +34,9 @@ export default function SignInPage() {
         const { complete } = await checkOnboardingStatus();
         window.location.href = complete ? "/dashboard" : "/onboarding";
       } catch (err) {
-        window.location.href = "/onboarding";
+        // Default to dashboard — if they already onboarded, don't re-show it
+        // The server-side getDbUser() will redirect to onboarding if truly needed
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Sign in error:", err);

@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Users, Activity, Clock, Crown, Eye, BarChart3, Search,
-  ChevronDown, ChevronUp, Sparkles, Calendar, Target, TrendingUp, AlertCircle
+  ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle
 } from 'lucide-react';
 
 const formatRelativeTime = (dateString) => {
@@ -103,7 +103,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('All');
   const [expandedRows, setExpandedRows] = useState(new Set());
-  const [togglingMap, setTogglingMap] = useState({}); // Track loading state per user
+  const [togglingMap, setTogglingMap] = useState({});
 
   const toggleExpand = (userId) => {
     setExpandedRows(prev => {
@@ -119,7 +119,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
     
     const newStatus = !currentStatus;
     
-    // Optimistic update
     setUsers(currentUsers => 
       currentUsers.map(u => 
         u._id === userId ? { ...u, isSubscribed: newStatus } : u
@@ -135,10 +134,8 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
       });
 
       if (!res.ok) throw new Error('Failed to update subscription');
-      // On success, no need to do anything since we optimistically updated
     } catch (error) {
       console.error(error);
-      // Revert on error
       setUsers(currentUsers => 
         currentUsers.map(u => 
           u._id === userId ? { ...u, isSubscribed: currentStatus } : u
@@ -169,7 +166,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
   return (
     <div className="min-h-screen bg-[var(--tk-bg-primary)] text-[var(--tk-text-primary)] p-6 md:p-8 font-sans selection:bg-[#7E72A8]/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
       
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>
           Ops Console
@@ -177,7 +173,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         <p className="text-[var(--tk-text-muted)]">Manage users, monitor activity, and oversee TintKin operations.</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard title="Total Users" value={initialStats.totalUsers || 0} icon={Users} accentColor="#7E72A8" />
         <StatCard title="Active Users" value={initialStats.activeUsers || 0} icon={Activity} accentColor="#22c55e" />
@@ -187,7 +182,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#f97316" />
       </div>
 
-      {/* Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white/60 p-4 rounded-2xl border border-[var(--tk-border-solid)] backdrop-blur-sm">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--tk-text-faint)]" size={18} />
@@ -220,7 +214,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         </div>
       </div>
 
-      {/* Main Table */}
       <div className="bg-white/60 border border-[var(--tk-border-solid)] rounded-2xl backdrop-blur-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -303,14 +296,12 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                           </button>
                         </td>
                       </tr>
-                      {/* Expanded Row Content */}
                       {isExpanded && (
                         <tr className="bg-black/5 border-b-0">
                           <td colSpan="8" className="p-0">
                             <div className="px-6 py-6 border-l-2 border-[#7E72A8] ml-[2px] animate-in slide-in-from-top-2 fade-in duration-300">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 
-                                {/* Analytics & Scores */}
                                 <div className="space-y-4">
                                   <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
                                     <Sparkles size={14} /> Analytics
@@ -335,7 +326,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                   </div>
                                 </div>
 
-                                {/* User Profile Info */}
                                 <div className="space-y-4">
                                   <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
                                     <Target size={14} /> Profile & Goals
@@ -366,7 +356,6 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                   </div>
                                 </div>
 
-                                {/* Timeline & Status */}
                                 <div className="space-y-4">
                                   <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
                                     <Calendar size={14} /> Timeline

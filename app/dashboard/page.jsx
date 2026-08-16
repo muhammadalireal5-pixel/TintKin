@@ -4,27 +4,15 @@ import RadarChartClient from "./RadarChartClient";
 import ProgressChart from "./ProgressChart";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
-import Image from "next/image";
 import ProductImage from "./ProductImage";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 export default async function DashboardPage() {
     const { user, latestSelfie, allSelfies, realAge, weeklyAverage } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
-    
-    // Ensure user has completed onboarding
-    if (!user.onboardingComplete) redirect("/onboarding");
 
     const { overallScore, skinAge, scores, critique, habits, facialWorkout } = latestSelfie;
     
-    let lockedDaysRemaining = 0;
-    if (user.recommendationsLockedUntil) {
-        const lockedUntil = new Date(user.recommendationsLockedUntil).getTime();
-        const now = Date.now();
-        if (lockedUntil > now) {
-            lockedDaysRemaining = Math.ceil((lockedUntil - now) / (1000 * 60 * 60 * 24));
-        }
-    }
     const skinOlder = skinAge > realAge;
     const ageDelta = Math.abs(skinAge - realAge);
 
@@ -65,7 +53,6 @@ export default async function DashboardPage() {
                 {/* Bento Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 overflow-hidden">
                     
-                    {/* Overall Score (Large spanning card) */}
                     <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-2 relative">
                         <div>
                             <div className="flex justify-between items-start mb-2">
@@ -89,7 +76,6 @@ export default async function DashboardPage() {
                                 </div>
                             </div>
                             
-                            {/* Vertical divider on desktop, horizontal on mobile */}
                             <div className="hidden sm:block w-px h-16 bg-black/10"></div>
                             <div className="sm:hidden h-px w-full bg-black/5"></div>
                             
@@ -115,7 +101,6 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Age Comparison (Stacked cards) */}
                     <div className="flex flex-col gap-6 md:col-span-1 lg:col-span-1 tk-anim-3">
                         <div className="tk-glass p-6 flex-1 flex flex-col justify-center">
                             <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Real Age</p>
@@ -133,7 +118,6 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Radar Chart (Large spanning card) */}
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-1 min-h-[300px] flex flex-col tk-anim-4">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-6">Profile Radar</p>
                         <div className="flex-1 w-full relative">
@@ -143,7 +127,6 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Progress Chart (New) */}
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
                         <div className="flex justify-between items-end mb-6">
                             <div>
@@ -158,7 +141,6 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* AI Recommendations */}
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-2 flex flex-col tk-anim-6">
                          <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Habits</p>
                          <ul className="space-y-4">
@@ -190,12 +172,10 @@ export default async function DashboardPage() {
                          )}
                     </div>
 
-                    {/* Metric Details (Swipeable Carousel) */}
                     <ComponentErrorFallback title="Score Carousel">
                         <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
                     </ComponentErrorFallback>
                     
-                    {/* AI Product Recommendations & What-If Bridge */}
                     <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Products</p>
                         <div className="mb-4 text-sm text-muted">
@@ -214,7 +194,6 @@ export default async function DashboardPage() {
                             ))}
                         </div>
 
-                        {/* What-If Banner */}
                         <Link href="/what-if" className="block mt-10">
                             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer tk-anim-6">
                                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>

@@ -11,7 +11,6 @@ export function ToastProvider({ children }) {
   const showToast = useCallback(({ type, title, message, duration = 4000 }) => {
     const id = Date.now().toString() + Math.random().toString(36).slice(2);
     setToasts((prev) => {
-      // Keep max 3 toasts visible
       const newToasts = [...prev, { id, type, title, message, duration }];
       if (newToasts.length > 3) {
         return newToasts.slice(1);
@@ -27,7 +26,6 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {/* Toast Container */}
       <div
         aria-live="assertive"
         className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50 flex-col gap-2 justify-end sm:justify-start"

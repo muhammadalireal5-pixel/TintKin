@@ -3,9 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 
 export default function ScoreCarousel({ scores, weeklyScores }) {
-  // We have 4 scores, we want to show 2 at a time.
-  // Group 0: Wrinkles & Firmness
-  // Group 1: Spots & Radiance
   const [activeGroup, setActiveGroup] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -20,7 +17,6 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
     ],
   ];
 
-  // Auto-rotate every 3 seconds, pause if hovered/interacted
   useEffect(() => {
     if (isHovered) return;
     const interval = setInterval(() => {
@@ -35,7 +31,6 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
     setActiveGroup((prev) => (prev === 0 ? 1 : 0));
   };
 
-  // Simple touch swipe logic
   const touchStartXRef = useRef(0);
   const onTouchStart = (e) => {
     touchStartXRef.current = e.touches[0].clientX;

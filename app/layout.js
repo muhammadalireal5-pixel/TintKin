@@ -58,7 +58,6 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${outfit.variable} ${playfair.variable}`}>
       <body className="tk-body">
         <AuthProvider>
-          {/* ── Header ───────────────────────────────────────── */}
           <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-md border-b border-white/20 transition-all duration-300">
             <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
 
@@ -71,12 +70,10 @@ export default function RootLayout({ children }) {
             </div>
           </header>
 
-          {/* ── Page Content ─────────────────────────────────── */}
           <ToastProvider>
             {children}
           </ToastProvider>
 
-          {/* ── Global Footer ─────────────────────────────────── */}
           <footer className="mt-auto border-t border-black/5 bg-base/80 backdrop-blur-md">
             <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">

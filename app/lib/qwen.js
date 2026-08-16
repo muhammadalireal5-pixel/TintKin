@@ -1,10 +1,8 @@
 import OpenAI from "openai";
 
-// Using Qwen through an OpenAI-compatible endpoint (e.g. DeepSeek, Together, or Alibaba's DashScope)
-// Ensure QWEN_API_KEY and QWEN_BASE_URL are set in environment variables.
 const openai = new OpenAI({
   apiKey: process.env.QWEN_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1", // Default to DashScope
+  baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
 });
 
 export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge) {
@@ -63,13 +61,11 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
 
     let content = response.choices[0].message.content.trim();
     
-    // Aggressively strip markdown if it leaked
     content = content.replace(/^```json/im, "").replace(/^```/im, "").replace(/```$/im, "").trim();
     const result = JSON.parse(content);
     return result;
   } catch (error) {
     console.error("Error generating Qwen advice:", error);
-    // Fallback if AI fails so the app doesn't break
     return {
       critique: "Your skin shows a unique balance. Keep up with consistent hydration and sun protection to maintain your glow.",
       habits: ["Drink 8 glasses of water", "Apply SPF 50 daily", "Cleanse before bed"],

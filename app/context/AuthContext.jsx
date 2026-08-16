@@ -23,15 +23,20 @@ export function AuthProvider({ children }) {
 
     let isMounted = true;
 
+    const setSessionCookie = (token) => {
+      const secureFlag = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
+    };
+
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
         try {
           if (firebaseUser) {
-            const token = await firebaseUser.getIdToken().catch(() => null);
+            // Force refresh to get a fresh token every time auth state changes
+            const token = await firebaseUser.getIdToken(true).catch(() => null);
             if (token) {
-              const secureFlag = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
-              document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
+              setSessionCookie(token);
             }
             if (isMounted) setUser(firebaseUser);
           } else {
@@ -54,6 +59,19 @@ export function AuthProvider({ children }) {
       }
     );
 
+    // Refresh the token every 55 minutes to prevent expiry (tokens last 60 min)
+    const refreshInterval = setInterval(async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken(true);
+          setSessionCookie(token);
+        } catch (e) {
+          console.error("Token refresh error:", e);
+        }
+      }
+    }, 55 * 60 * 1000);
+
     // Fallback: If auth listener hasn't responded within 1.5s, don't keep UI blocked in loading
     const timeout = setTimeout(() => {
       if (isMounted) setLoading(false);
@@ -62,6 +80,7 @@ export function AuthProvider({ children }) {
     return () => {
       isMounted = false;
       clearTimeout(timeout);
+      clearInterval(refreshInterval);
       unsubscribe();
     };
   }, []);

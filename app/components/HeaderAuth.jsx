@@ -6,7 +6,7 @@ import { useState } from "react";
 import { LogOut, User } from "lucide-react";
 
 export function HeaderAuth() {
-  const { user, loading, signOutUser } = useAuthContext();
+  const { user, signOutUser } = useAuthContext();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   if (!user) {

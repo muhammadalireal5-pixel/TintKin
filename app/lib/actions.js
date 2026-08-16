@@ -28,7 +28,7 @@ async function uploadUrlToCloudinary(imageUrl) {
     return data.secure_url;
   } catch (e) {
     console.error("[Cloudinary] Failed to upload simulation image:", e);
-    return imageUrl; // Fallback to YouCam URL if upload fails
+    return imageUrl;
   }
 }
 
@@ -62,10 +62,6 @@ async function deleteImageFromCloudinary(imageUrl) {
   }
 }
 
-// ------------------------------------------
-// Helper: Apply face‑crop to a Cloudinary URL
-// ------------------------------------------
-
 function applyFaceCropToCloudinary(url){
   if (!url || !url.includes('cloudinary.com')) return url;
   const parts = url.split('/upload/');
@@ -73,10 +69,15 @@ function applyFaceCropToCloudinary(url){
   return `${parts[0]}/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/${parts[1]}`;
 }
 
-// ------------------------------
-// Helper: Secure Server-Side Upload
-// ------------------------------
 export async function uploadSelfieServerAction(formData) {
+  let decoded;
+  try {
+    decoded = await getAuthenticatedUser();
+  } catch (e) {
+    return { success: false, error: "Unauthorized" };
+  }
+  if (!decoded) return { success: false, error: "Unauthorized" };
+
   try {
     const file = formData.get("file");
     if (!file) throw new Error("No file provided");
@@ -122,11 +123,8 @@ export async function uploadSelfieServerAction(formData) {
   }
 }
 
-// ------------------------------
-// Helper: Get/create DB user from Clerk
-// ------------------------------
 async function getDbUser() {
-  await connectDb(); // Ensure DB is connected before querying
+  await connectDb();
 
   let decoded;
   try {
@@ -187,9 +185,6 @@ export async function checkOnboardingStatus() {
   return { complete: user?.onboardingComplete || false };
 }
 
-// ------------------------------
-// 1. Capture: Upload → YouCam → Save to DB
-// ------------------------------
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
 
@@ -203,15 +198,12 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     }
     if (!imageUrl) throw new Error("No image provided");
 
-    // Call YouCam API (server-only)
     const youCamResult = await analyzeSkin(imageUrl);
     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
-    // Extract scores using the unified parser (handles inline JSON + ZIP shapes)
     const scoreInfo = await extractScoreInfo(data);
     console.log("[Scores] Extracted scoreInfo:", JSON.stringify(scoreInfo, null, 2));
 
-    // Read individual concern scores (prefer ui_score, fall back to raw_score)
     const readScore = (key, label) => {
       const entry = scoreInfo[key];
       if (!entry) {
@@ -234,14 +226,12 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       radiance: readScore("radiance", "radiance"),
     };
 
-    // Warn loudly if any score is null (genuinely missing from the API response)
     for (const [label, val] of Object.entries(scores)) {
       if (val === null) {
         console.warn(`[Scores] ⚠️ "${label}" resolved to null — check YouCam response shape`);
       }
     }
 
-    // Overall score & skin age
     const overallScore = scoreInfo.all?.score ?? scoreInfo.overall_score ?? null;
     const skinAge = scoreInfo.skin_age ?? scoreInfo.age ?? null;
 
@@ -252,14 +242,12 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       console.warn("[Scores] ⚠️ skin age missing from scoreInfo:", JSON.stringify(scoreInfo, null, 2));
     }
 
-    // Log fully parsed results before saving
     console.log("[Scores] ✅ Final parsed values:", {
       scores,
       overallScore,
       skinAge,
     });
 
-    // Check if we can reuse previous advice
     const lastSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
     let useCachedAdvice = false;
 
@@ -286,7 +274,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         products: lastSelfie.recommendedProducts,
       };
     } else {
-      // Call Qwen to generate personalized advice based on scores and user goals
       advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
     }
 
@@ -299,7 +286,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     let habitsChanged = false;
     let workoutChanged = false;
 
-    // Recommendations Locking Logic
     const recommendationsLocked = user.recommendationsLockedUntil && user.recommendationsLockedUntil > Date.now();
     const workoutLocked = user.workoutLockedUntil && user.workoutLockedUntil > Date.now();
 
@@ -361,13 +347,11 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       ];
     }
 
-    // Auto-delete the previous selfie image from Cloudinary to save space
     if (lastSelfie && lastSelfie.imageUrl) {
       await deleteImageFromCloudinary(lastSelfie.imageUrl);
       await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
     }
 
-    // Save selfie to DB along with the generated advice
     const selfie = await Selfie.create({
       userId: user._id,
       imageUrl,
@@ -382,11 +366,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       recommendedProducts,
     });
 
-    // Update user's baseline selfie
     await User.findByIdAndUpdate(user._id, { baselineSelfie: imageUrl });
-
-    // Determine what changed for toasts
-    // (flags are already computed above based on lock expirations)
 
     return { 
       success: true, 
@@ -401,25 +381,20 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   }
 }
 
-// Helper for ISO week start
 function getISOWeekStart(date) {
   const d = new Date(date);
-  const day = d.getDay() || 7; // Convert Sun(0) to 7
+  const day = d.getDay() || 7;
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - day + 1);
   return d;
 }
 
-// ------------------------------
-// 2. Shared: Fetch latest selfie + user data
-// ------------------------------
 export async function getLatestData() {
   const user = await getDbUser();
   const latestSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
   const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: 1 });
   const lifestyleLogs = await Lifestyle.find({ userId: user._id }).sort({ date: -1 });
 
-  // Calculate real chronological age
   let realAge = null;
   if (user.birthDate) {
     const birthYear = new Date(user.birthDate).getFullYear();
@@ -427,7 +402,6 @@ export async function getLatestData() {
     realAge = currentYear - birthYear;
   }
 
-  // Compute weekly average (Mon-Sun)
   let weeklyAverage = null;
   const now = new Date();
   const currentWeekStart = getISOWeekStart(now).getTime();
@@ -464,10 +438,6 @@ export async function getLatestData() {
   return JSON.parse(JSON.stringify(data));
 }
 
-
-// ------------------------------
-// 4. What-If: Run 2 scenarios side-by-side
-// ------------------------------
 export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC") {
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
@@ -487,7 +457,6 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     const listA = Array.isArray(interventionsA) ? interventionsA : (interventionsA ? [interventionsA] : []);
     const listB = Array.isArray(interventionsB) ? interventionsB : (interventionsB ? [interventionsB] : []);
 
-    // Helper to compute scenario for a given intervention list
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
       const getIntensity = (base, projected) => {
@@ -501,7 +470,6 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         age_spot: getIntensity(baseline.spots, proj.scores.spots),
         radiance: getIntensity(baseline.radiance, proj.scores.radiance),
       };
-      // Skip API if there are no interventions (it's the baseline scenario)
       let finalUrl = latestSelfie.imageUrl;
       if (interventions.length === 0 && finalUrl && finalUrl.includes("/upload/")) {
         // Apply the same crop that simulateSkin uses to ensure Slider alignment
@@ -514,11 +482,9 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           intensities.radiance = 0.05;
         }
 
-        // Call the simulation API
         const sim = await simulateSkin(latestSelfie.imageUrl, intensities);
 
         const extractSimUrl = (sim) => {
-          // Primary YouCam simulation result URL
           if (sim.results?.url) return sim.results.url;
           if (sim.output_image_url) return sim.output_image_url;
           if (sim.results?.output_image_url) return sim.results.output_image_url;
@@ -531,7 +497,6 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           if (sim.data?.output_image_url) return sim.data.output_image_url;
           if (sim.url) return sim.url;
 
-          // Ultimate fallback to selfie image if simulation url is missing
           return latestSelfie.imageUrl;
         };
 
@@ -562,10 +527,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     const scenarioA = await buildScenario(listA, nameA);
     const scenarioB = await buildScenario(listB, nameB);
 
-    // Compute deltas (A - B)
     const deltas = computeDeltas(scenarioA, scenarioB);
 
-    // Save simulation to MongoDB
     const simRecord = await Simulation.create({
       userId: user._id,
       name: `${nameA} vs ${nameB}`,
@@ -589,7 +552,6 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   }
 }
 
-// Helper to compute deltas
 function computeDeltas(scenarioA, scenarioB) {
   const deltas = {};
   for (const key of Object.keys(scenarioA.projectedScores)) {
@@ -598,9 +560,6 @@ function computeDeltas(scenarioA, scenarioB) {
   deltas.skinAge = Math.round((scenarioB.finalSkinAge - scenarioA.finalSkinAge) * 10) / 10;
   return deltas;
 }
-// ------------------------------
-// 5. Onboarding: Save user profile
-// ------------------------------
 
 export async function completeOnboarding(data) {
   try {
@@ -613,8 +572,9 @@ export async function completeOnboarding(data) {
     await User.findOneAndUpdate(
       { firebaseUid: decoded.uid },
       {
+        email: decoded.email || undefined,
         birthDate: new Date(birthDate),
-        sex: sex.toLowerCase(), 
+        sex: sex ? sex.toLowerCase() : undefined, 
         skinType: skinType, 
         goals: goals, 
         customGoal: customGoal || "",
@@ -639,17 +599,7 @@ function getLocalDayStart(timezone) {
   const year = Number(parts[0]);
   const month = Number(parts[1]);
   const day = Number(parts[2]);
-  
-  // Create a string that represents midnight in the target timezone
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
-  
-  // Create date considering it's in the target timezone, but Javascript creates it in local time if we aren't careful
-  // A robust way in JS without external libraries is getting the UTC time, then adjusting.
-  // We can just use the fact that new Date('YYYY-MM-DDThh:mm:ss') parses as local time.
-  // Instead, let's format the date to find its offset.
-  
-  // Simpler approach for server-side Node: Use Intl to format the date in the timezone, find the offset.
-  // Actually, in Node, we can just do this to get a UTC date object that corresponds to midnight in that timezone:
   const dt = new Date();
   const tzStr = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -657,37 +607,19 @@ function getLocalDayStart(timezone) {
     hour: 'numeric', minute: 'numeric', second: 'numeric',
     hour12: false
   }).format(dt);
-  // This gives "MM/DD/YYYY, HH:mm:ss". We can extract the components and build the midnight UTC.
-  // Let's use a simpler string manipulation that works everywhere:
   const options = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'shortOffset' };
-  const str = new Intl.DateTimeFormat('en-US', options).format(dt); // e.g. "08/11/2026, 18:24:36 GMT+05:00"
-  // It's just easier to find the offset and apply it.
-  
-  // The most foolproof way in native JS: 
-  // Let `today` be the date string in the local TZ.
+  const str = new Intl.DateTimeFormat('en-US', options).format(dt);
   const midnight = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
   midnight.setHours(0,0,0,0);
-  
-  // Since server might be in a different timezone, we need to calculate the difference
   const serverOffset = new Date().getTimezoneOffset() * 60000;
-  
-  // We need the UTC time when it was midnight in the target timezone.
-  // Let's rely on standard parsing
   const formatter2 = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       year: 'numeric', month: '2-digit', day: '2-digit'
   });
-  const formattedDate = formatter2.format(now); // "MM/DD/YYYY"
+  const formattedDate = formatter2.format(now);
   const [mm, dd, yyyy] = formattedDate.split('/');
-  
-  // Create a date in server's local time for that day at midnight
   const targetMidnightLocal = new Date(Number(yyyy), Number(mm)-1, Number(dd), 0, 0, 0);
-  
-  // Now find the offset of the target timezone at this time
   const targetMidnightStr = targetMidnightLocal.toLocaleString('en-US', {timeZone: timezone});
-  // This is too complex.
-  
-  // The best robust native way:
   const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
   tzDate.setHours(0, 0, 0, 0);
   const diff = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: timezone })).getTime();
@@ -790,7 +722,7 @@ export async function getWeeklyHistory() {
 
   const history = Array.from(weeksMap.values())
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 12) // Cap at 12 weeks
+    .slice(0, 12)
     .map(week => {
       let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
       week.selfies.forEach(s => {

@@ -13,10 +13,8 @@ export async function GET() {
   try {
     await connectDb();
 
-    // Fetch all users from MongoDB
     const users = await User.find({}).lean();
 
-    // Fetch Firebase user data for all users
     let firebaseUsersMap = {};
     try {
       let pageToken = undefined;
@@ -43,7 +41,6 @@ export async function GET() {
       console.error("[Admin Users] Firebase fetch error:", err);
     }
 
-    // Aggregate scan and simulation counts per user
     const userIds = users.map((u) => u._id);
 
     const [scanCounts, simCounts, lastScans] = await Promise.all([
@@ -62,7 +59,6 @@ export async function GET() {
       ]),
     ]);
 
-    // Build lookup maps
     const scanMap = {};
     scanCounts.forEach((s) => (scanMap[s._id.toString()] = s.count));
     const simMap = {};
@@ -78,7 +74,6 @@ export async function GET() {
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    // Enrich users
     const enrichedUsers = users.map((u) => {
       const uid = u._id.toString();
       const firebaseData = firebaseUsersMap[u.firebaseUid] || {};
@@ -112,7 +107,6 @@ export async function GET() {
       };
     });
 
-    // Sort: active first, then by last scan date desc
     enrichedUsers.sort((a, b) => {
       if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       const aDate = a.lastScan ? new Date(a.lastScan).getTime() : 0;
@@ -120,7 +114,6 @@ export async function GET() {
       return bDate - aDate;
     });
 
-    // Compute summary stats
     const stats = {
       totalUsers: enrichedUsers.length,
       activeUsers: enrichedUsers.filter((u) => u.isActive).length,

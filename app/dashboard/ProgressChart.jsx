@@ -5,7 +5,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function ProgressChart({ allSelfies }) {
   if (!allSelfies || allSelfies.length === 0) return null;
 
-  // Format data for Recharts
   const data = allSelfies.map((selfie) => {
     const date = new Date(selfie.takenAt);
     return {
@@ -40,7 +39,6 @@ export default function ProgressChart({ allSelfies }) {
             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
             labelStyle={{ fontWeight: 'bold', color: '#1F2937', marginBottom: '8px' }}
           />
-          {/* Overall Trend Line */}
           <Line 
             type="monotone" 
             dataKey="overall" 
@@ -50,7 +48,6 @@ export default function ProgressChart({ allSelfies }) {
             activeDot={{ r: 6 }} 
             name="Overall Harmony"
           />
-          {/* Optional: we could add lines for individual scores here, but let's keep it clean with just overall for now, or add them with different colors if the user wants. */}
         </LineChart>
       </ResponsiveContainer>
     </div>

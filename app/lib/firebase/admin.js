@@ -27,7 +27,7 @@ export async function getAuthenticatedUser() {
 
   try {
     const decoded = await adminAuth.verifyIdToken(token);
-    return decoded; // { uid, email, name, picture, ... }
+    return decoded;
   } catch (err) {
     throw new Error("Unauthorized: Invalid token");
   }

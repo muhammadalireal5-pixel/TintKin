@@ -72,7 +72,6 @@ async function pollTask(taskType, taskId) {
  *          where each concern key is { ui_score, raw_score }.
  */
 export async function extractScoreInfo(data) {
-  // --- Shape 1: Inline JSON array (data.output) ---
   if (Array.isArray(data.output)) {
     const result = {};
     for (const item of data.output) {
@@ -84,7 +83,6 @@ export async function extractScoreInfo(data) {
           mask_urls: item.mask_urls,
         };
       }
-      // Capture overall/skin_age if present at item level
       if (item.type === "all" || item.action === "all") {
         result.all = { score: item.score ?? item.ui_score ?? item.raw_score };
       }
@@ -92,13 +90,11 @@ export async function extractScoreInfo(data) {
         result.skin_age = item.score ?? item.value ?? item.ui_score ?? item.raw_score;
       }
     }
-    // Also check root-level all/skin_age
     if (data.all !== undefined) result.all = data.all;
     if (data.skin_age !== undefined) result.skin_age = data.skin_age;
     return result;
   }
 
-  // --- Shape 2: ZIP URL (data.url or data.results.url) ---
   const zipUrl = data.url || data.results?.url;
   if (zipUrl && typeof zipUrl === "string") {
     const zipResponse = await fetch(zipUrl);
@@ -108,7 +104,6 @@ export async function extractScoreInfo(data) {
     const zipBuffer = new Uint8Array(await zipResponse.arrayBuffer());
     const unzipped = unzipSync(zipBuffer);
 
-    // Look for score_info.json inside the ZIP (may be in skinanalysisResult/ subfolder)
     const scoreEntryName = Object.keys(unzipped).find(
       (name) => name.endsWith("score_info.json")
     );
@@ -122,8 +117,6 @@ export async function extractScoreInfo(data) {
     return scoreJson;
   }
 
-  // --- Shape 3: Already-flat object (data itself has concern keys) ---
-  // e.g. data.wrinkle = { raw_score, ui_score, ... }
   if (data.wrinkle || data.firmness || data.age_spot || data.radiance) {
     console.log("[YouCam] Parsing flat object response");
     return data;

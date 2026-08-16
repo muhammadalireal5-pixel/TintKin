@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "env:push": "node scripts/push-env.mjs"
+    "lint": "eslint"
   },
   "dependencies": {
     "fflate": "^0.8.3",

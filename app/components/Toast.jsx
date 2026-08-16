@@ -17,7 +17,7 @@ export default function Toast({ id, type = "success", title, message, duration =
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsClosing(true);
-      setTimeout(() => onClose(id), 300); // Wait for fade out animation
+      setTimeout(() => onClose(id), 300);
     }, duration);
     return () => clearTimeout(timer);
   }, [duration, id, onClose]);
@@ -58,7 +58,6 @@ export default function Toast({ id, type = "success", title, message, duration =
           </div>
         </div>
       </div>
-      {/* Progress Bar */}
       <div className="h-1 bg-black/5 w-full">
         <div 
           className="h-full bg-primary/20" 

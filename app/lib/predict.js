@@ -5,7 +5,6 @@ const BASE_VELOCITY =  {
     radiance: -1.0,
 }
 
-//always constant
 const MULTIPLIERS = {
   spfDaily: 0.55,    // Daily SPF = -45% photoaging
   retinol: 0.6,      // 0.3% retinol 5x/week = -40% wrinkle/firmness loss
@@ -16,7 +15,6 @@ const MULTIPLIERS = {
   exercise: 0.85,    // 150min/week exercise = -15%
 };
 
-//when no user data
 const DEFAULT_LIFESTYLE = {
   sleepHours: 7,
   spfUsed: false,
@@ -26,7 +24,6 @@ const DEFAULT_LIFESTYLE = {
   exerciseMinutes: 80,
 };
 
-//helpers
 function linearRegression(points){
     const n = points.length
     if (n<2) return null
@@ -44,10 +41,8 @@ function linearRegression(points){
 function computeBlendedVelocity(selfieHistory = [], concern){
     const valid = selfieHistory.filter( s=> s?.takenAt && typeof s?.scores?.[concern] ==="number").sort((a,b)=> new Date(a.takenAt) - new Date(b.takenAt) )
 
-    //not enough data
     if (valid.length < 2) return { value: BASE_VELOCITY[concern] ?? -1, source: "baseline" };
     
-    //convert to points
     const t0 = new Date(valid[0].takenAt).getTime()
     const points = valid.map(
         s=>[
@@ -59,7 +54,6 @@ function computeBlendedVelocity(selfieHistory = [], concern){
     const userSlope = linearRegression(points);
     const daysOfData = (new Date(valid.at(-1).takenAt) - new Date(valid[0].takenAt)) / 86400000;
 
-    //hardcoded if not enough data
     if (!userSlope || daysOfData < 14) return { value: BASE_VELOCITY[concern] ?? -1, source: "baseline" };
 
     const lambda = Math.min(0.7, 0.2 + (valid.length / 20) + (daysOfData / 180));
@@ -78,7 +72,6 @@ function normalizeLifestyle(lifestyleLogs = []) {
         return {...DEFAULT_LIFESTYLE, source:"default"}
     }
 
-    //only last 30 days of data: old habits dont reflect current life
     const cutoff = Date.now() - 30 * 86400000
     const recent = lifestyleLogs.filter(
         l=> new Date(l.date ?? l.createdAt).getTime() > cutoff
@@ -150,11 +143,9 @@ export function projectTrajectory(
   interventions = [],
   selfieHistory = []
 ){
-    //1 normalize
     const normalizedLifestyle = Array.isArray(lifestyle) ? normalizeLifestyle(lifestyle) : {...DEFAULT_LIFESTYLE, ...lifestyle, source:"partial"}
     const mult = getMultiplier(normalizedLifestyle, interventions)
 
-    //2 project conerns
     const result = {scores:{}, meta:{}}
     let velocitySource = "baseline";
     let totalDataPoints = 0
@@ -163,7 +154,6 @@ export function projectTrajectory(
     for (const [concern, baseline] of Object.entries(baselineScores)) {
         if(typeof baseline !== "number") continue;
 
-        //dynamic velocity (if possible)
         const velData = computeBlendedVelocity(selfieHistory, concern);
         const baseVel = velData.value;
         if (velData.source === "user") velocitySource = "user";
@@ -182,13 +172,9 @@ export function projectTrajectory(
         result.scores[concern] = Math.round(score * 10) / 10;
     }
 
-    //3 derive skin age
-    //negative == younger, positive = older
-
     result.skinAgeDelta = Math.round((mult - 1) * years * 10) / 10;
     result.lifestyleMultiplier = Math.round(mult * 100) / 100;
 
-    //step 4, metadeta for ui
     result.meta = {
     velocitySource, // "user" | "blended" | "baseline"
     lifestyleSource: normalizedLifestyle.source, // "user" | "partial" | "default"

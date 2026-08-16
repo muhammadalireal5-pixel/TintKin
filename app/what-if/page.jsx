@@ -30,24 +30,20 @@ const DEFAULT_PRODUCTS = [
 export default function WhatIfPage() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [hasSelfie, setHasSelfie] = useState(true);
-  const [simMode, setSimMode] = useState("single"); // "single" | "compare" | "full" | "custom"
+  const [simMode, setSimMode] = useState("single");
 
-  // Selections
-  const [selectedSingle, setSelectedSingle] = useState(0); // index in products
+  const [selectedSingle, setSelectedSingle] = useState(0);
   const [prodAIndex, setProdAIndex] = useState(0);
   const [prodBIndex, setProdBIndex] = useState(1);
-  const [customListA, setCustomListA] = useState([0, 1, 2]); // indices for custom Scenario A
-  const [customListB, setCustomListB] = useState([]); // indices for custom Scenario B
+  const [customListA, setCustomListA] = useState([0, 1, 2]);
+  const [customListB, setCustomListB] = useState([]);
 
-  // Simulation output
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // History
   const [history, setHistory] = useState([]);
 
-  // Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [simToDelete, setSimToDelete] = useState(null);
   const [quotas, setQuotas] = useState(null);
@@ -136,7 +132,7 @@ export default function WhatIfPage() {
         setResult(res);
         setHistory((prev) => [res, ...prev]);
       } else {
-        setError(res.error || "Simulation failed. Please try again.");
+        setError(res.message || res.error || "Simulation failed. Please try again.");
       }
     } catch (err) {
       setLoading(false);
@@ -145,7 +141,7 @@ export default function WhatIfPage() {
   };
 
   const handleDeleteSim = (e, simId) => {
-    e.stopPropagation(); // prevent clicking the card
+    e.stopPropagation();
     setSimToDelete(simId);
     setDeleteModalOpen(true);
   };
@@ -157,10 +153,8 @@ export default function WhatIfPage() {
     setDeleteModalOpen(false);
     setSimToDelete(null);
 
-    // Optimistic UI update
     setHistory((prev) => prev.filter((s) => (s.id || s._id) !== id));
 
-    // Call server action
     await deleteSavedSimulation(id);
   };
 
@@ -180,7 +174,6 @@ export default function WhatIfPage() {
     <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
       <div className="max-w-5xl mx-auto relative z-10">
 
-        {/* Header */}
         <div className="mb-10 text-center tk-anim-1">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#FFDAB9]/40 text-orange-400 shadow-[0_8px_32px_rgba(255,218,185,0.8)] mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -199,7 +192,6 @@ export default function WhatIfPage() {
           </p>
         </div>
 
-        {/* No Selfie Alert */}
         {!hasSelfie && (
           <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-10 text-center border border-amber-200/50 bg-amber-50/40">
             <p className="text-primary font-medium text-lg mb-1">Selfie Required for AI Visuals</p>
@@ -213,7 +205,6 @@ export default function WhatIfPage() {
           </div>
         )}
 
-        {/* Section 1: Recommended Products Display */}
         <div className="mb-10 tk-anim-2">
           <div className="flex items-center justify-between mb-5">
             <div>
@@ -225,7 +216,6 @@ export default function WhatIfPage() {
             </span>
           </div>
 
-          {/* Product Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {products.map((prod, idx) => {
               const isSelectedSingle = selectedSingle === idx;
@@ -243,7 +233,6 @@ export default function WhatIfPage() {
                     ${simMode === "compare" && (isProdA || isProdB) ? "ring-2 ring-orange-300 border-orange-300/40 bg-white/70 scale-[1.02]" : ""}
                   `}
                 >
-                  {/* Badge & Type */}
                   <div className="flex justify-between items-start mb-3 z-10">
                     <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
                       {prod.type || "Product"}
@@ -264,7 +253,6 @@ export default function WhatIfPage() {
                     )}
                   </div>
 
-                  {/* Visual Image Container */}
                   <div className="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-white/50 border border-white/60 shadow-inner group-hover:scale-[1.01] transition-transform">
                     <ProductImage
                       type={prod.type}
@@ -274,7 +262,6 @@ export default function WhatIfPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-60"></div>
                   </div>
 
-                  {/* Details */}
                   <div className="mb-4">
                     <h3 className="font-display text-base font-semibold text-primary mb-1 line-clamp-1">
                       {prod.formula || `${prod.type} Treatment`}
@@ -284,7 +271,6 @@ export default function WhatIfPage() {
                     </p>
                   </div>
 
-                  {/* Mode-Specific Actions */}
                   <div className="pt-3 border-t border-black/5 flex flex-col gap-2">
                     {simMode === "single" && (
                       <button
@@ -361,7 +347,6 @@ export default function WhatIfPage() {
           </div>
         </div>
 
-        {/* Section 2: Mode Selector Controls */}
         <div className="tk-glass p-6 sm:p-8 rounded-3xl mb-10 tk-anim-3">
           <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-4">
             Simulation Comparison Mode
@@ -417,7 +402,6 @@ export default function WhatIfPage() {
             </button>
           </div>
 
-          {/* Mode Summary Banner */}
           <div className="bg-white/40 border border-white/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-muted">
               {simMode === "single" && (
@@ -464,14 +448,12 @@ export default function WhatIfPage() {
           </div>
         </div>
 
-        {/* Error Notification */}
         {error && (
           <div className="tk-anim-3 bg-red-50/90 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-medium mb-8 text-center shadow-xs">
             {error}
           </div>
         )}
 
-        {/* Loading Skeleton */}
         {loading && (
           <div className="tk-anim-3 tk-glass p-8 rounded-3xl mb-8 space-y-6">
             <div className="flex justify-between items-center">
@@ -487,14 +469,11 @@ export default function WhatIfPage() {
           </div>
         )}
 
-        {/* Section 3: Interactive Results */}
         {result && !loading && (
           <div id="simulation-results" className="flex flex-col gap-8 tk-anim-4 scroll-mt-24">
             <ComponentErrorFallback title="Simulation Results">
 
-            {/* Compare Slider Card */}
             <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border border-white/50">
-              {/* Scenario Header Badges */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/50 border-b border-white/30 gap-3">
                 <div className="inline-flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-sage"></span>
@@ -511,7 +490,6 @@ export default function WhatIfPage() {
                 </div>
               </div>
               
-              {/* Image Slider */}
               <div className="relative min-h-[380px] sm:min-h-[460px] bg-black/5" style={{ aspectRatio: '4/3' }}>
                 <ReactCompareSlider
                   handle={
@@ -538,7 +516,6 @@ export default function WhatIfPage() {
               </div>
             </div>
 
-            {/* Impact Analysis Table */}
             <div className="tk-glass rounded-3xl overflow-hidden border border-white/50">
               <div className="bg-sage/10 border-b border-sage/20 p-4 flex items-center gap-3">
                 <Calendar size={24} className="text-sage" />
@@ -606,7 +583,6 @@ export default function WhatIfPage() {
                 </table>
               </div>
               
-              {/* Mobile Card Layout */}
               <div className="sm:hidden flex flex-col p-4 gap-4">
                 <div className="bg-white/50 border border-white/60 rounded-2xl p-4 shadow-sm">
                   <div className="text-sm font-semibold text-primary mb-3">Projected Skin Age</div>
@@ -660,7 +636,6 @@ export default function WhatIfPage() {
           </div>
         )}
 
-        {/* Section 4: History / Saved Simulations */}
         {history.length > 0 && (
           <div className="mt-16 tk-anim-5">
             <h3 className="text-xl font-display font-medium text-primary mb-6 flex items-center gap-2">

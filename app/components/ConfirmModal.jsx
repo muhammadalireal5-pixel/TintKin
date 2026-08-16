@@ -29,14 +29,12 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
         onClick={onCancel}
         aria-hidden="true"
       />
       
-      {/* Modal Card */}
       <div 
         className="tk-glass bg-white/70 w-full max-w-sm rounded-2xl p-6 shadow-xl relative z-10 animate-fade-in animate-scale-up"
         role="dialog"

@@ -36,7 +36,6 @@ export default function RadarChartClient({ scores }) {
     <div className="h-full w-full absolute inset-0 pb-6">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-          {/* Removed PolarGrid and PolarRadiusAxis to eliminate harsh grid lines */}
           <PolarAngleAxis
             dataKey="subject"
             tick={{ fontSize: 11, fill: '#8E9BAA', fontFamily: 'var(--font-outfit, inherit)' }}
@@ -45,15 +44,15 @@ export default function RadarChartClient({ scores }) {
           <Tooltip content={<CustomTooltip />} />
           <Radar
             dataKey="value"
-            stroke="rgba(138, 154, 91, 0.6)" // Sage
+            stroke="rgba(138, 154, 91, 0.6)"
             fill="url(#radarGradient)"
             fillOpacity={0.6}
             strokeWidth={2}
           />
           <defs>
             <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#E6E6FA" /> {/* Lavender */}
-              <stop offset="100%" stopColor="#8A9A5B" stopOpacity={0.5} /> {/* Sage */}
+              <stop offset="0%" stopColor="#E6E6FA" />
+              <stop offset="100%" stopColor="#8A9A5B" stopOpacity={0.5} />
             </linearGradient>
           </defs>
         </RadarChart>

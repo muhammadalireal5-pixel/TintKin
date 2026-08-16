@@ -10,23 +10,16 @@
   --font-body: var(--font-outfit);
 }
 
-/* ============================================================
-   TINTKIN DESIGN SYSTEM
-   Brand: TintKin | Skincare AI (Wellness Journal Aesthetic)
-   ============================================================ */
-
 :root {
-  /* ── Brand Colors ─────────────────────────────── */
-  --tk-bg: #FDFBF7; /* Alabaster / Warm Oat */
-  --tk-text-primary: #2C3E50; /* Deep Charcoal */
-  --tk-text-muted: #5B6D7F; /* Softer Charcoal for secondary text */
+  --tk-bg: #FDFBF7;
+  --tk-text-primary: #2C3E50;
+  --tk-text-muted: #5B6D7F;
   --tk-text-faint: #8E9BAA;
   
   --tk-accent-lavender: #E6E6FA;
   --tk-accent-sage: #8A9A5B;
   --tk-accent-peach: #FFDAB9;
   
-  /* ── Gradients ──────────────────────────────────── */
   --tk-gradient-mesh: radial-gradient(at 0% 0%, rgba(230,230,250, 0.4) 0px, transparent 50%),
                       radial-gradient(at 100% 0%, rgba(255,218,185, 0.4) 0px, transparent 50%),
                       radial-gradient(at 100% 100%, rgba(230,230,250, 0.4) 0px, transparent 50%),
@@ -34,22 +27,16 @@
 
   --tk-gradient-pastel: linear-gradient(135deg, rgba(230,230,250,0.6) 0%, rgba(255,218,185,0.6) 100%);
 
-  /* ── Background & Surface ──────────────────────────────── */
   --tk-surface-glass: rgba(255, 255, 255, 0.4);
   --tk-border-glass: rgba(255, 255, 255, 0.2);
   --tk-border-solid: rgba(44, 62, 80, 0.08);
 
-  /* ── Glow Shadows ──────────────────────────────────────── */
   --tk-glow-card: 0 8px 32px rgba(44, 62, 80, 0.05), 0 0 0 1px var(--tk-border-glass);
   --tk-glow-focus: 0 0 40px rgba(230,230,250,0.6);
   
   --font-display: var(--font-playfair, 'Playfair Display', serif);
   --font-body: var(--font-outfit, 'Outfit', system-ui, sans-serif);
 }
-
-/* ============================================================
-   KEYFRAME ANIMATIONS
-   ============================================================ */
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(24px); }
@@ -80,10 +67,6 @@
   100% { opacity: 0; transform: translateY(10px) scale(0.95); }
 }
 
-/* ============================================================
-   BASE RESET & GLOBALS
-   ============================================================ */
-
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -105,10 +88,6 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
-/* ============================================================
-   SCROLLBAR
-   ============================================================ */
-
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
@@ -127,23 +106,17 @@ h1, h2, h3, h4, h5, h6 {
 /* Mobile safe-area helper */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0); }
 
-/* ============================================================
-   UTILITY CLASSES
-   ============================================================ */
-
-/* Glass morphism card */
 .tk-glass {
   background: var(--tk-surface-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--tk-border-glass);
   box-shadow: var(--tk-glow-card);
-  border-radius: 1.5rem; /* rounded-3xl approx */
+  border-radius: 1.5rem;
 }
 
-/* Pill button */
 .tk-pill-btn {
-  border-radius: 9999px; /* rounded-full */
+  border-radius: 9999px;
   padding: 0.75rem 1.5rem;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -172,7 +145,6 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
-/* Fade in up animation helpers */
 .tk-anim-1 { animation: fadeInUp 0.8s ease both; }
 .tk-anim-2 { animation: fadeInUp 0.8s 0.15s ease both; }
 .tk-anim-3 { animation: fadeInUp 0.8s 0.3s ease both; }
@@ -180,7 +152,6 @@ h1, h2, h3, h4, h5, h6 {
 .tk-anim-5 { animation: fadeInUp 0.8s 0.6s ease both; }
 .tk-anim-6 { animation: fadeInUp 0.8s 0.75s ease both; }
 
-/* Mesh Background for 40% split */
 .tk-mesh-bg {
   background-color: var(--tk-bg);
   background-image: var(--tk-gradient-mesh);
@@ -188,12 +159,10 @@ h1, h2, h3, h4, h5, h6 {
   animation: meshShift 15s ease infinite;
 }
 
-/* Tooltip animation */
 .tk-tooltip-anim {
   animation: tooltipFade 4s ease-in-out forwards;
 }
 
-/* Overflow-safe card utility */
 .tk-card-safe {
   min-width: 0;
   overflow: hidden;

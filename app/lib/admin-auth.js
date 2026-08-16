@@ -4,7 +4,6 @@ import crypto from "crypto";
 import { Resend } from "resend";
 import { cookies } from "next/headers";
 
-// ── Resend client ─────────────────────────────────────────
 let resendClient = null;
 function getResendClient() {
   if (!resendClient) {
@@ -13,26 +12,21 @@ function getResendClient() {
   return resendClient;
 }
 
-// ── Constants ─────────────────────────────────────────────
 const ADMIN_EMAIL = "muhammad0alire@gmail.com";
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_OTP_REQUESTS = 3;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
-// ── In-memory OTP store ───────────────────────────────────
 // { code, expiresAt, used }
 let otpStore = null;
 
-// ── Rate limiter ──────────────────────────────────────────
 const rateLimitLog = []; // timestamps of OTP requests
 
-// ── OTP Generation ────────────────────────────────────────
 function generateOTP() {
   return crypto.randomInt(100000, 999999).toString();
 }
 
-// ── Rate limit check ──────────────────────────────────────
 function checkRateLimit() {
   const now = Date.now();
   // Remove entries older than the window
@@ -46,7 +40,6 @@ function checkRateLimit() {
   return true;
 }
 
-// ── Send OTP via Resend ───────────────────────────────────
 export async function sendAdminOTP(email) {
   // Only allow the admin email
   if (email.toLowerCase().trim() !== ADMIN_EMAIL) {
@@ -95,7 +88,6 @@ export async function sendAdminOTP(email) {
   }
 }
 
-// ── Verify OTP ────────────────────────────────────────────
 export async function verifyAdminOTP(email, code) {
   if (email.toLowerCase().trim() !== ADMIN_EMAIL) {
     return { success: false, error: "Invalid credentials." };
@@ -137,8 +129,8 @@ export async function verifyAdminOTP(email, code) {
   return { success: true };
 }
 
-// ── Sign session token ────────────────────────────────────
 function signAdminToken(payload) {
+  if (!process.env.ADMIN_SESSION_SECRET) throw new Error("ADMIN_SESSION_SECRET is not configured");
   const data = JSON.stringify(payload);
   const encoded = Buffer.from(data).toString("base64url");
   const signature = crypto
@@ -148,7 +140,6 @@ function signAdminToken(payload) {
   return `${encoded}.${signature}`;
 }
 
-// ── Verify session token ──────────────────────────────────
 export async function verifyAdminSession() {
   try {
     const cookieStore = await cookies();
@@ -176,7 +167,6 @@ export async function verifyAdminSession() {
   }
 }
 
-// ── Logout ────────────────────────────────────────────────
 export async function adminLogout() {
   const cookieStore = await cookies();
   cookieStore.delete("admin-session");

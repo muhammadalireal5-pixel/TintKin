@@ -85,10 +85,9 @@ export default function CapturePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Show preview and wait for confirmation
         setPreview(URL.createObjectURL(file));
         setSelectedFile(file);
-        setIsFlipped(false); // reset flip state
+        setIsFlipped(false);
         setStatus(null);
         e.target.value = "";
     };
@@ -119,7 +118,7 @@ export default function CapturePage() {
                 setStatus({ type: "success", msg: "Done! Opening your journal…" });
                 setTimeout(() => router.push("/dashboard"), 900);
             } else {
-                setStatus({ type: "error", msg: `Oops: ${res.error}` });
+                setStatus({ type: "error", msg: `Oops: ${res.message || res.error}` });
                 setLoading(false);
             }
         } catch {
@@ -130,7 +129,6 @@ export default function CapturePage() {
 
     return (
         <div className="capture-page">
-            {/* Hidden native inputs */}
             <input
                 ref={cameraInputRef}
                 type="file"
@@ -149,13 +147,11 @@ export default function CapturePage() {
                 aria-hidden="true"
             />
 
-            {/* Ambient blobs */}
             <div className="blob blob-1" aria-hidden="true" />
             <div className="blob blob-2" aria-hidden="true" />
 
             <div className="capture-card">
                 <ComponentErrorFallback title="Camera Access Error">
-                {/* Header */}
                 <div className="capture-header">
                     <div className="camera-badge">
                         <Camera size={26} strokeWidth={2} />
@@ -166,7 +162,6 @@ export default function CapturePage() {
                     </p>
                 </div>
 
-                {/* Preview or CTA */}
                 {preview ? (
                     <div>
                         <div className="preview-wrap">
@@ -219,7 +214,6 @@ export default function CapturePage() {
                                 </div>
                             </div>
                         )}
-                        {/* Camera */}
                         <button
                             className="cta-btn cta-primary"
                             onClick={() => handleActionClick('camera')}
@@ -239,7 +233,6 @@ export default function CapturePage() {
                             <span /><p>or</p><span />
                         </div>
 
-                        {/* Gallery */}
                         <button
                             className="cta-btn cta-secondary"
                             onClick={() => handleActionClick('gallery')}
@@ -256,7 +249,6 @@ export default function CapturePage() {
                     </div>
                 )}
 
-                {/* Status pill */}
                 {status && (
                     <div className={`status-pill status-${status.type}`}>
                         {status.type === "success" && <CheckCircle2 size={16} />}
@@ -266,7 +258,6 @@ export default function CapturePage() {
                     </div>
                 )}
 
-                {/* Retake option when preview is shown and not loading */}
                 {preview && !loading && (
                     <button
                         className="retake-btn flex items-center justify-center w-full mt-2"
@@ -276,7 +267,6 @@ export default function CapturePage() {
                     </button>
                 )}
 
-                {/* Privacy note */}
                 <p className="privacy-note mt-6">
                     <Lock size={12} strokeWidth={2} />
                     Private &amp; securely processed · <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link> · <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
@@ -296,7 +286,6 @@ export default function CapturePage() {
                     overflow: hidden;
                 }
 
-                /* ── Blobs ─────────────────────────────────────────── */
                 .blob {
                     position: absolute;
                     border-radius: 50%;
@@ -317,7 +306,6 @@ export default function CapturePage() {
                     animation: orbFloat 18s ease-in-out infinite reverse;
                 }
 
-                /* ── Card ──────────────────────────────────────────── */
                 .capture-card {
                     position: relative;
                     z-index: 1;
@@ -340,7 +328,6 @@ export default function CapturePage() {
                     }
                 }
 
-                /* ── Header ────────────────────────────────────────── */
                 .capture-header { text-align: center; margin-bottom: 1.75rem; }
 
                 .camera-badge {
@@ -370,7 +357,6 @@ export default function CapturePage() {
                     margin: 0;
                 }
 
-                /* ── CTAs ──────────────────────────────────────────── */
                 .cta-group {
                     display: flex;
                     flex-direction: column;
@@ -394,7 +380,6 @@ export default function CapturePage() {
                 .cta-btn:disabled { opacity: 0.5; pointer-events: none; }
                 .cta-btn:active { transform: scale(0.97); }
 
-                /* Primary — camera */
                 .cta-primary {
                     background: var(--tk-text-primary);
                     color: #fff;
@@ -406,7 +391,6 @@ export default function CapturePage() {
                     box-shadow: 0 10px 30px rgba(44,62,80,0.25);
                 }
 
-                /* Secondary — gallery */
                 .cta-secondary {
                     background: rgba(255,255,255,0.6);
                     color: var(--tk-text-primary);
@@ -462,7 +446,6 @@ export default function CapturePage() {
                     flex-shrink: 0;
                 }
 
-                /* ── OR divider ────────────────────────────────────── */
                 .or-divider {
                     display: flex;
                     align-items: center;
@@ -483,7 +466,6 @@ export default function CapturePage() {
                     letter-spacing: 0.07em;
                 }
 
-                /* ── Photo preview ─────────────────────────────────── */
                 .preview-wrap {
                     position: relative;
                     width: 100%;
@@ -517,7 +499,6 @@ export default function CapturePage() {
                     animation: spin 0.85s linear infinite;
                 }
 
-                /* ── Status pill ───────────────────────────────────── */
                 .status-pill {
                     display: flex;
                     align-items: center;
@@ -534,7 +515,6 @@ export default function CapturePage() {
                 .status-error   { background: rgba(224,84,84,0.08);  color: #c94444;               border: 1px solid rgba(224,84,84,0.2); }
                 .status-info    { background: rgba(230,230,250,0.5); color: var(--tk-text-primary); border: 1px solid rgba(230,230,250,0.4); }
 
-                /* ── Retake ────────────────────────────────────────── */
                 .retake-btn {
                     display: block;
                     width: 100%;
@@ -550,7 +530,6 @@ export default function CapturePage() {
                 }
                 .retake-btn:hover { color: var(--tk-text-primary); }
 
-                /* ── Privacy note ──────────────────────────────────── */
                 .privacy-note {
                     display: flex;
                     align-items: center;
@@ -561,11 +540,9 @@ export default function CapturePage() {
                     margin: 0;
                 }
 
-                /* ── Animations ────────────────────────────────────── */
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .spin { animation: spin 1.1s linear infinite; }
 
-                /* sr-only */
                 .sr-only {
                     position: absolute;
                     width: 1px; height: 1px;
