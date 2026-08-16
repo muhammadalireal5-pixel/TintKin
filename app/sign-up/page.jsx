@@ -43,7 +43,7 @@ export default function SignUpPage() {
       } else if (err.code === "auth/weak-password") {
         setError("Password is too weak. Please use at least 6 characters.");
       } else {
-        setError(err.message || "Failed to create account. Please try again.");
+        setError("Something went wrong, please try again later.");
       }
       setLoading(false);
     }

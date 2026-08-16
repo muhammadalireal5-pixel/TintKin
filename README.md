@@ -60,4 +60,3 @@ Another challenge was adhering to the strict facial positioning requirements of 
 * **Mobile App:** Porting the Next.js web application to React Native for native push notifications and daily check-in reminders.
 
 ---
-*Built with ❤️ for the YouCam API Hackathon.*

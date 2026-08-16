@@ -47,7 +47,7 @@ export default function SignInPage() {
       } else if (err.code === "auth/network-request-failed") {
         setError("Network error. Please check your internet connection.");
       } else {
-        setError(err.message || "Failed to sign in. Please try again.");
+        setError("Something went wrong, please try again later.");
       }
       setLoading(false);
     }
@@ -76,7 +76,7 @@ export default function SignInPage() {
       } else if (err.code === "auth/invalid-email") {
         setError("Please enter a valid email address.");
       } else {
-        setError(err.message || "Failed to send reset email. Please try again.");
+        setError("Something went wrong, please try again later.");
       }
       setResetLoading(false);
     }

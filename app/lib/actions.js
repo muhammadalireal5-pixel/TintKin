@@ -604,6 +604,7 @@ function computeDeltas(scenarioA, scenarioB) {
 
 export async function completeOnboarding(data) {
   try {
+    await connectDb();
     const decoded = await getAuthenticatedUser();
     if (!decoded) redirect('/sign-in');
 
@@ -624,7 +625,8 @@ export async function completeOnboarding(data) {
 
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("[completeOnboarding] Error:", err);
+    return { success: false, error: "Something went wrong, please try again later" };
   }
 }
 

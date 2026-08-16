@@ -63,7 +63,8 @@ export default function OnboardingPage() {
                 setLoading(false);
             }
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError("Something went wrong, please try again later");
             setLoading(false);
         }
     };

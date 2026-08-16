@@ -140,7 +140,7 @@ export default function WhatIfPage() {
       }
     } catch (err) {
       setLoading(false);
-      setError(err.message || "An unexpected error occurred.");
+      setError("Something went wrong, please try again later.");
     }
   };
 
