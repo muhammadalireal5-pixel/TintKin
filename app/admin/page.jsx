@@ -97,6 +97,7 @@ async function fetchAdminData() {
       customGoal: u.customGoal || "",
       onboardingComplete: u.onboardingComplete || false,
       isSubscribed: u.isSubscribed || false,
+      tier: u.tier || 'free',
       subscribedAt: u.subscribedAt ? new Date(u.subscribedAt).toISOString() : null,
       birthDate: u.birthDate ? new Date(u.birthDate).toISOString() : null,
       scanCount: scanMap[uid] || 0,

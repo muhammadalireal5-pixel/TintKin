@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload }) => {
 export default function RadarChartClient({ scores }) {
   if (!scores) return null;
 
-  const getSupportiveTag = (subject, value) => {
+  const getSupportiveTag = (value) => {
     if (value >= 80) return "Glowing";
     if (value >= 60) return "Balanced";
     return "Needs love";
@@ -29,7 +29,7 @@ export default function RadarChartClient({ scores }) {
   const data = Object.entries(scores).map(([subject, value]) => ({ 
     subject, 
     value,
-    tag: getSupportiveTag(subject, value)
+    tag: getSupportiveTag(value)
   }));
 
   return (

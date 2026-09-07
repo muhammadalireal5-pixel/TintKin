@@ -99,7 +99,7 @@ export async function extractScoreInfo(data) {
   if (zipUrl && typeof zipUrl === "string") {
     const zipResponse = await fetch(zipUrl);
     if (!zipResponse.ok) {
-      throw new Error(`Failed to download score ZIP: ${zipResponse.status} ${zipResponse.statusText}`);
+      throw new Error(`Unable to extract results`);
     }
     const zipBuffer = new Uint8Array(await zipResponse.arrayBuffer());
     const unzipped = unzipSync(zipBuffer);
@@ -109,8 +109,7 @@ export async function extractScoreInfo(data) {
     );
 
     if (!scoreEntryName) {
-      console.warn("[YouCam] score_info.json not found in ZIP. Entries:", Object.keys(unzipped));
-      throw new Error("score_info.json not found inside YouCam results ZIP");
+      throw new Error("Failed to get scores, please try again soon!");
     }
 
     const scoreJson = JSON.parse(strFromU8(unzipped[scoreEntryName]));
@@ -122,7 +121,6 @@ export async function extractScoreInfo(data) {
     return data;
   }
 
-  console.warn("[YouCam] Unrecognized response shape, returning raw data:", JSON.stringify(data, null, 2));
   return data;
 }
 
@@ -215,11 +213,10 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         errMsg.includes("out of bound");
 
       if (isRetryable && i < candidates.length - 1) {
-        console.log(`[YouCam] simulateSkin candidate ${i + 1} failed with face positioning error: "${errMsg}". Retrying next candidate...`);
         continue;
       }
 
-      throw err;
+      throw "Something went wrong, try again later!";
     }
   }
 

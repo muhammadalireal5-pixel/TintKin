@@ -77,39 +77,59 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
           const wVal = weeklyVal ?? val;
           const delta = val - wVal;
           return (
-          <div key={key} className="tk-glass p-6 animate-fade-in transition-all relative overflow-hidden group">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">{label}</p>
-            <div className="flex items-baseline gap-2 mb-2">
-              <p className="text-3xl font-display text-primary">{val}</p>
-              {delta !== 0 && (
-                <span className={`text-xs font-semibold ${delta > 0 ? 'text-sage' : 'text-orange-400'}`}>
-                  {delta > 0 ? `+${delta} ↑` : `${delta} ↓`}
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-4">
-              Week Avg: {wVal}
-            </p>
-            <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden relative">
-                <div 
+            <div
+              key={key}
+              className="tk-glass p-5 sm:p-6 transition-all relative overflow-hidden group flex flex-col justify-between h-[195px] sm:h-[210px] select-none"
+            >
+              <div>
+                <p className="text-xs font-semibold tracking-widest uppercase text-muted h-8 flex items-start leading-tight mb-2">
+                  {label}
+                </p>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <p className="text-3xl font-display text-primary">{val}</p>
+                  {delta !== 0 && (
+                    <span className={`text-xs font-semibold ${delta > 0 ? "text-sage" : "text-orange-400"}`}>
+                      {delta > 0 ? `+${delta} ↑` : `${delta} ↓`}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted uppercase tracking-wider font-semibold">
+                  Week Avg: {wVal}
+                </p>
+              </div>
+
+              <div>
+                <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden relative">
+                  <div
                     className="absolute h-full rounded-full transition-all duration-1000 ease-out z-10"
-                    style={{ 
-                        width: `${val}%`, 
-                        backgroundColor: val > 75 ? 'var(--tk-accent-sage)' : val > 50 ? '#E8A838' : '#D4614B'
+                    style={{
+                      width: `${Math.min(100, Math.max(0, val))}%`,
+                      backgroundColor: val > 75 ? "var(--tk-accent-sage)" : val > 50 ? "#E8A838" : "#D4614B",
                     }}
-                />
-                <div 
+                  />
+                  <div
                     className="absolute h-full rounded-full transition-all duration-1000 ease-out opacity-30"
-                    style={{ 
-                        width: `${wVal}%`, 
-                        backgroundColor: '#6B7280'
+                    style={{
+                      width: `${Math.min(100, Math.max(0, wVal))}%`,
+                      backgroundColor: "#6B7280",
                     }}
-                />
+                  />
+                </div>
+                <div className="h-7 flex items-center mt-2 overflow-hidden">
+                  {val > 75 ? (
+                    <p className="text-[10px] text-sage font-medium leading-tight truncate">
+                      {key === "wrinkles" ? `Top resilience (${val}% barrier)` : "Optimal vitality score"}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted font-medium leading-tight truncate">
+                      {val > 50 ? "Steady progress with daily routine" : "Nurture with targeted care"}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            {val > 75 && <p className="text-[10px] text-sage font-medium mt-2 leading-tight">Great health indicator.</p>}
-            {key === 'wrinkles' && val > 75 && <p className="text-[10px] text-sage font-medium mt-2 leading-tight">Your skin is {val}% wrinkle proof!</p>}
-          </div>
-        )})}
+          );
+        })}
       </div>
     </div>
   );

@@ -115,12 +115,21 @@ function getMultiplier(lifestyle = {}, interventions = []) {
     // Override with what-if interventions (HIGHEST priority)
     const list = Array.isArray(interventions) ? interventions : [interventions].filter(Boolean);
     for (const item of list) {
-      if (item === "retinol" || item === "Serum") m *= MULTIPLIERS.retinol;
-      else if (item === "daily_spf" || item === "Sunscreen") m *= 0.60;
-      else if (item === "exfoliant" || item === "Exfoliant") m *= 0.70;
-      else if (item === "moisturizer" || item === "Moisturizer") m *= 0.80;
-      else if (item === "cleanser" || item === "Cleanser") m *= 0.88;
-      else if (item === "no_sugar") m /= MULTIPLIERS.highSugar;
+      let typeStr = item;
+      if (typeof item === "object" && item !== null) {
+        if (Number.isFinite(item.customMultiplier)) {
+          m *= item.customMultiplier;
+          continue; // Custom multiplier takes full precedence for this item
+        }
+        typeStr = item.type; // Fallback to type matching
+      }
+      
+      if (typeStr === "retinol" || typeStr === "Serum") m *= MULTIPLIERS.retinol;
+      else if (typeStr === "daily_spf" || typeStr === "Sunscreen") m *= 0.60;
+      else if (typeStr === "exfoliant" || typeStr === "Exfoliant") m *= 0.70;
+      else if (typeStr === "moisturizer" || typeStr === "Moisturizer") m *= 0.80;
+      else if (typeStr === "cleanser" || typeStr === "Cleanser") m *= 0.88;
+      else if (typeStr === "no_sugar") m /= MULTIPLIERS.highSugar;
     }
 
     return Math.max(0.3, Math.min(2.2, m));

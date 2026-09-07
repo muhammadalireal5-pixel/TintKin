@@ -62,7 +62,7 @@ export default function SignUpPage() {
 
         <div className="mt-8 space-y-6">
 
-          <form onSubmit={onSubmit} className="space-y-5">
+          <form onSubmit={onSubmit} method="POST" action="#" className="space-y-5">
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
                 {error}
@@ -73,11 +73,13 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input
                 type="text"
+                name="name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="block w-full px-4 py-2.5 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
                 placeholder="Jane Doe"
+                autoComplete="name"
               />
             </div>
 
@@ -85,11 +87,13 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
               <input
                 type="email"
+                name="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="block w-full px-4 py-2.5 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
                 placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
 
@@ -98,11 +102,13 @@ export default function SignUpPage() {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="block w-full px-4 py-2.5 pr-10 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
                   placeholder="••••••••"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

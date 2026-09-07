@@ -14,7 +14,7 @@ export default function CapturePage() {
     const cameraInputRef = useRef(null);
     const galleryInputRef = useRef(null);
 
-    const [status, setStatus] = useState(null); // { type: "info"|"success"|"error", msg: string }
+    const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
     const [checkingOnboarding, setCheckingOnboarding] = useState(false);
     const [loadingTextIndex, setLoadingTextIndex] = useState(0);
@@ -24,26 +24,20 @@ export default function CapturePage() {
     const [quotas, setQuotas] = useState(null);
 
     const loadingTexts = [
-        "Analyzing your skin tone...",
-        "Checking for blemishes and dark spots...",
-        "Evaluating skin texture...",
-        "Calculating your true skin age...",
-        "Formulating personalized recommendations...",
-        "Just a moment, almost there...",
-        "Polishing the final results..."
+        "Analyzing skin tone & texture...",
+        "Evaluating spots & smoothness...",
+        "Calculating your skin age...",
+        "Formulating recommendations...",
+        "Polishing your skin journal..."
     ];
 
     useEffect(() => {
-        let interval;
-        if (loading && status?.type === "info") {
-            interval = setInterval(() => {
-                setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
-            }, 2500);
-        } else {
-            setLoadingTextIndex(0);
-        }
+        if (!loading || status?.type !== "info") return;
+        const interval = setInterval(() => {
+            setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
+        }, 2500);
         return () => clearInterval(interval);
-    }, [loading, status?.type]);
+    }, [loading, status?.type, loadingTexts.length]);
 
     const handleActionClick = async (type) => {
         setCheckingOnboarding(true);
@@ -156,7 +150,7 @@ export default function CapturePage() {
                     <div className="camera-badge">
                         <Camera size={26} strokeWidth={2} />
                     </div>
-                    <h1 className="capture-title">Today's Entry</h1>
+                    <h1 className="capture-title">Today&apos;s Entry</h1>
                     <p className="capture-subtitle">
                         A clear, front-facing photo in good lighting gives the best results.
                     </p>
@@ -210,7 +204,7 @@ export default function CapturePage() {
                                 <AlertCircle size={18} className="mt-0.5 shrink-0" />
                                 <div>
                                     <p className="font-semibold text-base">Daily Scan Limit Reached</p>
-                                    <p className="mt-0.5 opacity-90">You've used your 1 scan for today. Come back tomorrow for a new scan!</p>
+                                    <p className="mt-0.5 opacity-90">You&apos;ve used your 1 scan for today. Come back tomorrow for a new scan!</p>
                                 </div>
                             </div>
                         )}
@@ -276,14 +270,17 @@ export default function CapturePage() {
 
             <style>{`
                 .capture-page {
-                    min-height: calc(100vh - 64px);
+                    flex: 1;
+                    width: 100%;
+                    min-height: calc(100vh - 80px);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    padding: 1.25rem;
+                    padding: 1.5rem 1rem;
                     background-color: var(--tk-bg);
                     position: relative;
-                    overflow: hidden;
+                    overflow-y: auto;
+                    overflow-x: hidden;
                 }
 
                 .blob {
@@ -469,10 +466,11 @@ export default function CapturePage() {
                 .preview-wrap {
                     position: relative;
                     width: 100%;
-                    aspect-ratio: 3/4;
+                    max-width: 250px;
+                    height: 240px;
+                    margin: 0 auto 1.25rem;
                     border-radius: 1.25rem;
                     overflow: hidden;
-                    margin-bottom: 1.25rem;
                     background: var(--tk-accent-lavender);
                     box-shadow: 0 4px 20px rgba(44,62,80,0.12);
                 }
@@ -503,16 +501,34 @@ export default function CapturePage() {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 0.45rem;
-                    padding: 0.6rem 1.1rem;
+                    gap: 0.5rem;
+                    padding: 0 1rem;
+                    height: 48px;
+                    min-height: 48px;
+                    max-height: 48px;
+                    width: 100%;
                     border-radius: 9999px;
                     font-size: 0.8125rem;
                     font-weight: 500;
                     margin-bottom: 1rem;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                     animation: fadeIn 0.3s ease both;
                 }
                 .status-success { background: rgba(138,154,91,0.12); color: var(--tk-accent-sage); border: 1px solid rgba(138,154,91,0.2); }
-                .status-error   { background: rgba(224,84,84,0.08);  color: #c94444;               border: 1px solid rgba(224,84,84,0.2); }
+                .status-error   { 
+                    background: rgba(224,84,84,0.08); 
+                    color: #c94444; 
+                    border: 1px solid rgba(224,84,84,0.2);
+                    height: auto;
+                    max-height: none;
+                    white-space: normal;
+                    border-radius: 1rem;
+                    padding: 0.75rem 1rem;
+                    text-align: center;
+                }
                 .status-info    { background: rgba(230,230,250,0.5); color: var(--tk-text-primary); border: 1px solid rgba(230,230,250,0.4); }
 
                 .retake-btn {

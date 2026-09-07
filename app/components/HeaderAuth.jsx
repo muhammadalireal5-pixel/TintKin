@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { useAuthContext } from "../context/AuthContext";
 import { useState } from "react";
-import { LogOut, User } from "lucide-react";
+import { Settings, User } from "lucide-react";
+import { usePathname } from "next/navigation";
+import SettingsModal from "./SettingsModal";
 
 export function HeaderAuth() {
-  const { user, signOutUser } = useAuthContext();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { user } = useAuthContext();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pathname = usePathname();
+
+  const navLinks = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/capture", label: "Scan" },
+    { href: "/what-if", label: "What-If" },
+  ];
 
   if (!user) {
     return (
@@ -24,48 +33,57 @@ export function HeaderAuth() {
 
   return (
     <>
+      {/* Nav links */}
       <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1 shrink">
-        <Link href="/dashboard" prefetch={false} className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Dashboard</Link>
-        <Link href="/capture" prefetch={false} className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">Scan</Link>
-        <Link href="/what-if" prefetch={false} className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap flex-shrink-0">What-If</Link>
+        {navLinks.map(({ href, label }) => {
+          const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+          return (
+            <Link
+              key={href}
+              href={href}
+              prefetch={false}
+              className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0
+                ${isActive
+                  ? "text-primary font-semibold bg-black/[0.06]"
+                  : "text-muted hover:text-primary hover:bg-black/5"
+                }`}
+            >
+              {label}
+            </Link>
+          );
+        })}
       </nav>
 
-      <div className="flex gap-1.5 sm:gap-3 items-center flex-shrink-0 relative">
-        <div className="rounded-full p-1 bg-lavender shadow-[0_4px_14px_rgba(230,230,250,0.6)] flex-shrink-0">
-          <button 
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-8 h-8 rounded-full overflow-hidden bg-white flex items-center justify-center border border-lavender/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
+      {/* Right side: avatar + Settings button */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Avatar */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="rounded-full p-1 bg-lavender shadow-[0_4px_14px_rgba(230,230,250,0.6)] flex-shrink-0 hover:opacity-85 transition-opacity cursor-pointer"
+          aria-label="Open user settings"
+        >
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-white flex items-center justify-center border border-lavender/50">
             {user.photoURL ? (
               <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
             ) : (
               <User size={16} className="text-primary" />
             )}
-          </button>
-        </div>
+          </div>
+        </button>
 
-        {dropdownOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)}></div>
-            <div className="absolute right-0 top-12 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden py-1">
-              <div className="px-4 py-3 border-b border-gray-50">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || "User"}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              </div>
-              <button 
-                onClick={async () => {
-                  setDropdownOpen(false);
-                  await signOutUser();
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-              >
-                <LogOut size={14} />
-                Sign out
-              </button>
-            </div>
-          </>
-        )}
+        {/* Settings button */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium text-muted hover:text-primary hover:bg-black/5 transition-all whitespace-nowrap border border-black/[0.06]"
+          aria-label="Open settings"
+        >
+          <Settings size={14} />
+          <span className="hidden sm:inline">Settings</span>
+        </button>
       </div>
+
+      {/* Settings slide-in modal */}
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
 }

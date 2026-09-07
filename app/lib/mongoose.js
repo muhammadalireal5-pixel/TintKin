@@ -52,11 +52,32 @@ const UserSchema = new mongoose.Schema({
     workoutLockedUntil: { type: Date, default: null },
     isSubscribed: { type: Boolean, default: false },
     subscribedAt: { type: Date, default: null },
+    tier: { type: String, enum: ['free', 'standard', 'premium', 'pending'], default: 'free' },
+    requestedTier: { type: String, enum: ['standard', 'premium', 'pending', 'free'] },
+    upgradeRequestedAt: { type: Date },
+    scanCount: { type: Number, default: 0 },
+    simulationsUsed: { type: Number, default: 0 },
+    currentPeriodStart: { type: Date, default: Date.now },
+    currentPeriodEnd: { type: Date, default: null },
+    extraScans: { type: Number, default: 0 },
+    extraSimulations: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 },
+    longestStreak: { type: Number, default: 0 },
+    lastUploadDate: { type: Date, default: null },
+    badges: [{ type: String }],
+    optInComparison: { type: Boolean, default: false },
+    region: { type: String, default: null },
+    location: {
+      lat: Number,
+      lng: Number,
+      city: String
+    }
 });
 
 const SelfieSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     imageUrl: String,
+    isAnalyzed: { type: Boolean, default: true },
     takenAt: { type: Date, default: Date.now },
     overallScore: Number,
     skinAge: Number,
@@ -64,6 +85,8 @@ const SelfieSchema = new mongoose.Schema({
     critique: String,
     habits: [String],
     facialWorkout: String,
+    amRoutine: [String],
+    pmRoutine: [String],
     recommendedProducts: {
     type: [{
       type: { type: String, enum: ["Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant"] },
@@ -71,8 +94,8 @@ const SelfieSchema = new mongoose.Schema({
       description: { type: String, required: true }
     }],
     validate: {
-      validator: function(v) { return Array.isArray(v) && v.length === 3; },
-      message: 'Exactly 3 recommended products are required.'
+      validator: function(v) { return !this.isAnalyzed || (Array.isArray(v) && v.length === 3); },
+      message: 'Exactly 3 recommended products are required for analyzed selfies.'
     }
     }
 });
@@ -103,3 +126,10 @@ export const User = mongoose.models.User || mongoose.model('User', UserSchema);
 export const Selfie = mongoose.models.Selfie || mongoose.model('Selfie', SelfieSchema);
 export const Lifestyle = mongoose.models.Lifestyle || mongoose.model('Lifestyle', LifestyleSchema);
 export const Simulation = mongoose.models.Simulation || mongoose.model('Simulation', SimulationSchema);
+const RoutineLogSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    date: { type: Date, default: Date.now },
+    amCompleted: [String],
+    pmCompleted: [String],
+});
+export const RoutineLog = mongoose.models.RoutineLog || mongoose.model('RoutineLog', RoutineLogSchema);

@@ -5,7 +5,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function ProgressChart({ allSelfies }) {
   if (!allSelfies || allSelfies.length === 0) return null;
 
-  const data = allSelfies.map((selfie) => {
+  const data = allSelfies
+    .filter(selfie => selfie.isAnalyzed !== false)
+    .map((selfie) => {
     const date = new Date(selfie.takenAt);
     return {
       date: `${date.getMonth() + 1}/${date.getDate()}`,

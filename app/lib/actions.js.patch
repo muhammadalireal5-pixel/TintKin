@@ -1,0 +1,81 @@
+--- app/lib/actions.js
++++ app/lib/actions.js
+@@ -188,14 +188,77 @@
+   const user = await getDbUser();
+ 
+   try {
+     const todayStart = getLocalDayStart(timezone);
+-    const scansToday = await Selfie.countDocuments({
++    const uploadsToday = await Selfie.countDocuments({
+       userId: user._id, takenAt: { $gte: todayStart }
+     });
+-    if (scansToday >= 1) {
+-      return { success: false, error: "SCAN_LIMIT", message: "You've already scanned today. Come back tomorrow!" };
++    if (uploadsToday >= 1) {
++      return { success: false, error: "SCAN_LIMIT", message: "You've already logged a photo today. Come back tomorrow to keep your streak going!" };
+     }
+     if (!imageUrl) throw new Error("No image provided");
+ 
++    // Update streak logic
++    const now = new Date();
++    let newStreak = user.currentStreak;
++    if (user.lastUploadDate) {
++      const lastUpload = new Date(user.lastUploadDate);
++      const diffTime = Math.abs(todayStart - getLocalDayStart(timezone, lastUpload));
++      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
++      if (diffDays === 1) {
++        newStreak += 1;
++      } else if (diffDays > 1) {
++        newStreak = 1; // Streak broken
++      }
++    } else {
++      newStreak = 1;
++    }
++    
++    user.currentStreak = newStreak;
++    if (newStreak > user.longestStreak) {
++      user.longestStreak = newStreak;
++    }
++    user.lastUploadDate = now;
++
++    // Determine if this is an analysis day
++    let shouldAnalyze = false;
++    
++    if (user.tier === 'premium') {
++      shouldAnalyze = true; // Premium gets daily analysis
++    } else if (user.tier === 'standard') {
++      const lastAnalyzed = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
++      if (!lastAnalyzed) {
++        shouldAnalyze = true;
++      } else {
++        const diffTime = Math.abs(todayStart - getLocalDayStart(timezone, lastAnalyzed.takenAt));
++        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
++        if (diffDays >= 2) {
++          shouldAnalyze = true; // Standard gets every other day
++        }
++      }
++    } else {
++      // Free or Pending
++      if ((user.scanCount || 0) < 2) {
++        shouldAnalyze = true;
++        user.scanCount = (user.scanCount || 0) + 1;
++      }
++    }
++
++    // Check extra scans if not entitled by tier
++    if (!shouldAnalyze && user.extraScans > 0) {
++      shouldAnalyze = true;
++      user.extraScans -= 1;
++    }
++
++    // Save user streak and counts before we do the heavy lifting
++    await user.save();
++
++    if (!shouldAnalyze) {
++      // Streak-only upload
++      await Selfie.create({ userId: user._id, imageUrl: imageUrl, isAnalyzed: false });
++      return { success: true, isAnalyzed: false, message: "Streak logged! Your next full analysis is coming up soon." };
++    }
++
+     const youCamResult = await analyzeSkin(imageUrl);
+     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;

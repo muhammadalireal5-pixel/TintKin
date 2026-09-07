@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/app/lib/firebase/admin";
-import { connectDb, User, Selfie, Lifestyle, Simulation } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
-import { generatePersonalizedAdvice } from "./qwen";
+import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
 import crypto from "crypto";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -27,7 +27,7 @@ async function uploadUrlToCloudinary(imageUrl) {
     const data = await res.json();
     return data.secure_url;
   } catch (e) {
-    console.error("[Cloudinary] Failed to upload simulation image:", e);
+    
     return imageUrl;
   }
 }
@@ -118,7 +118,6 @@ export async function uploadSelfieServerAction(formData) {
     const data = await res.json();
     return { success: true, url: data.secure_url };
   } catch (err) {
-    console.error("[Cloudinary] Server upload error:", err);
     return { success: false, error: "Upload failed. Please try again later." };
   }
 }
@@ -190,15 +189,102 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
   try {
     const todayStart = getLocalDayStart(timezone);
-    const scansToday = await Selfie.countDocuments({
+    const uploadsToday = await Selfie.countDocuments({
       userId: user._id, takenAt: { $gte: todayStart }
     });
-    if (scansToday >= 1) {
-      return { success: false, error: "SCAN_LIMIT", message: "You've already scanned today. Come back tomorrow!" };
+    if (uploadsToday >= 1) {
+      return { success: false, error: "SCAN_LIMIT", message: "You've already logged a photo today. Come back tomorrow to keep your streak going!" };
     }
     if (!imageUrl) throw new Error("No image provided");
 
+    // Update streak logic
+    const now = new Date();
+    let newStreak = user.currentStreak || 0;
+    if (user.lastUploadDate) {
+      const lastUpload = new Date(user.lastUploadDate);
+      const diffTime = Math.abs(todayStart - getLocalDayStart(timezone, lastUpload));
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      if (diffDays === 1) {
+        newStreak += 1;
+      } else if (diffDays > 1) {
+        newStreak = 1; // Streak broken
+      }
+    } else {
+      newStreak = 1;
+    }
+    
+    user.currentStreak = newStreak;
+    if (newStreak > (user.longestStreak || 0)) {
+      user.longestStreak = newStreak;
+    }
+    user.lastUploadDate = now;
+
+    // Badge Logic
+    const milestones = {
+      7: "7-Day Streak",
+      30: "1-Month Consistency",
+      90: "3-Month Master",
+      365: "1-Year Dedication"
+    };
+    if (milestones[newStreak] && !(user.badges || []).includes(milestones[newStreak])) {
+      if (!user.badges) user.badges = [];
+      user.badges.push(milestones[newStreak]);
+    }
+
+    // Determine if this is an analysis day
+    let shouldAnalyze = false;
+    let consumeFreeScan = false;
+    let consumeExtraScan = false;
+
+    if (user.tier === 'premium' || user.tier === 'standard') {
+      const todayStart = getLocalDayStart(timezone);
+      const lastAnalyzed = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
+
+      if (!lastAnalyzed) {
+        shouldAnalyze = true;
+      } else {
+        const diffTime = Math.abs(todayStart - getLocalDayStart(timezone, lastAnalyzed.takenAt));
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (user.tier === 'premium' && diffDays >= 1) {
+          shouldAnalyze = true;
+        } else if (user.tier === 'standard' && diffDays >= 2) {
+          shouldAnalyze = true;
+        }
+      }
+    } else {
+      // Free or Pending
+      if ((user.scanCount || 0) < 2) {
+        shouldAnalyze = true;
+        consumeFreeScan = true;
+      }
+    }
+
+    // Check extra scans if not entitled by tier
+    if (!shouldAnalyze && user.extraScans > 0) {
+      shouldAnalyze = true;
+      consumeExtraScan = true;
+    }
+
+    // Save user streak and counts before we do the heavy lifting
+    await user.save();
+
+    if (!shouldAnalyze) {
+      // Streak-only upload
+      await Selfie.create({ userId: user._id, imageUrl: imageUrl, isAnalyzed: false });
+      return { success: true, isAnalyzed: false, message: "Streak logged! Your next full analysis is coming up soon." };
+    }
+
     const youCamResult = await analyzeSkin(imageUrl);
+    
+    // Now that analysis succeeded, deduct the quotas
+    if (consumeFreeScan) {
+      user.scanCount = (user.scanCount || 0) + 1;
+      await user.save();
+    } else if (consumeExtraScan) {
+      user.extraScans -= 1;
+      await user.save();
+    }
+
     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
     const scoreInfo = await extractScoreInfo(data);
@@ -207,13 +293,13 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     const readScore = (key, label) => {
       const entry = scoreInfo[key];
       if (!entry) {
-        console.warn(`[Scores] ⚠️ Key "${key}" missing from scoreInfo — no score available for ${label}`);
+        
         return null;
       }
       if (typeof entry === "number") return entry;
       const val = entry.ui_score ?? entry.raw_score ?? entry.score ?? entry.value;
       if (val === undefined || val === null) {
-        console.warn(`[Scores] ⚠️ Key "${key}" present but has no ui_score/raw_score:`, entry);
+        
         return null;
       }
       return val;
@@ -226,27 +312,11 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       radiance: readScore("radiance", "radiance"),
     };
 
-    for (const [label, val] of Object.entries(scores)) {
-      if (val === null) {
-        console.warn(`[Scores] ⚠️ "${label}" resolved to null — check YouCam response shape`);
-      }
-    }
+   
 
     const overallScore = scoreInfo.all?.score ?? scoreInfo.overall_score ?? null;
     const skinAge = scoreInfo.skin_age ?? scoreInfo.age ?? null;
 
-    if (overallScore === null) {
-      console.warn("[Scores] ⚠️ overall score missing from scoreInfo:", JSON.stringify(scoreInfo, null, 2));
-    }
-    if (skinAge === null) {
-      console.warn("[Scores] ⚠️ skin age missing from scoreInfo:", JSON.stringify(scoreInfo, null, 2));
-    }
-
-    console.log("[Scores] ✅ Final parsed values:", {
-      scores,
-      overallScore,
-      skinAge,
-    });
 
     const lastSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
     let useCachedAdvice = false;
@@ -266,15 +336,33 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     let advice;
     if (useCachedAdvice) {
-      console.log("[Scores] Using cached advice (scores unchanged from previous selfie)");
       advice = {
         critique: lastSelfie.critique,
         habits: lastSelfie.habits,
+        amRoutine: lastSelfie.amRoutine,
+        pmRoutine: lastSelfie.pmRoutine,
         facialWorkout: lastSelfie.facialWorkout,
-        products: lastSelfie.recommendedProducts,
+        products: lastSelfie.recommendedProducts
       };
     } else {
-      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge);
+      // Fetch UV index if possible (latitude and longitude from user profile if we added it, or we just pass null for now if we don't have it).
+      // Let's assume we can fetch it if we have coordinates, otherwise it will just be null.
+      let uvIndex = null;
+      if (user.location && user.location.lat && user.location.lng) {
+        try {
+          const uvRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(user.location.lat)}&longitude=${encodeURIComponent(user.location.lng)}&daily=uv_index_max&timezone=auto`,
+            { signal: AbortSignal.timeout(3000) }
+          );
+          if (uvRes.ok) {
+            const uvData = await uvRes.json();
+            uvIndex = uvData?.daily?.uv_index_max?.[0] || null;
+          }
+        } catch(e) {
+          console.error("Failed to fetch UV index", e);
+        }
+      }
+      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex);
     }
 
     let recommendedProducts = advice.products || [];
@@ -293,7 +381,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     if (lastSelfie) {
       if (recommendationsLocked) {
-        console.log("[Scores] Products/Habits are locked, keeping previous.");
         if (lastSelfie.recommendedProducts?.length > 0) recommendedProducts = lastSelfie.recommendedProducts;
         if (lastSelfie.habits?.length > 0) habits = lastSelfie.habits;
       } else {
@@ -305,7 +392,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       }
 
       if (workoutLocked) {
-        console.log("[Scores] Workout is locked, keeping previous.");
         if (lastSelfie.facialWorkout) facialWorkout = lastSelfie.facialWorkout;
       } else {
         if (!useCachedAdvice) {
@@ -352,6 +438,9 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
     }
 
+    let amRoutine = advice.amRoutine || [];
+    let pmRoutine = advice.pmRoutine || [];
+
     const selfie = await Selfie.create({
       userId: user._id,
       imageUrl,
@@ -362,6 +451,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       youCamTaskId: youCamResult.task_id,
       critique: critique,
       habits: habits,
+      amRoutine: amRoutine,
+      pmRoutine: pmRoutine,
       facialWorkout: facialWorkout,
       recommendedProducts,
     });
@@ -389,9 +480,10 @@ function getISOWeekStart(date) {
   return d;
 }
 
-export async function getLatestData() {
+export async function getLatestData(timezone = "UTC") {
   const user = await getDbUser();
   const latestSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
+  const latestAnalyzedSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }) || latestSelfie;
   const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: 1 });
   const lifestyleLogs = await Lifestyle.find({ userId: user._id }).sort({ date: -1 });
 
@@ -408,6 +500,7 @@ export async function getLatestData() {
   const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
 
   const thisWeekSelfies = allSelfies.filter(s => {
+    if (s.isAnalyzed === false) return false;
     const t = new Date(s.takenAt).getTime();
     return t >= currentWeekStart && t < currentWeekEnd;
   });
@@ -434,7 +527,13 @@ export async function getLatestData() {
     };
   }
 
-  const data = { user, latestSelfie, allSelfies, lifestyleLogs, realAge, weeklyAverage };
+  const todayStart = getLocalDayStart(timezone);
+  const todayRoutineLog = await RoutineLog.findOne({
+    userId: user._id,
+    date: { $gte: todayStart }
+  });
+
+  const data = { user, latestSelfie, latestAnalyzedSelfie, allSelfies, lifestyleLogs, realAge, weeklyAverage, todayRoutineLog };
   return JSON.parse(JSON.stringify(data));
 }
 
@@ -442,12 +541,31 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
   try {
-    const weekStart = getLocalISOWeekStart(timezone);
-    const simsThisWeek = await Simulation.countDocuments({
-      userId: user._id, createdAt: { $gte: weekStart }
+    let allowedMonthly = 0;
+    if (user.tier === 'premium') allowedMonthly = 20;
+    else if (user.tier === 'standard') allowedMonthly = 4;
+
+    const now = new Date();
+    const calendarMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodStart = user.currentPeriodStart ? new Date(user.currentPeriodStart) : calendarMonthStart;
+    const monthStart = periodStart > calendarMonthStart ? periodStart : calendarMonthStart;
+    
+    const simsThisPeriod = await Simulation.countDocuments({
+      userId: user._id, createdAt: { $gte: monthStart }
     });
-    if (simsThisWeek >= 4) {
-      return { success: false, error: "SIM_LIMIT", message: "You've used all 4 simulations this week. Resets Monday!" };
+
+    if (simsThisPeriod >= allowedMonthly) {
+      if (user.extraSimulations > 0) {
+        await User.updateOne({ _id: user._id }, { $inc: { extraSimulations: -1 } });
+      } else {
+        return {
+          success: false,
+          error: "SIM_LIMIT",
+          message: allowedMonthly === 0
+            ? "Simulations are available on the Standard and Premium plans. Upgrade to run a simulation."
+            : `You've used all ${allowedMonthly} simulations for this billing cycle.`
+        };
+      }
     }
     if (!latestSelfie) throw new Error("Please take a selfie first to run the AI simulation!");
 
@@ -521,8 +639,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       };
     };
 
-    const nameA = labelA || (listA.length > 0 ? `With ${listA.join(" + ")}` : "Baseline Routine");
-    const nameB = labelB || (listB.length > 0 ? `With ${listB.join(" + ")}` : "Without Routine");
+    const nameA = labelA || (listA.length > 0 ? `With ${listA.map(p => typeof p === 'object' ? p.type : p).join(" + ")}` : "Baseline Routine");
+    const nameB = labelB || (listB.length > 0 ? `With ${listB.map(p => typeof p === 'object' ? p.type : p).join(" + ")}` : "Without Routine");
 
     const scenarioA = await buildScenario(listA, nameA);
     const scenarioB = await buildScenario(listB, nameB);
@@ -547,7 +665,6 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS 
     };
   } catch (err) {
-    console.error("[runWhatIfSim] Error:", err);
     return { success: false, error: "Simulation failed. Please try again later." };
   }
 }
@@ -585,13 +702,12 @@ export async function completeOnboarding(data) {
 
     return { success: true };
   } catch (err) {
-    console.error("[completeOnboarding] Error:", err);
     return { success: false, error: "Something went wrong, please try again later" };
   }
 }
 
-function getLocalDayStart(timezone) {
-  const now = new Date();
+function getLocalDayStart(timezone, reference = new Date()) {
+  const now = reference;
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
   });
@@ -608,10 +724,8 @@ function getLocalDayStart(timezone) {
     hour12: false
   }).format(dt);
   const options = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'shortOffset' };
-  const str = new Intl.DateTimeFormat('en-US', options).format(dt);
   const midnight = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
   midnight.setHours(0,0,0,0);
-  const serverOffset = new Date().getTimezoneOffset() * 60000;
   const formatter2 = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       year: 'numeric', month: '2-digit', day: '2-digit'
@@ -619,7 +733,6 @@ function getLocalDayStart(timezone) {
   const formattedDate = formatter2.format(now);
   const [mm, dd, yyyy] = formattedDate.split('/');
   const targetMidnightLocal = new Date(Number(yyyy), Number(mm)-1, Number(dd), 0, 0, 0);
-  const targetMidnightStr = targetMidnightLocal.toLocaleString('en-US', {timeZone: timezone});
   const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
   tzDate.setHours(0, 0, 0, 0);
   const diff = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: timezone })).getTime();
@@ -640,18 +753,26 @@ function getLocalISOWeekStart(timezone) {
 export async function getUsageQuotas(timezone = "UTC") {
   const user = await getDbUser();
   const todayStart = getLocalDayStart(timezone);
-  const weekStart = getLocalISOWeekStart(timezone);
+  
+  const now = new Date();
+  const calendarMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodStart = user.currentPeriodStart ? new Date(user.currentPeriodStart) : calendarMonthStart;
+  const monthStart = periodStart > calendarMonthStart ? periodStart : calendarMonthStart;
 
   const scansToday = await Selfie.countDocuments({
     userId: user._id, takenAt: { $gte: todayStart }
   });
-  const simsThisWeek = await Simulation.countDocuments({
-    userId: user._id, createdAt: { $gte: weekStart }
+  const simsThisPeriod = await Simulation.countDocuments({
+    userId: user._id, createdAt: { $gte: monthStart }
   });
+
+  let simLimit = 0;
+  if (user.tier === 'premium') simLimit = 20;
+  else if (user.tier === 'standard') simLimit = 4;
 
   return {
     scans: { used: scansToday, limit: 1 },
-    simulations: { used: simsThisWeek, limit: 4 }
+    simulations: { used: simsThisPeriod, limit: simLimit }
   };
 }
 
@@ -671,7 +792,6 @@ export async function getSavedSimulations() {
       }))
     };
   } catch (err) {
-    console.error("[getSavedSimulations] Error:", err);
     return { success: false, error: "Failed to load simulations." };
   }
 }
@@ -695,7 +815,7 @@ export async function deleteSavedSimulation(simId) {
 
 export async function getWeeklyHistory() {
   const user = await getDbUser();
-  const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: -1 });
+  const allSelfies = await Selfie.find({ userId: user._id, isAnalyzed: { $ne: false } }).sort({ takenAt: -1 });
 
   const weeksMap = new Map();
   const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
@@ -747,4 +867,198 @@ export async function getWeeklyHistory() {
     });
 
   return JSON.parse(JSON.stringify(history));
+}
+export async function analyzeProductImage(base64Image) {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) throw new Error("Unauthorized");
+
+    const result = await analyzeProductIngredients(base64Image);
+    return { success: true, product: result };
+  } catch (error) {
+    console.error("Failed to analyze product image:", error);
+    return { success: false, error: "Failed to analyze product image" };
+  }
+}
+
+export async function requestUpgrade(tier) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    
+    if (!['standard', 'premium'].includes(tier)) {
+      return { success: false, error: "Invalid tier requested." };
+    }
+    
+    // Record the request. Keep the active tier until an admin approves it.
+    user.requestedTier = tier;
+    user.upgradeRequestedAt = new Date();
+    await user.save();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: "Failed to request upgrade." };
+  }
+}
+
+export async function saveLocation(locationData) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false };
+    
+    await User.findByIdAndUpdate(user._id, { location: locationData });
+    return { success: true, location: locationData };
+  } catch (err) {
+    return { success: false };
+  }
+}
+
+export async function getUserProfile() {
+  try {
+    const user = await getDbUser();
+    if (!user) return null;
+    return {
+      displayName: user.displayName || "",
+      email: user.email || "",
+      photoURL: user.photoURL || "",
+      location: user.location ? {
+        city: user.location.city || null,
+        lat: user.location.lat || null,
+        lng: user.location.lng || null,
+      } : null,
+      tier: user.tier || "free",
+      skinType: user.skinType || null,
+      optInComparison: user.optInComparison || false,
+    };
+  } catch (err) {
+    console.error("getUserProfile error:", err);
+    return null;
+  }
+}
+
+export async function updateUserSettings(settings) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const updates = {};
+    if (typeof settings.skinType === "string") updates.skinType = settings.skinType;
+    if (typeof settings.displayName === "string" && settings.displayName.trim()) {
+      updates.displayName = settings.displayName.trim();
+    }
+    if (typeof settings.optInComparison === "boolean") {
+      updates.optInComparison = settings.optInComparison;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await User.findByIdAndUpdate(user._id, updates);
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("updateUserSettings error:", err);
+    return { success: false, error: "Failed to update settings." };
+  }
+}
+
+export async function saveRoutineCompletion(time, step, isCompleted, timezone = "UTC") {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false };
+    
+    const todayStart = getLocalDayStart(timezone);
+    
+    let log = await RoutineLog.findOne({
+      userId: user._id,
+      date: { $gte: todayStart }
+    });
+    
+    if (!log) {
+      log = await RoutineLog.create({
+        userId: user._id,
+        date: new Date(),
+        amCompleted: [],
+        pmCompleted: []
+      });
+    }
+    
+    const field = time === "am" ? "amCompleted" : "pmCompleted";
+    const arr = log[field];
+    
+    if (isCompleted && !arr.includes(step)) {
+      arr.push(step);
+    } else if (!isCompleted && arr.includes(step)) {
+      const idx = arr.indexOf(step);
+      arr.splice(idx, 1);
+    }
+    
+    await log.save();
+    return { success: true };
+  } catch (err) {
+    return { success: false };
+  }
+}
+
+export async function getPercentileRank() {
+  try {
+    const user = await getDbUser();
+    if (!user || !user.optInComparison) return { success: false };
+    
+    let age = null;
+    if (user.birthDate) {
+      age = new Date().getFullYear() - new Date(user.birthDate).getFullYear();
+    }
+    
+    if (!age) return { success: false, error: "Age unknown" };
+
+    const minAgeDate = new Date(new Date().setFullYear(new Date().getFullYear() - (age + 5)));
+    const maxAgeDate = new Date(new Date().setFullYear(new Date().getFullYear() - (age - 5)));
+
+    // Find users in same age bracket (±5 years) and opted in
+    const peers = await User.find({
+      optInComparison: true,
+      birthDate: { $gte: minAgeDate, $lte: maxAgeDate },
+      _id: { $ne: user._id }
+    });
+
+    if (peers.length < 5) {
+      return { success: true, notEnoughData: true };
+    }
+
+    const peerIds = peers.map(p => p._id);
+
+    // Get latest score of user
+    const userLatest = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
+    if (!userLatest) return { success: false };
+
+    // Get latest scores of peers
+    const peerSelfies = await Selfie.aggregate([
+      { $match: { userId: { $in: peerIds }, isAnalyzed: true } },
+      { $sort: { takenAt: -1 } },
+      { $group: { _id: "$userId", latestScore: { $first: "$overallScore" } } }
+    ]);
+
+    const peerScores = peerSelfies.map(p => p.latestScore).filter(s => s != null);
+    if (peerScores.length === 0) return { success: true, notEnoughData: true };
+
+    const myScore = userLatest.overallScore;
+    const lowerOrEqual = peerScores.filter(s => s <= myScore).length;
+    
+    // Percentile = (number of scores below or equal to yours) / total scores * 100
+    const percentile = Math.round((lowerOrEqual / peerScores.length) * 100);
+
+    return { success: true, percentile, peerCount: peerScores.length };
+  } catch (err) {
+    console.error("Percentile error", err);
+    return { success: false };
+  }
+}
+
+export async function optInComparison(optIn) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false };
+    await User.findByIdAndUpdate(user._id, { optInComparison: optIn });
+    return { success: true };
+  } catch (err) {
+    return { success: false };
+  }
 }

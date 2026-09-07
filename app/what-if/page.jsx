@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas } from "@/app/lib/actions";
+import { useState, useEffect, useRef } from "react";
+import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage } from "@/app/lib/actions";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
+import ProductScanModal from "./ProductScanModal";
 import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
@@ -41,6 +42,36 @@ export default function WhatIfPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [productScanError, setProductScanError] = useState("");
+  const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
+
+  const handleProductFileSelected = (file) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target.result;
+      setIsAnalyzingProduct(true);
+      setProductScanError("");
+
+      try {
+        const res = await analyzeProductImage(base64);
+        if (res.success && res.product) {
+          setProducts((prev) => [...prev, { ...res.product, isCustom: true }]);
+          setScanModalOpen(false);
+        } else {
+          setProductScanError(res.error || "Failed to analyze product.");
+        }
+      } catch (err) {
+        setProductScanError("Error analyzing product.");
+      } finally {
+        setIsAnalyzingProduct(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const [history, setHistory] = useState([]);
 
@@ -96,25 +127,25 @@ export default function WhatIfPage() {
 
     if (simMode === "single") {
       const targetProd = products[selectedSingle] || products[0];
-      interventionsA = [targetProd.type];
+      interventionsA = [targetProd];
       interventionsB = [];
       labelA = `With ${targetProd.formula || targetProd.type}`;
       labelB = "Without Routine";
     } else if (simMode === "compare") {
       const pA = products[prodAIndex] || products[0];
       const pB = products[prodBIndex] || products[1];
-      interventionsA = [pA.type];
-      interventionsB = [pB.type];
+      interventionsA = [pA];
+      interventionsB = [pB];
       labelA = `Using ${pA.type} (${pA.formula || pA.type})`;
       labelB = `Using ${pB.type} (${pB.formula || pB.type})`;
     } else if (simMode === "full") {
-      interventionsA = products.map((p) => p.type);
+      interventionsA = products;
       interventionsB = [];
-      labelA = "All 3 Recommended Products";
+      labelA = "All Recommended Products";
       labelB = "Without Routine";
     } else if (simMode === "custom") {
-      interventionsA = customListA.map((i) => products[i]?.type).filter(Boolean);
-      interventionsB = customListB.map((i) => products[i]?.type).filter(Boolean);
+      interventionsA = customListA.map((i) => products[i]).filter(Boolean);
+      interventionsB = customListB.map((i) => products[i]).filter(Boolean);
       labelA = customListA.length > 0 
         ? `Scenario A (${customListA.map(i => products[i]?.type).join(", ")})` 
         : "No Products";
@@ -211,9 +242,22 @@ export default function WhatIfPage() {
               <h2 className="text-xl font-display font-medium text-primary">Your Recommended Products</h2>
               <p className="text-xs text-muted">Tailored formulations derived from your skin analysis</p>
             </div>
-            <span className="text-xs font-semibold px-3 py-1 bg-sage/15 text-sage rounded-full border border-sage/20">
-              3 Active Formulas
-            </span>
+            <div className="flex gap-3 items-center">
+              <span className="text-xs font-semibold px-3 py-1 bg-sage/15 text-sage rounded-full border border-sage/20">
+                {products.length} Active Formulas
+              </span>
+              <button
+                onClick={() => {
+                  setProductScanError("");
+                  setScanModalOpen(true);
+                }}
+                disabled={isAnalyzingProduct}
+                className="text-xs font-semibold px-4 py-1.5 bg-primary text-white rounded-full flex items-center gap-1.5 hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {isAnalyzingProduct ? <span className="animate-spin text-[10px]">⏳</span> : <Sparkles className="w-3 h-3" />}
+                {isAnalyzingProduct ? "Analyzing..." : "Scan My Product"}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -234,9 +278,16 @@ export default function WhatIfPage() {
                   `}
                 >
                   <div className="flex justify-between items-start mb-3 z-10">
-                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
-                      {prod.type || "Product"}
-                    </span>
+                    <div className="flex gap-2 items-center">
+                      <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
+                        {prod.type || "Product"}
+                      </span>
+                      {prod.isCustom && (
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     {simMode === "compare" && (
                       <div className="flex gap-1">
                         {isProdA && (
@@ -700,6 +751,19 @@ export default function WhatIfPage() {
           setDeleteModalOpen(false);
           setSimToDelete(null);
         }}
+      />
+
+      <ProductScanModal
+        isOpen={scanModalOpen}
+        onClose={() => {
+          if (!isAnalyzingProduct) {
+            setScanModalOpen(false);
+            setProductScanError("");
+          }
+        }}
+        onSelectFile={handleProductFileSelected}
+        isAnalyzing={isAnalyzingProduct}
+        error={productScanError}
       />
     </div>
   );

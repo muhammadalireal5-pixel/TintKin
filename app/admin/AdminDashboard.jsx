@@ -114,14 +114,15 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
     });
   };
 
-  const handleToggleSubscription = async (userId, currentStatus) => {
+  const handleChangeTier = async (userId, newTier) => {
     if (togglingMap[userId]) return;
     
-    const newStatus = !currentStatus;
-    
+    const previousTier = users.find(u => u._id === userId)?.tier || 'free';
+    const previousIsSubscribed = users.find(u => u._id === userId)?.isSubscribed || false;
+
     setUsers(currentUsers => 
       currentUsers.map(u => 
-        u._id === userId ? { ...u, isSubscribed: newStatus } : u
+        u._id === userId ? { ...u, tier: newTier, isSubscribed: (newTier === 'standard' || newTier === 'premium') } : u
       )
     );
     setTogglingMap(prev => ({ ...prev, [userId]: true }));
@@ -130,18 +131,18 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
       const res = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isSubscribed: newStatus })
+        body: JSON.stringify({ tier: newTier })
       });
 
-      if (!res.ok) throw new Error('Failed to update subscription');
+      if (!res.ok) throw new Error('Failed to update tier');
     } catch (error) {
       console.error(error);
-      setUsers(currentUsers => 
-        currentUsers.map(u => 
-          u._id === userId ? { ...u, isSubscribed: currentStatus } : u
+      setUsers(currentUsers =>
+        currentUsers.map(u =>
+          u._id === userId ? { ...u, tier: previousTier, isSubscribed: previousIsSubscribed } : u
         )
       );
-      alert('Failed to update subscription. Please try again.');
+      alert('Failed to update tier. Please try again.');
     } finally {
       setTogglingMap(prev => ({ ...prev, [userId]: false }));
     }
@@ -267,11 +268,17 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <ToggleSwitch 
-                            checked={user.isSubscribed} 
-                            onChange={() => handleToggleSubscription(user._id, user.isSubscribed)}
+                          <select
+                            value={user.tier || 'free'}
+                            onChange={(e) => handleChangeTier(user._id, e.target.value)}
                             disabled={togglingMap[user._id]}
-                          />
+                            className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-sage"
+                          >
+                            <option value="free">Free</option>
+                            <option value="pending">Pending</option>
+                            <option value="standard">Standard</option>
+                            <option value="premium">Premium</option>
+                          </select>
                         </td>
                         <td className="px-6 py-4 text-[var(--tk-text-muted)] capitalize">
                           {user.skinType ? user.skinType.replace('_', ' ') : '-'}
@@ -349,7 +356,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                       <div>
                                         <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Custom Goal</span>
                                         <p className="text-sm text-[var(--tk-text-primary)] bg-black/5 p-2 rounded-lg border border-black/5">
-                                          "{user.customGoal}"
+                                          &quot;{user.customGoal}&quot;
                                         </p>
                                       </div>
                                     )}

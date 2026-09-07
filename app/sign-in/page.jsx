@@ -150,11 +150,12 @@ export default function SignInPage() {
             </button>
           </form>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} method="POST" action="#" className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
               <input
                 type="email"
+                name="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -183,6 +184,7 @@ export default function SignInPage() {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -212,7 +214,7 @@ export default function SignInPage() {
 
         {!isResetMode && (
           <p className="text-center text-sm text-gray-600 pt-2">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/sign-up" className="font-medium text-primary hover:text-primary/80">
               Sign up
             </Link>

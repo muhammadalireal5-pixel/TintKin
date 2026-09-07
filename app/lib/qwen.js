@@ -5,7 +5,7 @@ const openai = new OpenAI({
   baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
 });
 
-export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge) {
+export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null) {
   try {
     const goalsList = user.goals ? user.goals.join(", ") : "General Improvement";
     const customGoal = user.customGoal ? ` (Specifically: ${user.customGoal})` : "";
@@ -17,9 +17,12 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     }
     const userProfile = `Age: ${userAge}, Sex: ${user.sex}, Skin Type: ${user.skinType || 'Unknown'}, Goals: ${goalsList}${customGoal}`;
     const skinData = `Overall Score: ${overallScore}/100, Skin Age: ${skinAge}, Wrinkles: ${scores.wrinkles}, Firmness: ${scores.firmness}, Spots: ${scores.spots}, Radiance: ${scores.radiance}`;
+    const uvData = uvIndex !== null ? `Current UV Index: ${uvIndex}` : 'Current UV Index: Unknown';
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 
-    Analyze the following user profile and skin analysis scores to generate a personalized skincare critique, daily habits, and a facial workout.
+    Analyze the following user profile, skin analysis scores, and environmental data to generate a personalized skincare critique, AM/PM routine checklist, and a facial workout.
+    
+    CRITICAL RULE ON TONE: Keep your advice behavioral, not prescriptive. E.g., "wear sunscreen today" or "skip your exfoliant today." NEVER specify SPF numbers or precise product concentrations. Personalize using their detected skin issues (e.g. if firmness is low or skin looks irritated/red, suggest barrier repair and skipping strong actives like retinol).
 
     User Profile:
     ${userProfile}
@@ -27,10 +30,14 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     Skin Analysis Scores (0-100, higher is better):
     ${skinData}
 
+    Environmental Data:
+    ${uvData}
+
     Provide the response strictly in the following JSON format. You MUST NOT include any conversational text or markdown formatting (like \`\`\`json) in your response, just the raw JSON object:
     {
       "critique": "A 2-3 sentence personalized analysis highlighting their strengths and areas for improvement based on their goals and scores.",
-      "habits": ["Habit 1", "Habit 2", "Habit 3"],
+      "amRoutine": ["Actionable behavioral step 1 (e.g. Apply gentle cleanser)", "Step 2 (e.g. Wear sunscreen due to high UV)"],
+      "pmRoutine": ["Actionable behavioral step 1", "Step 2", "Step 3"],
       "facialWorkout": "A specific, actionable facial exercise or massage routine name and brief instructions (e.g., 'Gua Sha Jawline Sculpting: ...') that directly addresses their lowest score or primary goal.",
       "products": [
         {
@@ -68,7 +75,8 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     console.error("Error generating Qwen advice:", error);
     return {
       critique: "Your skin shows a unique balance. Keep up with consistent hydration and sun protection to maintain your glow.",
-      habits: ["Drink 8 glasses of water", "Apply SPF 50 daily", "Cleanse before bed"],
+      amRoutine: ["Drink 8 glasses of water", "Apply SPF 50 daily"],
+      pmRoutine: ["Cleanse before bed", "Apply moisturizer"],
       facialWorkout: "Gentle upward facial massage during your cleansing routine to promote lymphatic drainage.",
       products: [
         { type: "Cleanser", formula: "Gentle Hydrating Cleanser", description: "To maintain your skin barrier without stripping natural oils." },
@@ -76,5 +84,48 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
         { type: "Moisturizer", formula: "Ceramide Cream", description: "To lock in moisture and keep skin plump throughout the day." }
       ]
     };
+  }
+}
+
+export async function analyzeProductIngredients(base64Image) {
+  try {
+    const prompt = `You are a professional cosmetic chemist and dermatologist.
+    Read the ingredients list from the provided image of a skincare product.
+    Based on the ingredients, determine:
+    1. The product category (e.g., "Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant", "Retinol").
+    2. The key active ingredients (formula).
+    3. A short description of how it benefits the skin.
+    4. An "aging multiplier" between 0.65 and 0.95 indicating its potency. (e.g., strong retinoids/acids = 0.65-0.70, potent serums = 0.70-0.75, basic moisturizers/cleansers = 0.8-0.95. Lower is better for anti-aging, but NEVER output below 0.65 for a single non-clinical product).
+
+    Respond strictly with a JSON object in this format (no markdown, no conversational text):
+    {
+      "type": "Product Category",
+      "formula": "Key Actives (e.g. 2% Salicylic Acid)",
+      "description": "Brief explanation of benefits.",
+      "customMultiplier": 0.7
+    }`;
+
+    // Note: qwen-vl-max supports vision
+    const response = await openai.chat.completions.create({
+      model: "qwen-vl-max",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: base64Image } }
+          ]
+        }
+      ]
+    });
+
+    let content = response.choices[0].message.content.trim();
+    content = content.replace(/^```json/im, "").replace(/^```/im, "").replace(/```$/im, "").trim();
+    
+    const result = JSON.parse(content);
+    return result;
+  } catch (error) {
+    console.error("Error analyzing product image with Qwen:", error);
+    throw new Error("Failed to analyze product ingredients.");
   }
 }

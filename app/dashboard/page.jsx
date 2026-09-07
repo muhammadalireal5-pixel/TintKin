@@ -5,13 +5,19 @@ import ProgressChart from "./ProgressChart";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
 import ProductImage from "./ProductImage";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, Dumbbell } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
+import LocationPrompt from "./LocationPrompt";
+import RoutineChecklist from "./RoutineChecklist";
+import TrophyCase from "./TrophyCase";
+import PercentileCard from "./PercentileCard";
+
 export default async function DashboardPage() {
-    const { user, latestSelfie, allSelfies, realAge, weeklyAverage } = await getLatestData();
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
 
-    const { overallScore, skinAge, scores, critique, habits, facialWorkout } = latestSelfie;
+    const sourceData = latestAnalyzedSelfie || latestSelfie;
+    const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout } = sourceData;
     
     const skinOlder = skinAge > realAge;
     const ageDelta = Math.abs(skinAge - realAge);
@@ -38,22 +44,54 @@ export default async function DashboardPage() {
 
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
+            <LocationPrompt user={user} />
             <div className="max-w-6xl mx-auto">
                 
                 {/* Page Title */}
-                <div className="mb-12 tk-anim-1">
-                    <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
-                        Your Skin Journal
-                    </p>
-                    <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
-                        Today's <span className="italic text-sage">Insight</span>
-                    </h1>
+                <div className="mb-8 tk-anim-1 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+                    <div>
+                        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
+                            Your Skin Journal
+                        </p>
+                        <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
+                            Today&apos;s <span className="italic text-sage">Insight</span>
+                        </h1>
+                    </div>
+                    {user?.currentStreak > 0 && (
+                        <div>
+                            <div className="inline-flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-full border border-orange-200 shadow-sm">
+                                <span className="text-lg">🔥</span>
+                                <span className="font-bold text-orange-600">{user.currentStreak} Day Streak</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
+
+                {latestSelfie && latestSelfie.isAnalyzed === false && (
+                    <div className="mb-8 p-4 bg-sage/10 border border-sage/30 rounded-2xl flex items-start gap-3 tk-anim-2">
+                        <Sparkles className="w-5 h-5 text-sage shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="font-semibold text-primary">Photo logged!</h3>
+                            <p className="text-sm text-muted">You&apos;ve successfully maintained your streak today. Your next deep analysis is coming up based on your subscription tier.</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Bento Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 overflow-hidden">
-                    
-                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-2 relative">
+
+                    {/* ✅ Daily Routine — first item, full width */}
+                    <div className="md:col-span-3 lg:col-span-4 flex flex-col tk-anim-2">
+                        <RoutineChecklist 
+                            amRoutine={amRoutine} 
+                            pmRoutine={pmRoutine} 
+                            completedAm={todayRoutineLog?.amCompleted || []} 
+                            completedPm={todayRoutineLog?.pmCompleted || []} 
+                        />
+                    </div>
+
+                    {/* Overall Harmony */}
+                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-3 relative">
                         <div>
                             <div className="flex justify-between items-start mb-2">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
@@ -61,7 +99,7 @@ export default async function DashboardPage() {
                                     View History <ArrowRight size={14} />
                                 </Link>
                             </div>
-                            <p className="text-sm text-primary mb-6">Your skin's overall balance and vitality.</p>
+                            <p className="text-sm text-primary mb-6">Your skin&apos;s overall balance and vitality.</p>
                         </div>
                         
                         <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-10">
@@ -101,6 +139,7 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
+                    {/* Age cards + Percentile */}
                     <div className="flex flex-col gap-6 md:col-span-1 lg:col-span-1 tk-anim-3">
                         <div className="tk-glass p-6 flex-1 flex flex-col justify-center">
                             <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Real Age</p>
@@ -116,8 +155,13 @@ export default async function DashboardPage() {
                                 </span>
                             </div>
                         </div>
+                        
+                        <div className="flex-1">
+                            <PercentileCard optedIn={user.optInComparison} />
+                        </div>
                     </div>
 
+                    {/* Profile Radar */}
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-1 min-h-[300px] flex flex-col tk-anim-4">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-6">Profile Radar</p>
                         <div className="flex-1 w-full relative">
@@ -127,6 +171,12 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
+                    {/* Trophy Case */}
+                    <div className="md:col-span-3 lg:col-span-1 tk-anim-4 flex flex-col" style={{ animationDelay: '0.1s' }}>
+                        <TrophyCase badges={user.badges} />
+                    </div>
+
+                    {/* Journey Chart */}
                     <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
                         <div className="flex justify-between items-end mb-6">
                             <div>
@@ -141,41 +191,42 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-2 flex flex-col tk-anim-6">
-                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Habits</p>
-                         <ul className="space-y-4">
-                             {habits && habits.length > 0 ? (
-                                 habits.map((habit, idx) => (
-                                     <li key={idx} className="flex items-start gap-3">
-                                         <span className="text-sage mt-1">
-                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                         </span>
-                                         <span className="text-primary text-sm">{habit}</span>
-                                     </li>
-                                 ))
-                             ) : (
-                                 <li className="text-muted text-sm italic">Analyze a new selfie to get personalized habits based on your goals.</li>
-                             )}
-                         </ul>
+                    {/* 💪 Facial Workout — full width, polished */}
+                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 flex flex-col tk-anim-5" style={{ animationDelay: '0.1s' }}>
+                        <div className="flex items-center gap-2.5 mb-5">
+                            <div className="w-8 h-8 rounded-xl bg-sage/15 flex items-center justify-center shrink-0">
+                                <Dumbbell size={16} className="text-sage" />
+                            </div>
+                            <p className="text-xs font-semibold tracking-widest uppercase text-muted">Targeted Facial Workout</p>
+                        </div>
+                        {facialWorkout ? (
+                            <div className="bg-sage/10 p-5 rounded-2xl border border-sage/20">
+                                {facialWorkout.includes(':') ? (
+                                    <>
+                                        <p className="font-display text-base font-medium text-primary mb-2">
+                                            {facialWorkout.split(':')[0].trim()}
+                                        </p>
+                                        <p className="text-sm text-muted leading-relaxed">
+                                            {facialWorkout.split(':').slice(1).join(':').trim()}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="bg-white/50 p-5 rounded-2xl border border-lavender/50 text-center text-muted text-sm italic">
+                                Analyze a new selfie to get a personalized facial workout.
+                            </div>
+                        )}
                     </div>
 
-                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-2 flex flex-col tk-anim-6" style={{ animationDelay: '0.1s' }}>
-                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Targeted Facial Workout</p>
-                         {facialWorkout ? (
-                             <div className="bg-sage/10 p-5 rounded-xl border border-sage/20">
-                                 <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
-                             </div>
-                         ) : (
-                             <div className="bg-white/50 p-5 rounded-xl border border-lavender/50 text-center text-muted text-sm italic">
-                                 Analyze a new selfie to get a personalized facial workout.
-                             </div>
-                         )}
-                    </div>
-
+                    {/* Core Metrics Carousel */}
                     <ComponentErrorFallback title="Score Carousel">
                         <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
                     </ComponentErrorFallback>
                     
+                    {/* Recommended Products + What-If CTA */}
                     <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Products</p>
                         <div className="mb-4 text-sm text-muted">
@@ -185,7 +236,7 @@ export default async function DashboardPage() {
                             {products.map((prod, idx) => (
                                 <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center tk-anim-5 relative overflow-hidden" style={{ animationDelay: `${0.1 * idx}s` }}>
                                     <div className="relative w-32 h-32 rounded-full overflow-hidden mb-6 shadow-md border-2 border-white/50">
-                                    <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
+                                        <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
                                     </div>
                                     <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-1">{prod.type}</p>
                                     <h3 className="text-lg font-display text-primary mb-3">{prod.formula}</h3>
