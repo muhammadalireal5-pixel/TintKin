@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { completeOnboarding } from "@/app/lib/actions";
+import { SKIN_TYPES, SEX_OPTIONS, GOAL_OPTIONS } from "@/lib/constants/profile";
+import { validateOnboarding } from "@/lib/validations/onboarding";
 
 export default function OnboardingPage() {
     const router = useRouter();
@@ -18,13 +20,7 @@ export default function OnboardingPage() {
         customGoal: ""
     });
 
-    const goalsOptions = [
-        "Reduce Acne/Pimples",
-        "Anti-aging/Firmness",
-        "Improve Radiance/Glow",
-        "Reduce Spots/Pigmentation",
-        "Other"
-    ];
+    const goalsOptions = GOAL_OPTIONS;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -41,13 +37,9 @@ export default function OnboardingPage() {
     };
 
     const handleSubmit = async () => {
-        if (!formData.birthDate || !formData.sex || !formData.skinType) {
-            setError("Please fill in all required fields.");
-            return;
-        }
-        
-        if (formData.goals.length === 0) {
-            setError("Please select at least one goal.");
+        const validation = validateOnboarding(formData);
+        if (!validation.isValid) {
+            setError(validation.error || "Please fill in all required fields.");
             return;
         }
 
@@ -103,9 +95,11 @@ export default function OnboardingPage() {
                                 className="w-full bg-white/50 border border-lavender/50 rounded-xl p-3 text-primary focus:outline-none focus:border-sage focus:ring-1 focus:ring-sage"
                             >
                                 <option value="">Select...</option>
-                                <option value="female">Female</option>
-                                <option value="male">Male</option>
-                                <option value="other">Other</option>
+                                {SEX_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt}>
+                                        {opt === 'prefer_not_to_say' ? 'Prefer not to say' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <button 
@@ -129,11 +123,11 @@ export default function OnboardingPage() {
                         <div>
                             <label className="block text-sm font-medium text-primary mb-3">What's your skin type?</label>
                             <div className="grid grid-cols-2 gap-3">
-                                {['Oily', 'Dry', 'Combination', 'Normal'].map(type => (
+                                {SKIN_TYPES.map(type => (
                                     <button
                                         key={type}
                                         onClick={() => setFormData(prev => ({ ...prev, skinType: type }))}
-                                        className={`p-3 rounded-xl border text-sm font-medium transition-all ${
+                                        className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${
                                             formData.skinType === type 
                                             ? 'bg-sage/20 border-sage text-sage' 
                                             : 'bg-white/50 border-lavender/50 text-muted hover:border-sage/50'

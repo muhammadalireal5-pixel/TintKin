@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { SKIN_METRICS } from "@/lib/constants/metrics";
 
 export default function ProgressChart({ allSelfies }) {
   const [mounted, setMounted] = useState(false);
@@ -21,11 +22,11 @@ export default function ProgressChart({ allSelfies }) {
     const date = new Date(selfie.takenAt);
     return {
       date: `${date.getMonth() + 1}/${date.getDate()}`,
-      overall: selfie.overallScore,
-      wrinkles: selfie.scores?.wrinkles || 0,
-      firmness: selfie.scores?.firmness || 0,
-      spots: selfie.scores?.spots || 0,
-      radiance: selfie.scores?.radiance || 0,
+      overall: typeof selfie.overallScore === 'number' ? selfie.overallScore : null,
+      [SKIN_METRICS.WRINKLES]: typeof selfie.scores?.wrinkles === 'number' ? selfie.scores.wrinkles : null,
+      [SKIN_METRICS.FIRMNESS]: typeof selfie.scores?.firmness === 'number' ? selfie.scores.firmness : null,
+      [SKIN_METRICS.SPOTS]: typeof selfie.scores?.spots === 'number' ? selfie.scores.spots : null,
+      [SKIN_METRICS.RADIANCE]: typeof selfie.scores?.radiance === 'number' ? selfie.scores.radiance : null,
     };
   });
 

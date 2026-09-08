@@ -1,8 +1,7 @@
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { connectDb, User } from "@/app/lib/mongoose";
+import { TIERS, ALLOWED_ADMIN_TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
 import mongoose from "mongoose";
-
-const ALLOWED_TIERS = ['free', 'pending', 'standard', 'premium'];
 
 export async function PATCH(request, { params }) {
   const session = await verifyAdminSession();
@@ -18,17 +17,17 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
     const tier = body?.tier;
-    if (!ALLOWED_TIERS.includes(tier)) {
+    if (!ALLOWED_ADMIN_TIERS.includes(tier)) {
       return Response.json({ error: "Invalid tier" }, { status: 400 });
     }
 
     await connectDb();
 
     const update = {
-      tier: tier || 'free',
+      tier: tier || TIERS.FREE,
     };
 
-    if (tier === 'standard' || tier === 'premium') {
+    if (ACTIVE_SUBSCRIPTION_TIERS.includes(tier)) {
       update.isSubscribed = true;
       update.subscribedAt = new Date();
       update.currentPeriodStart = new Date();

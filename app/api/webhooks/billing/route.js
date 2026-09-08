@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectDb, User } from "@/app/lib/mongoose";
+import {
+  TIERS,
+  STANDARD_PACING,
+  ALLOWED_USER_TIERS,
+  ACTIVE_SUBSCRIPTION_TIERS,
+} from "@/lib/constants/tiers";
 
 /**
  * Universal Billing Webhook Endpoint for TintKin
@@ -33,7 +39,7 @@ export async function POST(req) {
       firebaseUid, 
       tier, 
       status = "active", 
-      standardPlanFrequency = "flexible",
+      standardPlanFrequency = STANDARD_PACING.FLEXIBLE,
       currentPeriodEnd 
     } = body;
 
@@ -63,9 +69,9 @@ export async function POST(req) {
 
     // Determine tier and subscription status
     const isCanceled = status === "canceled" || status === "cancelled" || status === "inactive";
-    const assignedTier = isCanceled ? "free" : (tier || user.tier);
+    const assignedTier = isCanceled ? TIERS.FREE : (tier || user.tier);
 
-    if (!["free", "standard", "premium"].includes(assignedTier)) {
+    if (!ALLOWED_USER_TIERS.includes(assignedTier)) {
       return NextResponse.json(
         { success: false, error: "Invalid tier. Must be 'free', 'standard', or 'premium'" },
         { status: 400 }
@@ -73,9 +79,9 @@ export async function POST(req) {
     }
 
     user.tier = assignedTier;
-    user.isSubscribed = assignedTier === "standard" || assignedTier === "premium";
+    user.isSubscribed = ACTIVE_SUBSCRIPTION_TIERS.includes(assignedTier);
 
-    if (assignedTier === "standard" && ["flexible", "every_other_day"].includes(standardPlanFrequency)) {
+    if (assignedTier === TIERS.STANDARD && Object.values(STANDARD_PACING).includes(standardPlanFrequency)) {
       user.standardPlanFrequency = standardPlanFrequency;
     }
 

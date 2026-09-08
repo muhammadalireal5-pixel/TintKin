@@ -3,18 +3,36 @@
 import { useEffect, useState } from "react";
 import { getWeeklyHistory } from "@/app/lib/actions";
 import Link from "next/link";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { ArrowLeft, Calendar, RefreshCw } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
+import { STATUS } from "@/lib/constants/status";
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchHistory = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getWeeklyHistory();
+      if (res?.status === STATUS.OK && Array.isArray(res.history)) {
+        setHistory(res.history);
+      } else if (Array.isArray(res)) {
+        setHistory(res);
+      } else {
+        setError(res?.message || "Failed to load score history.");
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to load score history.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    getWeeklyHistory().then((data) => {
-      setHistory(data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetchHistory();
   }, []);
 
   return (
@@ -42,7 +60,19 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!loading && history.length === 0 && (
+        {error && (
+          <div className="tk-glass p-8 text-center rounded-3xl tk-anim-2 border border-rose-200/50 bg-rose-50/20 mb-6">
+            <p className="text-sm text-rose-600 font-medium mb-3">{error}</p>
+            <button
+              onClick={fetchHistory}
+              className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-primary/90 transition shadow-sm"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && history.length === 0 && (
           <div className="tk-glass p-12 text-center rounded-3xl tk-anim-2 border border-white/50 bg-white/40">
             <div className="w-16 h-16 bg-sage/10 text-sage rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-8 h-8" />
@@ -81,8 +111,10 @@ export default function HistoryPage() {
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Overall Average</p>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-5xl font-display font-medium text-primary leading-none">{week.avgOverall}</span>
-                          <span className="text-lg text-muted">/ 100</span>
+                          <span className="text-5xl font-display font-medium text-primary leading-none">
+                            {typeof week.avgOverall === "number" ? week.avgOverall : "—"}
+                          </span>
+                          {typeof week.avgOverall === "number" && <span className="text-lg text-muted">/ 100</span>}
                         </div>
                       </div>
                     </div>
@@ -94,40 +126,60 @@ export default function HistoryPage() {
                       <div>
                         <div className="flex justify-between items-end mb-1">
                           <span className="text-xs font-medium text-muted">Wrinkles</span>
-                          <span className="text-sm font-semibold text-primary">{week.avgScores.wrinkles}</span>
+                          <span className="text-sm font-semibold text-primary">
+                            {typeof week.avgScores?.wrinkles === "number" ? week.avgScores.wrinkles : "—"}
+                          </span>
                         </div>
                         <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-sage rounded-full" style={{ width: `${week.avgScores.wrinkles}%` }} />
+                          <div
+                            className="h-full bg-sage rounded-full"
+                            style={{ width: `${typeof week.avgScores?.wrinkles === "number" ? week.avgScores.wrinkles : 0}%` }}
+                          />
                         </div>
                       </div>
 
                       <div>
                         <div className="flex justify-between items-end mb-1">
                           <span className="text-xs font-medium text-muted">Firmness</span>
-                          <span className="text-sm font-semibold text-primary">{week.avgScores.firmness}</span>
+                          <span className="text-sm font-semibold text-primary">
+                            {typeof week.avgScores?.firmness === "number" ? week.avgScores.firmness : "—"}
+                          </span>
                         </div>
                         <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-sage rounded-full" style={{ width: `${week.avgScores.firmness}%` }} />
+                          <div
+                            className="h-full bg-sage rounded-full"
+                            style={{ width: `${typeof week.avgScores?.firmness === "number" ? week.avgScores.firmness : 0}%` }}
+                          />
                         </div>
                       </div>
 
                       <div>
                         <div className="flex justify-between items-end mb-1">
                           <span className="text-xs font-medium text-muted">Spots</span>
-                          <span className="text-sm font-semibold text-primary">{week.avgScores.spots}</span>
+                          <span className="text-sm font-semibold text-primary">
+                            {typeof week.avgScores?.spots === "number" ? week.avgScores.spots : "—"}
+                          </span>
                         </div>
                         <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-400 rounded-full" style={{ width: `${week.avgScores.spots}%` }} />
+                          <div
+                            className="h-full bg-orange-400 rounded-full"
+                            style={{ width: `${typeof week.avgScores?.spots === "number" ? week.avgScores.spots : 0}%` }}
+                          />
                         </div>
                       </div>
 
                       <div>
                         <div className="flex justify-between items-end mb-1">
                           <span className="text-xs font-medium text-muted">Radiance</span>
-                          <span className="text-sm font-semibold text-primary">{week.avgScores.radiance}</span>
+                          <span className="text-sm font-semibold text-primary">
+                            {typeof week.avgScores?.radiance === "number" ? week.avgScores.radiance : "—"}
+                          </span>
                         </div>
                         <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-400 rounded-full" style={{ width: `${week.avgScores.radiance}%` }} />
+                          <div
+                            className="h-full bg-orange-400 rounded-full"
+                            style={{ width: `${typeof week.avgScores?.radiance === "number" ? week.avgScores.radiance : 0}%` }}
+                          />
                         </div>
                       </div>
 

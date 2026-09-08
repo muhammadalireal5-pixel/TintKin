@@ -17,28 +17,34 @@ export default async function DashboardPage() {
     if (!latestSelfie) redirect("/capture");
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
-    const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout } = sourceData;
+    const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout, adviceStatus } = sourceData;
     
-    const skinOlder = skinAge > realAge;
-    const ageDelta = Math.abs(skinAge - realAge);
+    const hasSkinAge = typeof skinAge === "number";
+    const hasRealAge = typeof realAge === "number";
+    const skinOlder = hasSkinAge && hasRealAge && skinAge > realAge;
+    const ageDelta = hasSkinAge && hasRealAge ? Math.abs(skinAge - realAge) : null;
 
-    const products = (latestSelfie?.recommendedProducts && latestSelfie.recommendedProducts.length > 0)
+    const hasPersonalizedProducts = Array.isArray(latestSelfie?.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
+    const products = hasPersonalizedProducts
         ? latestSelfie.recommendedProducts
         : [
             {
                 type: "Cleanser",
                 formula: "Gentle Hydrating Cleanser",
                 description: "Mild cleanser that maintains your skin barrier.",
+                isStarter: true
             },
             {
                 type: "Serum",
                 formula: "Vitamin C + Niacinamide",
                 description: "Brightens tone and fades dark spots.",
+                isStarter: true
             },
             {
                 type: "Moisturizer",
                 formula: "Ceramide Cream",
                 description: "Locks in moisture and strengthens barrier.",
+                isStarter: true
             },
         ];
 
@@ -113,7 +119,7 @@ export default async function DashboardPage() {
                                 <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
                                 <div className="flex items-end gap-2">
                                     <h2 className="text-5xl sm:text-6xl font-display font-medium text-primary leading-none">
-                                        {overallScore}
+                                        {typeof overallScore === 'number' ? overallScore : "—"}
                                     </h2>
                                     <span className="text-lg text-muted mb-1">/ 100</span>
                                 </div>
@@ -125,21 +131,36 @@ export default async function DashboardPage() {
                             {/* This Week */}
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
-                                <div className="flex items-end gap-2">
-                                    <h2 className="text-5xl sm:text-6xl font-display font-medium text-sage leading-none">
-                                        {weeklyAverage?.overallScore || overallScore}
-                                    </h2>
-                                    <span className="text-lg text-muted mb-1">/ 100</span>
-                                </div>
-                                <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
-                                    ── {weeklyAverage?.scanCount || 1} {weeklyAverage?.scanCount === 1 ? 'scan' : 'scans'} ──
-                                </p>
+                                {weeklyAverage?.overallScore != null ? (
+                                    <>
+                                        <div className="flex items-end gap-2">
+                                            <h2 className="text-5xl sm:text-6xl font-display font-medium text-sage leading-none">
+                                                {weeklyAverage.overallScore}
+                                            </h2>
+                                            <span className="text-lg text-muted mb-1">/ 100</span>
+                                        </div>
+                                        <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
+                                            ── {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'} ──
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-end gap-2">
+                                            <h2 className="text-4xl sm:text-5xl font-display font-medium text-muted/60 leading-none">
+                                                —
+                                            </h2>
+                                        </div>
+                                        <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
+                                            First scan this week
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-solid border-black/5">
                             <p className="text-sm text-muted">
-                                {critique || (overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
+                                {critique || (adviceStatus === 'error' ? 'AI personalized advice is temporarily updating and will refresh on your next scan.' : typeof overallScore === 'number' && overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : typeof overallScore === 'number' && overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
                             </p>
                         </div>
                     </div>
@@ -148,16 +169,18 @@ export default async function DashboardPage() {
                     <div className="flex flex-col gap-6 md:col-span-1 lg:col-span-1 tk-anim-3">
                         <div className="tk-glass p-6 flex-1 flex flex-col justify-center">
                             <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Real Age</p>
-                            <p className="text-4xl font-display text-primary">{realAge}</p>
+                            <p className="text-4xl font-display text-primary">{hasRealAge ? realAge : "—"}</p>
                         </div>
                         
                         <div className={`tk-glass p-6 flex-1 flex flex-col justify-center border ${skinOlder ? 'border-sage/30' : 'border-lavender/40'}`}>
                             <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Skin Age</p>
                             <div className="flex items-baseline gap-3">
-                                <p className="text-4xl font-display text-primary">{skinAge}</p>
-                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
-                                    {skinOlder ? `+${ageDelta}` : `-${ageDelta}`} yrs
-                                </span>
+                                <p className="text-4xl font-display text-primary">{hasSkinAge ? skinAge : "—"}</p>
+                                {ageDelta != null && (
+                                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
+                                        {skinOlder ? `+${ageDelta}` : `-${ageDelta}`} yrs
+                                    </span>
+                                )}
                             </div>
                         </div>
                         

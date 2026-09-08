@@ -10,12 +10,11 @@ export const metadata = {
 };
 
 export default async function SharePage() {
-  const { latestSelfie, latestAnalyzedSelfie, allSelfies, realAge } = await getLatestData();
+  const { user, latestAnalyzedSelfie, realAge } = await getLatestData();
 
-  if (!latestSelfie) redirect("/capture");
+  if (!latestAnalyzedSelfie) redirect("/capture");
 
-  const sourceData = latestAnalyzedSelfie || latestSelfie;
-  const { overallScore, skinAge, scores } = sourceData;
+  const { overallScore, skinAge, scores } = latestAnalyzedSelfie;
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-10 px-4 sm:px-6">

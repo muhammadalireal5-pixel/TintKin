@@ -1,21 +1,12 @@
 import { unzipSync, strFromU8 } from "fflate";
+import { applyFaceCropToCloudinary } from "@/lib/utils/cloudinary";
+import { YOUCAM_DST_ACTIONS } from "@/lib/constants/metrics";
 
 const BASE = "https://yce-api-01.makeupar.com";
 const KEY = process.env.YOUCAM_API_KEY;
 
-/**
- * Injects a Cloudinary face-detection crop into the URL so YouCam
- * always receives a face-centered, reasonably-sized image.
- * g_face   → auto-detects and centers on the face
- * c_thumb  → face-aware thumbnail crop
- * z_1.3    → zooms IN (70-75% face width, perfectly in YouCam's 60-80% sweet spot)
- * w/h 1200 → high resolution for accurate skin analysis
- */
 function faceCroppedUrl(cloudinaryUrl) {
-  return cloudinaryUrl.replace(
-    "/upload/",
-    "/upload/c_thumb,g_face,z_1.3,w_1200,h_1200/"
-  );
+  return applyFaceCropToCloudinary(cloudinaryUrl, 1.3);
 }
 
 function formatYouCamError(errStr) {
@@ -134,7 +125,7 @@ export async function analyzeSkin(imageUrl) {
     },
     body: JSON.stringify({ 
       src_file_url: croppedUrl, 
-      dst_actions: ["wrinkle", "firmness", "age_spot", "radiance"],
+      dst_actions: YOUCAM_DST_ACTIONS,
       format: "json"
     })
   });
@@ -166,8 +157,8 @@ export async function simulateSkin(imageUrl, intensities = {}) {
 
   const candidates = [];
   if (imageUrl.includes("/upload/")) {
-    candidates.push(imageUrl.replace("/upload/", "/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/"));
-    candidates.push(imageUrl.replace("/upload/", "/upload/c_thumb,g_face,z_0.9,w_1200,h_1200/"));
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 1.05));
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9));
   }
   if (!candidates.includes(imageUrl)) {
     candidates.push(imageUrl);

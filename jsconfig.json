@@ -1,7 +1,17 @@
 {
   "compilerOptions": {
+    "checkJs": true,
+    "skipLibCheck": true,
+    "maxNodeModuleJsDepth": 0,
     "paths": {
       "@/*": ["./*"]
     }
-  }
+  },
+  "include": [
+    "lib/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
 }

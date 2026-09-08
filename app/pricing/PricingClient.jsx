@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 import { updateUserTier } from "@/app/lib/actions";
 import { Check, Sparkles, Star, Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
+import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 
 export default function PricingClient() {
     const router = useRouter();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [showStandardModal, setShowStandardModal] = useState(false);
-    const [activeTab, setActiveTab] = useState("standard"); // for mobile view: 'free' | 'standard' | 'premium'
+    const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // for mobile view: 'free' | 'standard' | 'premium'
 
     const handleSelectPlan = async (tier) => {
-        if (tier === 'standard') {
+        if (tier === TIERS.STANDARD) {
             setShowStandardModal(true);
             return;
         }
@@ -32,7 +33,7 @@ export default function PricingClient() {
     const handleStandardFrequency = async (frequency) => {
         setLoading(true);
         setShowStandardModal(false);
-        const res = await updateUserTier('standard', frequency);
+        const res = await updateUserTier(TIERS.STANDARD, frequency);
         if (res.success) {
             router.push("/capture");
         } else {
@@ -47,9 +48,9 @@ export default function PricingClient() {
             <div className="md:hidden flex justify-center mb-8 tk-anim-1">
                 <div className="inline-flex bg-white/70 p-1 rounded-2xl border border-lavender shadow-sm">
                     <button
-                        onClick={() => setActiveTab("free")}
+                        onClick={() => setActiveTab(TIERS.FREE)}
                         className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                            activeTab === "free"
+                            activeTab === TIERS.FREE
                                 ? "bg-primary text-white shadow-sm"
                                 : "text-muted hover:text-primary"
                         }`}
@@ -57,9 +58,9 @@ export default function PricingClient() {
                         Free
                     </button>
                     <button
-                        onClick={() => setActiveTab("standard")}
+                        onClick={() => setActiveTab(TIERS.STANDARD)}
                         className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all relative ${
-                            activeTab === "standard"
+                            activeTab === TIERS.STANDARD
                                 ? "bg-sage text-white shadow-sm"
                                 : "text-muted hover:text-primary"
                         }`}
@@ -68,9 +69,9 @@ export default function PricingClient() {
                         <span className="ml-1 text-[9px] uppercase px-1.5 py-0.2 bg-white/20 rounded-full font-bold">Pop</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab("premium")}
+                        onClick={() => setActiveTab(TIERS.PREMIUM)}
                         className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                            activeTab === "premium"
+                            activeTab === TIERS.PREMIUM
                                 ? "bg-primary text-white shadow-sm"
                                 : "text-muted hover:text-primary"
                         }`}
@@ -84,7 +85,7 @@ export default function PricingClient() {
                 
                 {/* Free Plan */}
                 <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-2 hover:shadow-xl transition-all ${
-                    activeTab !== "free" ? "hidden md:flex" : "flex"
+                    activeTab !== TIERS.FREE ? "hidden md:flex" : "flex"
                 }`}>
                     <div className="mb-6">
                         <h3 className="text-2xl font-display text-primary mb-2">Free</h3>
@@ -109,7 +110,7 @@ export default function PricingClient() {
                         </li>
                     </ul>
                     <button 
-                        onClick={() => handleSelectPlan('free')}
+                        onClick={() => handleSelectPlan(TIERS.FREE)}
                         disabled={loading}
                         className="tk-pill-btn w-full bg-white/50 border border-lavender hover:bg-white transition-colors"
                     >
@@ -119,7 +120,7 @@ export default function PricingClient() {
 
                 {/* Standard Plan */}
                 <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-3 relative hover:shadow-xl transition-all border-sage/30 bg-white/50 ${
-                    activeTab !== "standard" ? "hidden md:flex" : "flex"
+                    activeTab !== TIERS.STANDARD ? "hidden md:flex" : "flex"
                 }`}>
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2 sm:translate-x-4">
                         <div className="bg-sage text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest px-3 sm:px-4 py-1 rounded-full shadow-lg">
@@ -149,7 +150,7 @@ export default function PricingClient() {
                         </li>
                     </ul>
                     <button 
-                        onClick={() => handleSelectPlan('standard')}
+                        onClick={() => handleSelectPlan(TIERS.STANDARD)}
                         disabled={loading}
                         className="tk-pill-btn w-full bg-primary text-white hover:bg-primary/90 transition-colors shadow-lg"
                     >
@@ -159,7 +160,7 @@ export default function PricingClient() {
 
                 {/* Pro Plan */}
                 <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-4 hover:shadow-xl transition-all ${
-                    activeTab !== "premium" ? "hidden md:flex" : "flex"
+                    activeTab !== TIERS.PREMIUM ? "hidden md:flex" : "flex"
                 }`}>
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-2">
@@ -187,7 +188,7 @@ export default function PricingClient() {
                         </li>
                     </ul>
                     <button 
-                        onClick={() => handleSelectPlan('premium')}
+                        onClick={() => handleSelectPlan(TIERS.PREMIUM)}
                         disabled={loading}
                         className="tk-pill-btn w-full bg-white/50 border border-lavender hover:bg-white transition-colors"
                     >
@@ -199,7 +200,7 @@ export default function PricingClient() {
             {/* Sticky Mobile CTA */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-base/90 backdrop-blur-md border-t border-black/5 z-40 pb-safe">
                 <button
-                    onClick={() => handleSelectPlan('standard')}
+                    onClick={() => handleSelectPlan(TIERS.STANDARD)}
                     disabled={loading}
                     className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold"
                 >
@@ -228,7 +229,7 @@ export default function PricingClient() {
 
                         <div className="space-y-4">
                             <button 
-                                onClick={() => handleStandardFrequency('every_other_day')}
+                                onClick={() => handleStandardFrequency(STANDARD_PACING.EVERY_OTHER_DAY)}
                                 className="w-full text-left p-4 rounded-2xl border-2 border-sage/50 bg-sage/5 hover:bg-sage/10 transition-colors relative group"
                             >
                                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2">
@@ -246,7 +247,7 @@ export default function PricingClient() {
                             </button>
 
                             <button 
-                                onClick={() => handleStandardFrequency('flexible')}
+                                onClick={() => handleStandardFrequency(STANDARD_PACING.FLEXIBLE)}
                                 className="w-full text-left p-4 rounded-2xl border border-lavender hover:bg-black/5 transition-colors group"
                             >
                                 <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   RadarChart, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip
 } from "recharts";
+import { METRIC_LABELS } from "@/lib/constants/metrics";
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -37,7 +38,7 @@ export default function RadarChartClient({ scores }) {
   };
 
   const data = Object.entries(scores).map(([subject, value]) => ({ 
-    subject, 
+    subject: METRIC_LABELS[subject] || subject, 
     value,
     tag: getSupportiveTag(value)
   }));

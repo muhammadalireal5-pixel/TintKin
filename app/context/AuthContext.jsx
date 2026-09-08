@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/app/lib/firebase/client";
+import { setSessionCookie, clearSessionCookie } from "@/lib/utils/auth-cookie";
 
 const AuthContext = createContext({
   user: null,
@@ -23,11 +24,6 @@ export function AuthProvider({ children }) {
 
     let isMounted = true;
 
-    const setSessionCookie = (token) => {
-      const secureFlag = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
-    };
-
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
@@ -40,7 +36,7 @@ export function AuthProvider({ children }) {
             }
             if (isMounted) setUser(firebaseUser);
           } else {
-            document.cookie = "__session=; path=/; max-age=0";
+            clearSessionCookie();
             if (isMounted) setUser(null);
           }
         } catch {
@@ -91,7 +87,7 @@ export function AuthProvider({ children }) {
     } catch {
       // Best-effort sign out
     }
-    document.cookie = "__session=; path=/; max-age=0";
+    clearSessionCookie();
     setUser(null);
     window.location.href = "/";
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { SKIN_METRICS, METRIC_LABELS } from "@/lib/constants/metrics";
 
 export default function ScoreCarousel({ scores, weeklyScores }) {
   const [activeGroup, setActiveGroup] = useState(0);
@@ -8,12 +9,12 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
 
   const groups = [
     [
-      { key: "wrinkles", val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: "Wrinkle Smoothness" },
-      { key: "firmness", val: scores.firmness, weeklyVal: weeklyScores?.firmness, label: "Firmness" },
+      { key: SKIN_METRICS.WRINKLES, val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: METRIC_LABELS[SKIN_METRICS.WRINKLES] },
+      { key: SKIN_METRICS.FIRMNESS, val: scores.firmness, weeklyVal: weeklyScores?.firmness, label: METRIC_LABELS[SKIN_METRICS.FIRMNESS] },
     ],
     [
-      { key: "spots", val: scores.spots, weeklyVal: weeklyScores?.spots, label: "Spot Clarity" },
-      { key: "radiance", val: scores.radiance, weeklyVal: weeklyScores?.radiance, label: "Radiance" },
+      { key: SKIN_METRICS.SPOTS, val: scores.spots, weeklyVal: weeklyScores?.spots, label: METRIC_LABELS[SKIN_METRICS.SPOTS] },
+      { key: SKIN_METRICS.RADIANCE, val: scores.radiance, weeklyVal: weeklyScores?.radiance, label: METRIC_LABELS[SKIN_METRICS.RADIANCE] },
     ],
   ];
 
@@ -74,8 +75,8 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
       
       <div className="grid grid-cols-2 gap-4">
         {currentScores.map(({ key, val, weeklyVal, label }) => {
-          const wVal = weeklyVal ?? val;
-          const delta = val - wVal;
+          const hasWeekly = typeof weeklyVal === "number";
+          const delta = hasWeekly && typeof val === "number" ? val - weeklyVal : 0;
           return (
             <div
               key={key}
@@ -86,15 +87,15 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
                   {label}
                 </p>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <p className="text-3xl font-display text-primary">{val}</p>
-                  {delta !== 0 && (
+                  <p className="text-3xl font-display text-primary">{typeof val === "number" ? val : "—"}</p>
+                  {hasWeekly && delta !== 0 && (
                     <span className={`text-xs font-semibold ${delta > 0 ? "text-sage" : "text-orange-400"}`}>
                       {delta > 0 ? `+${delta} ↑` : `${delta} ↓`}
                     </span>
                   )}
                 </div>
                 <p className="text-[10px] text-muted uppercase tracking-wider font-semibold">
-                  Week Avg: {wVal}
+                  Week Avg: {hasWeekly ? weeklyVal : "—"}
                 </p>
               </div>
 
@@ -103,17 +104,19 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
                   <div
                     className="absolute h-full rounded-full transition-all duration-1000 ease-out z-10"
                     style={{
-                      width: `${Math.min(100, Math.max(0, val))}%`,
-                      backgroundColor: val > 75 ? "var(--tk-accent-sage)" : val > 50 ? "#E8A838" : "#D4614B",
+                      width: `${Math.min(100, Math.max(0, typeof val === "number" ? val : 0))}%`,
+                      backgroundColor: typeof val === "number" && val > 75 ? "var(--tk-accent-sage)" : typeof val === "number" && val > 50 ? "#E8A838" : "#D4614B",
                     }}
                   />
-                  <div
-                    className="absolute h-full rounded-full transition-all duration-1000 ease-out opacity-30"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, wVal))}%`,
-                      backgroundColor: "#6B7280",
-                    }}
-                  />
+                  {hasWeekly && (
+                    <div
+                      className="absolute h-full rounded-full transition-all duration-1000 ease-out opacity-30"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, weeklyVal))}%`,
+                        backgroundColor: "#6B7280",
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="h-7 flex items-center mt-2 overflow-hidden">
                   {val > 75 ? (

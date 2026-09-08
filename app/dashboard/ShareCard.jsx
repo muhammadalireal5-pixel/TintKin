@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import * as htmlToImage from "html-to-image";
 import { Download, Sparkles, Check } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
+import { SKIN_METRICS } from "@/lib/constants/metrics";
 
 const BACKGROUND_THEMES = [
   {
@@ -46,16 +47,16 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
   const [loading, setLoading] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(BACKGROUND_THEMES[0]);
 
+  const hasValidScore = typeof overallScore === "number";
   const safeScores = scores ?? {};
-  const safeOverall = overallScore ?? 75;
-  const safeSkinAge = skinAge ?? 25;
-  const safeRealAge = realAge ?? 28;
-
-  const ageDelta = Math.abs(safeSkinAge - safeRealAge);
-  const skinYounger = safeSkinAge <= safeRealAge;
+  const hasSkinAge = typeof skinAge === "number";
+  const hasRealAge = typeof realAge === "number";
+  const hasBothAges = hasSkinAge && hasRealAge;
+  const ageDelta = hasBothAges ? Math.abs(skinAge - realAge) : 0;
+  const skinYounger = hasBothAges ? skinAge <= realAge : false;
 
   const handleDownload = async () => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || !hasValidScore) return;
     setLoading(true);
     try {
       // Ensure all images within the card are loaded before capture
@@ -82,12 +83,15 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
       <div className="w-full flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase text-muted">Share Progress</p>
-          <p className="text-xs text-primary/70">Pick a background and download your snapshot</p>
+          <p className="text-xs text-primary/70">
+            {hasValidScore ? "Pick a background and download your snapshot" : "Complete a skin scan to unlock your share card"}
+          </p>
         </div>
         <button
           onClick={handleDownload}
-          disabled={loading}
-          className="flex items-center gap-2 text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition px-5 py-2.5 rounded-full shadow-md active:scale-95 disabled:opacity-50"
+          disabled={loading || !hasValidScore}
+          title={!hasValidScore ? "Complete a skin scan to download card" : undefined}
+          className="flex items-center gap-2 text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition px-5 py-2.5 rounded-full shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             "Rendering..."
@@ -167,9 +171,9 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
             <p className="text-[11px] font-semibold tracking-widest uppercase text-muted mb-1">Overall Skin Health</p>
             <div className="flex items-baseline justify-center gap-2">
               <span className="text-6xl sm:text-7xl font-display font-medium text-primary leading-none tracking-tight">
-                {safeOverall}
+                {hasValidScore ? overallScore : "—"}
               </span>
-              <span className="text-lg text-muted font-medium">/ 100</span>
+              {hasValidScore && <span className="text-lg text-muted font-medium">/ 100</span>}
             </div>
           </div>
 
@@ -177,13 +181,13 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           <div className="grid grid-cols-2 gap-3 mx-1">
             <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Real Age</p>
-              <p className="text-2xl font-display font-medium text-primary leading-tight">{safeRealAge}</p>
+              <p className="text-2xl font-display font-medium text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
             </div>
             <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm relative overflow-hidden">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Skin Age</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-display font-medium text-primary leading-tight">{safeSkinAge}</p>
-                {ageDelta > 0 && (
+                <p className="text-2xl font-display font-medium text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
+                {hasBothAges && ageDelta > 0 && (
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                       skinYounger ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"
@@ -201,19 +205,27 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
             <div className="grid grid-cols-4 gap-2 text-center divide-x divide-black/5">
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Wrinkles</p>
-                <p className="text-sm font-bold text-primary">{safeScores.wrinkles ?? 80}</p>
+                <p className="text-sm font-bold text-primary">
+                  {typeof safeScores[SKIN_METRICS.WRINKLES] === "number" ? safeScores[SKIN_METRICS.WRINKLES] : "—"}
+                </p>
               </div>
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Firmness</p>
-                <p className="text-sm font-bold text-primary">{safeScores.firmness ?? 78}</p>
+                <p className="text-sm font-bold text-primary">
+                  {typeof safeScores[SKIN_METRICS.FIRMNESS] === "number" ? safeScores[SKIN_METRICS.FIRMNESS] : "—"}
+                </p>
               </div>
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Spots</p>
-                <p className="text-sm font-bold text-primary">{safeScores.spots ?? 82}</p>
+                <p className="text-sm font-bold text-primary">
+                  {typeof safeScores[SKIN_METRICS.SPOTS] === "number" ? safeScores[SKIN_METRICS.SPOTS] : "—"}
+                </p>
               </div>
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Radiance</p>
-                <p className="text-sm font-bold text-primary">{safeScores.radiance ?? 85}</p>
+                <p className="text-sm font-bold text-primary">
+                  {typeof safeScores[SKIN_METRICS.RADIANCE] === "number" ? safeScores[SKIN_METRICS.RADIANCE] : "—"}
+                </p>
               </div>
             </div>
           </div>

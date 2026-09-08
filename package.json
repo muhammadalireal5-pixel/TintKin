@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "type-check": "tsc -p jsconfig.json --noEmit"
   },
   "dependencies": {
     "fflate": "^0.8.3",

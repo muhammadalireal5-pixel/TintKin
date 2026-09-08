@@ -19,6 +19,9 @@ import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings } from "@/app/lib/actions";
 import { useAuthContext } from "../context/AuthContext";
 import { useToast } from "@/app/components/ToastProvider";
+import { SKIN_TYPES } from "@/lib/constants/profile";
+import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
+import { PHOTO_PRIVACY } from "@/lib/constants/privacy";
 
 const emptySubscribe = () => () => {};
 function useMounted() {
@@ -39,8 +42,8 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [currentCity, setCurrentCity] = useState("");
   const [skinType, setSkinType] = useState("");
   const [optIn, setOptIn] = useState(false);
-  const [photoPrivacy, setPhotoPrivacy] = useState("store");
-  const [standardPlanFrequency, setStandardPlanFrequency] = useState("flexible");
+  const [photoPrivacy, setPhotoPrivacy] = useState(PHOTO_PRIVACY.STORE);
+  const [standardPlanFrequency, setStandardPlanFrequency] = useState(STANDARD_PACING.FLEXIBLE);
   const panelRef = useRef(null);
 
   // Fetch DB profile data when modal opens
@@ -295,14 +298,14 @@ export default function SettingsModal({ isOpen, onClose }) {
               </Link>
             </div>
             
-            {profile?.tier === "standard" && (
+            {profile?.tier === TIERS.STANDARD && (
               <div className="mt-3 pt-3 border-t border-black/5">
                 <label className="text-xs text-[#5B6D7F] block mb-2">Scan Pacing</label>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleFrequencyChange("every_other_day")}
+                    onClick={() => handleFrequencyChange(STANDARD_PACING.EVERY_OTHER_DAY)}
                     className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
-                      standardPlanFrequency === "every_other_day"
+                      standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY
                         ? "bg-[#2C3E50] text-white border-[#2C3E50]"
                         : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
                     }`}
@@ -310,9 +313,9 @@ export default function SettingsModal({ isOpen, onClose }) {
                     Every Other Day
                   </button>
                   <button
-                    onClick={() => handleFrequencyChange("flexible")}
+                    onClick={() => handleFrequencyChange(STANDARD_PACING.FLEXIBLE)}
                     className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
-                      standardPlanFrequency === "flexible"
+                      standardPlanFrequency === STANDARD_PACING.FLEXIBLE
                         ? "bg-[#2C3E50] text-white border-[#2C3E50]"
                         : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
                     }`}
@@ -337,7 +340,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <div className="mb-4">
               <label className="text-xs text-[#5B6D7F] block mb-2">Skin Type</label>
               <div className="flex flex-wrap gap-1.5">
-                {["oily", "dry", "combination", "normal", "sensitive"].map((type) => {
+                {SKIN_TYPES.map((type) => {
                   const isSelected = skinType?.toLowerCase() === type;
                   return (
                     <button
@@ -475,12 +478,12 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <input
                     type="radio"
                     name="photoPrivacy"
-                    value="store"
-                    checked={photoPrivacy === "store"}
+                    value={PHOTO_PRIVACY.STORE}
+                    checked={photoPrivacy === PHOTO_PRIVACY.STORE}
                     onChange={handlePrivacyChange}
                     className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
                   />
-                  {photoPrivacy === "store" && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                  {photoPrivacy === PHOTO_PRIVACY.STORE && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
                 </div>
                 <div className="flex-1 text-sm text-[#2C3E50]">
                   <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Store photo till next scan (Recommended)</p>
@@ -493,12 +496,12 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <input
                     type="radio"
                     name="photoPrivacy"
-                    value="delete"
-                    checked={photoPrivacy === "delete"}
+                    value={PHOTO_PRIVACY.DELETE}
+                    checked={photoPrivacy === PHOTO_PRIVACY.DELETE}
                     onChange={handlePrivacyChange}
                     className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
                   />
-                  {photoPrivacy === "delete" && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                  {photoPrivacy === PHOTO_PRIVACY.DELETE && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
                 </div>
                 <div className="flex-1 text-sm text-[#2C3E50]">
                   <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Delete immediately</p>

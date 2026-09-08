@@ -8,30 +8,36 @@ import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
 import { evaluateUserAchievements } from "./achievements";
+import {
+  validateTrustedImageUrl,
+  getCloudinaryPublicId,
+  applyFaceCropToCloudinary,
+} from "@/lib/utils/cloudinary";
+import { validateImageFile } from "@/lib/validations/image";
+import { validateOnboarding } from "@/lib/validations/onboarding";
+import { validateUserSettings } from "@/lib/validations/settings";
+import {
+  TIERS,
+  STANDARD_PACING,
+  ALLOWED_USER_TIERS,
+  ACTIVE_SUBSCRIPTION_TIERS,
+} from "@/lib/constants/tiers";
+import { STATUS, ERROR_CODES } from "@/lib/constants/status";
+import { okResult, errorResult, partialResult } from "@/lib/utils/result";
+import { DEFAULT_RECOMMENDED_PRODUCTS } from "@/lib/constants/products";
+import { DENIAL_REASONS } from "@/lib/constants/quotas";
+import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
+import {
+  getLocalDayStart,
+  getLocalISOWeekStart,
+  getLocalMonthStart,
+  getISOWeekStart,
+} from "@/lib/utils/date";
 import crypto from "crypto";
 import mongoose from "mongoose";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = "ml_default";
-
-function validateTrustedImageUrl(url) {
-  if (!url || typeof url !== "string") return false;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return false;
-    const allowedHostnames = [
-      "res.cloudinary.com",
-      "yce-us.s3-accelerate.amazonaws.com",
-      "yce-us.s3.amazonaws.com",
-      "tintkin.com",
-    ];
-    return allowedHostnames.some(
-      (host) => parsed.hostname === host || parsed.hostname.endsWith("." + host)
-    );
-  } catch {
-    return false;
-  }
-}
 
 async function uploadUrlToCloudinary(imageUrl) {
   if (!imageUrl || !imageUrl.startsWith('http')) return imageUrl;
@@ -51,21 +57,6 @@ async function uploadUrlToCloudinary(imageUrl) {
   } catch (e) {
     return imageUrl;
   }
-}
-
-function getCloudinaryPublicId(imageUrl) {
-  if (!imageUrl || !imageUrl.includes("cloudinary.com")) return null;
-  const parts = imageUrl.split("/upload/");
-  if (parts.length !== 2) return null;
-  
-  let segments = parts[1].split('/');
-  while (segments.length > 1 && (segments[0].includes(',') || /^v\d+$/.test(segments[0]))) {
-    segments.shift();
-  }
-  
-  let pathPart = segments.join('/');
-  const dotIndex = pathPart.lastIndexOf(".");
-  return dotIndex !== -1 ? pathPart.substring(0, dotIndex) : pathPart;
 }
 
 async function deleteImageFromCloudinary(imageUrl) {
@@ -92,13 +83,6 @@ async function deleteImageFromCloudinary(imageUrl) {
   }
 }
 
-function applyFaceCropToCloudinary(url){
-  if (!url || !url.includes('cloudinary.com')) return url;
-  const parts = url.split('/upload/');
-  if(parts.length !== 2) return url;
-  return `${parts[0]}/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/${parts[1]}`;
-}
-
 export async function uploadSelfieServerAction(formData) {
   let decoded;
   try {
@@ -112,13 +96,9 @@ export async function uploadSelfieServerAction(formData) {
     const file = formData.get("file");
     if (!file) return { success: false, error: "No file provided" };
 
-    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (file.type && !allowedMimeTypes.includes(file.type)) {
-      return { success: false, error: "Only JPEG, PNG, and WebP images are supported." };
-    }
-
-    if (file.size && file.size > 8 * 1024 * 1024) {
-      return { success: false, error: "Image file exceeds 8MB limit." };
+    const fileValidation = validateImageFile(file);
+    if (!fileValidation.isValid) {
+      return { success: false, error: fileValidation.error };
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
@@ -229,14 +209,14 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     const quotas = await getUsageQuotas(timezone);
     if (!quotas.scans.canScanToday) {
        let msg = "You've reached your scan limit.";
-       if (quotas.scans.denialReason === 'daily_limit') msg = "You've already logged a photo today. Come back tomorrow to keep your streak going!";
-       if (quotas.scans.denialReason === 'monthly_limit') msg = "You've used all your scans for this month.";
-       if (quotas.scans.denialReason === 'every_other_day') msg = "Your plan is set to every-other-day. Come back tomorrow!";
-       return { success: false, error: "SCAN_LIMIT", message: msg };
+       if (quotas.scans.denialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. Come back tomorrow to keep your streak going!";
+       if (quotas.scans.denialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month.";
+       if (quotas.scans.denialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. Come back tomorrow!";
+       return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
     }
 
     if (!imageUrl || !validateTrustedImageUrl(imageUrl)) {
-      return { success: false, error: "Invalid or untrusted image URL." };
+      return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
     }
 
     const todayStart = getLocalDayStart(timezone);
@@ -282,7 +262,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         { $inc: { extraScans: -1 } }
       );
       if (!consumed) {
-        return { success: false, error: "SCAN_LIMIT", message: "You've reached your scan limit." };
+        return errorResult(ERROR_CODES.SCAN_LIMIT, "You've reached your scan limit.", { error: "SCAN_LIMIT" });
       }
       extraScanConsumed = true;
     }
@@ -334,14 +314,14 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     let advice;
     if (useCachedAdvice) {
-      advice = {
+      advice = okResult({
         critique: lastSelfie.critique,
         habits: lastSelfie.habits,
         amRoutine: lastSelfie.amRoutine,
         pmRoutine: lastSelfie.pmRoutine,
         facialWorkout: lastSelfie.facialWorkout,
         products: lastSelfie.recommendedProducts
-      };
+      });
     } else {
       let uvIndex = null;
       if (user.location && user.location.lat && user.location.lng) {
@@ -361,11 +341,16 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex);
     }
 
-    let recommendedProducts = advice.products || [];
-    let habits = advice.habits || [];
-    let facialWorkout = advice.facialWorkout || "";
-    let critique = advice.critique || "";
-    
+    const adviceSucceeded = Boolean(advice && advice.status !== STATUS.ERROR && advice.success !== false);
+    const adviceStatus = adviceSucceeded ? STATUS.OK : STATUS.ERROR;
+
+    let recommendedProducts = adviceSucceeded && Array.isArray(advice.products) ? advice.products : [];
+    let habits = adviceSucceeded && Array.isArray(advice.habits) ? advice.habits : [];
+    let facialWorkout = adviceSucceeded && typeof advice.facialWorkout === "string" ? advice.facialWorkout : "";
+    let critique = adviceSucceeded && typeof advice.critique === "string" ? advice.critique : "";
+    let amRoutine = adviceSucceeded && Array.isArray(advice.amRoutine) ? advice.amRoutine : [];
+    let pmRoutine = adviceSucceeded && Array.isArray(advice.pmRoutine) ? advice.pmRoutine : [];
+
     let productsChanged = false;
     let habitsChanged = false;
     let workoutChanged = false;
@@ -375,33 +360,39 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     const updatesToUser = {};
 
-    if (lastSelfie) {
-      if (recommendationsLocked) {
-        if (lastSelfie.recommendedProducts?.length > 0) recommendedProducts = lastSelfie.recommendedProducts;
-        if (lastSelfie.habits?.length > 0) habits = lastSelfie.habits;
-      } else {
-        if (!useCachedAdvice) {
-          productsChanged = true;
-          habitsChanged = true;
-          updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    if (adviceSucceeded) {
+      if (lastSelfie) {
+        if (recommendationsLocked) {
+          if (lastSelfie.recommendedProducts?.length > 0) recommendedProducts = lastSelfie.recommendedProducts;
+          if (lastSelfie.habits?.length > 0) habits = lastSelfie.habits;
+        } else {
+          if (!useCachedAdvice && recommendedProducts.length === 3) {
+            productsChanged = true;
+            habitsChanged = true;
+            updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          }
         }
-      }
 
-      if (workoutLocked) {
-        if (lastSelfie.facialWorkout) facialWorkout = lastSelfie.facialWorkout;
+        if (workoutLocked) {
+          if (lastSelfie.facialWorkout) facialWorkout = lastSelfie.facialWorkout;
+        } else {
+          if (!useCachedAdvice && facialWorkout) {
+            workoutChanged = true;
+            updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          }
+        }
       } else {
         if (!useCachedAdvice) {
-          workoutChanged = true;
-          updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          if (recommendedProducts.length === 3) {
+            productsChanged = true;
+            habitsChanged = true;
+            updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          }
+          if (facialWorkout) {
+            workoutChanged = true;
+            updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          }
         }
-      }
-    } else {
-      if (!useCachedAdvice) {
-        productsChanged = true;
-        habitsChanged = true;
-        workoutChanged = true;
-        updatesToUser.recommendationsLockedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        updatesToUser.workoutLockedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       }
     }
 
@@ -419,33 +410,10 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       await User.findByIdAndUpdate(user._id, finalUpdates);
     }
 
-    if(!Array.isArray(recommendedProducts) || recommendedProducts.length !== 3 ){
-      recommendedProducts = [
-        {
-          type: "Cleanser",
-          formula: "Gentle Hydrating Cleanser",
-          description: "Mild cleanser that maintains your skin barrier.",
-        },
-        {
-          type: "Serum",
-          formula: "Vitamin C + Niacinamide",
-          description: "Brightens tone and fades dark spots.",
-        },
-        {
-          type: "Moisturizer",
-          formula: "Ceramide Cream",
-          description: "Locks in moisture and strengthens barrier.",
-        },
-      ];
-    }
-
     if (lastSelfie && lastSelfie.imageUrl) {
       await deleteImageFromCloudinary(lastSelfie.imageUrl);
       await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
     }
-
-    let amRoutine = advice.amRoutine || [];
-    let pmRoutine = advice.pmRoutine || [];
 
     let finalImageUrl = imageUrl;
     if (user.photoPrivacy === 'delete') {
@@ -459,25 +427,36 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       overallScore,
       skinAge,
       scores,
+      adviceStatus,
       maskUrls: youCamResult.masks ?? {},
       youCamTaskId: youCamResult.task_id,
-      critique: critique,
-      habits: habits,
-      amRoutine: amRoutine,
-      pmRoutine: pmRoutine,
-      facialWorkout: facialWorkout,
+      critique,
+      habits,
+      amRoutine,
+      pmRoutine,
+      facialWorkout,
       recommendedProducts,
     });
 
     await User.findByIdAndUpdate(user._id, { baselineSelfie: finalImageUrl });
 
-    return { 
-      success: true, 
+    if (adviceSucceeded) {
+      return okResult({ 
+        selfieId: selfie._id.toString(),
+        adviceStatus: STATUS.OK,
+        productsChanged,
+        habitsChanged,
+        workoutChanged
+      });
+    }
+
+    return partialResult({ 
       selfieId: selfie._id.toString(),
-      productsChanged,
-      habitsChanged,
-      workoutChanged
-    };
+      adviceStatus: STATUS.ERROR,
+      productsChanged: false,
+      habitsChanged: false,
+      workoutChanged: false
+    }, ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
   } catch (err) {
     if (extraScanConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
@@ -485,22 +464,19 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     if (imageUrl) {
       await deleteImageFromCloudinary(imageUrl).catch(() => {});
     }
-    return { success: false, error: "Analysis failed. Please try a clearer photo or try again later." };
+    return errorResult(
+      ERROR_CODES.ANALYSIS_FAILED,
+      "Analysis failed. Please try a clearer photo or try again later.",
+      { error: "Analysis failed. Please try a clearer photo or try again later." }
+    );
   }
 }
 
-function getISOWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay() || 7;
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - day + 1);
-  return d;
-}
 
 export async function getLatestData(timezone = "UTC") {
   const user = await getDbUser();
   const latestSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
-  const latestAnalyzedSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }) || latestSelfie;
+  const latestAnalyzedSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
   const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: 1 });
   const lifestyleLogs = await Lifestyle.find({ userId: user._id }).sort({ date: -1 });
 
@@ -524,22 +500,22 @@ export async function getLatestData(timezone = "UTC") {
 
   if (thisWeekSelfies.length > 0) {
     let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
+    let countOverall = 0, countWrinkles = 0, countFirmness = 0, countSpots = 0, countRadiance = 0;
     thisWeekSelfies.forEach(s => {
-      sumOverall += s.overallScore || 0;
-      sumWrinkles += s.scores?.wrinkles || 0;
-      sumFirmness += s.scores?.firmness || 0;
-      sumSpots += s.scores?.spots || 0;
-      sumRadiance += s.scores?.radiance || 0;
+      if (typeof s.overallScore === "number") { sumOverall += s.overallScore; countOverall++; }
+      if (typeof s.scores?.wrinkles === "number") { sumWrinkles += s.scores.wrinkles; countWrinkles++; }
+      if (typeof s.scores?.firmness === "number") { sumFirmness += s.scores.firmness; countFirmness++; }
+      if (typeof s.scores?.spots === "number") { sumSpots += s.scores.spots; countSpots++; }
+      if (typeof s.scores?.radiance === "number") { sumRadiance += s.scores.radiance; countRadiance++; }
     });
-    const count = thisWeekSelfies.length;
     weeklyAverage = {
-      scanCount: count,
-      overallScore: Math.round(sumOverall / count),
+      scanCount: thisWeekSelfies.length,
+      overallScore: countOverall > 0 ? Math.round(sumOverall / countOverall) : null,
       scores: {
-        wrinkles: Math.round(sumWrinkles / count),
-        firmness: Math.round(sumFirmness / count),
-        spots: Math.round(sumSpots / count),
-        radiance: Math.round(sumRadiance / count)
+        wrinkles: countWrinkles > 0 ? Math.round(sumWrinkles / countWrinkles) : null,
+        firmness: countFirmness > 0 ? Math.round(sumFirmness / countFirmness) : null,
+        spots: countSpots > 0 ? Math.round(sumSpots / countSpots) : null,
+        radiance: countRadiance > 0 ? Math.round(sumRadiance / countRadiance) : null
       }
     };
   }
@@ -588,9 +564,10 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
   const sourceImageUrl = customImageUrl || latestSelfie?.imageUrl;
   if (customImageUrl && !validateTrustedImageUrl(customImageUrl)) {
-    return { success: false, error: "Invalid or untrusted image URL." };
+    return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
   }
 
+  let extraSimConsumed = false;
   try {
     const quotas = await getUsageQuotas(timezone);
     if (quotas.simulations.used >= quotas.simulations.limit) {
@@ -599,23 +576,41 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         { $inc: { extraSimulations: -1 } }
       );
       if (!consumed) {
-        return {
-          success: false,
-          error: "SIM_LIMIT",
-          message: quotas.simulations.limit === 1 && user.tier === 'free'
+        return errorResult(
+          ERROR_CODES.SIM_LIMIT,
+          quotas.simulations.limit === 1 && user.tier === 'free'
             ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro for more!"
-            : `You've used all ${quotas.simulations.limit} simulations for this month.`
-        };
+            : `You've used all ${quotas.simulations.limit} simulations for this month.`,
+          { error: "SIM_LIMIT" }
+        );
       }
+      extraSimConsumed = true;
     }
     
+    if (!latestSelfie?.scores || typeof latestSelfie.scores.wrinkles !== "number") {
+      if (extraSimConsumed) {
+        await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
+      }
+      return errorResult(
+        ERROR_CODES.NO_BASELINE,
+        "Please complete a baseline skin analysis scan before running What-If simulations.",
+        { error: "NO_BASELINE" }
+      );
+    }
+
     if (!sourceImageUrl) {
-      return { success: false, error: "No photo available to run the AI simulation on!" };
+      if (extraSimConsumed) {
+        await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
+      }
+      return errorResult(
+        ERROR_CODES.NO_BASELINE,
+        "No photo available to run the AI simulation on!",
+        { error: "No photo available to run the AI simulation on!" }
+      );
     }
 
     const TARGET_YEARS = 1;
-    // Default to some baseline scores if latestSelfie.scores is missing
-    const baseline = latestSelfie?.scores || { wrinkles: 50, firmness: 50, spots: 50, radiance: 50 };
+    const baseline = latestSelfie.scores;
 
     const listA = Array.isArray(interventionsA) ? interventionsA : (interventionsA ? [interventionsA] : []);
     const listB = Array.isArray(interventionsB) ? interventionsB : (interventionsB ? [interventionsB] : []);
@@ -635,9 +630,9 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       };
       
       let finalUrl = sourceImageUrl;
-      if (interventions.length === 0 && finalUrl && finalUrl.includes("/upload/")) {
+      if (interventions.length === 0 && finalUrl) {
         // Apply the same crop that simulateSkin uses to ensure Slider alignment
-        finalUrl = finalUrl.replace("/upload/", "/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/");
+        finalUrl = applyFaceCropToCloudinary(finalUrl);
       }
       
       if (interventions.length > 0) {
@@ -661,10 +656,13 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           if (sim.data?.output_image_url) return sim.data.output_image_url;
           if (sim.url) return sim.url;
 
-          return sourceImageUrl;
+          return null;
         };
 
         finalUrl = extractSimUrl(sim);
+        if (!finalUrl) {
+          throw new Error("SIMULATION_IMAGE_FAILED");
+        }
 
         if (finalUrl && finalUrl !== sourceImageUrl) {
           finalUrl = await uploadUrlToCloudinary(finalUrl);
@@ -699,16 +697,25 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
 
     await User.findByIdAndUpdate(user._id, { $addToSet: { badges: "future_gazer" } }).catch(() => {});
 
-    return { 
-      success: true, 
+    return okResult({ 
       id: simRecord._id.toString(), 
       scenarioA, 
       scenarioB, 
       deltas, 
       targetAge: realAge + TARGET_YEARS 
-    };
+    });
   } catch (err) {
-    return { success: false, error: "Simulation failed. Please try again later." };
+    if (extraSimConsumed) {
+      await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
+    }
+    const isImageFailure = err && err.message === "SIMULATION_IMAGE_FAILED";
+    return errorResult(
+      isImageFailure ? ERROR_CODES.SIMULATION_IMAGE_FAILED : ERROR_CODES.SIMULATION_FAILED,
+      isImageFailure
+        ? "AI visual simulation could not be generated. Your simulation quota has been refunded."
+        : "Simulation failed. Please try again later.",
+      { error: isImageFailure ? "SIMULATION_IMAGE_FAILED" : "Simulation failed. Please try again later." }
+    );
   }
 }
 
@@ -772,32 +779,12 @@ export async function completeOnboarding(data) {
     const decoded = await getAuthenticatedUser();
     if (!decoded) redirect('/sign-in');
 
-    const { birthDate, sex, skinType, goals, customGoal } = data || {};
-
-    const parsedDate = new Date(birthDate);
-    if (isNaN(parsedDate.getTime())) {
-      return { success: false, error: "Invalid birth date provided." };
-    }
-    const currentYear = new Date().getFullYear();
-    const birthYear = parsedDate.getFullYear();
-    const age = currentYear - birthYear;
-    if (age < 13 || age > 120) {
-      return { success: false, error: "Age must be between 13 and 120." };
+    const validation = validateOnboarding(data);
+    if (!validation.isValid) {
+      return { success: false, error: validation.error };
     }
 
-    const validSexes = ["female", "male", "other", "prefer_not_to_say"];
-    const normalizedSex = typeof sex === "string" && validSexes.includes(sex.toLowerCase()) ? sex.toLowerCase() : "prefer_not_to_say";
-
-    const validSkinTypes = ["oily", "dry", "combination", "normal", "sensitive"];
-    const normalizedSkinType = typeof skinType === "string" && validSkinTypes.includes(skinType.toLowerCase()) ? skinType.toLowerCase() : "combination";
-
-    const validGoals = Array.isArray(goals)
-      ? goals.filter(g => typeof g === "string").map(g => g.slice(0, 50)).slice(0, 10)
-      : [];
-
-    const cleanCustomGoal = typeof customGoal === "string"
-      ? customGoal.replace(/[{}\[\]`"'<>\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
-      : "";
+    const { birthDate: parsedDate, sex: normalizedSex, skinType: normalizedSkinType, goals: validGoals, customGoal: cleanCustomGoal } = validation.sanitized;
     
     await User.findOneAndUpdate(
       { firebaseUid: decoded.uid },
@@ -825,6 +812,10 @@ export async function updatePrivacySettings(photoPrivacy) {
     const decoded = await getAuthenticatedUser();
     if (!decoded) return { success: false, error: "Unauthorized" };
 
+    if (!ALLOWED_PHOTO_PRIVACY.includes(photoPrivacy)) {
+      return { success: false, error: "Invalid photo privacy option" };
+    }
+
     const user = await User.findOne({ firebaseUid: decoded.uid });
     if (!user) return { success: false, error: "User not found" };
 
@@ -834,63 +825,6 @@ export async function updatePrivacySettings(photoPrivacy) {
   } catch (err) {
     return { success: false, error: "Failed to update settings" };
   }
-}
-
-function getLocalDayStart(timezone, reference = new Date()) {
-  const now = reference;
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
-  });
-  const parts = formatter.format(now).split('-');
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00`;
-  const dt = new Date();
-  const tzStr = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric', month: 'numeric', day: 'numeric',
-    hour: 'numeric', minute: 'numeric', second: 'numeric',
-    hour12: false
-  }).format(dt);
-  const options = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'shortOffset' };
-  const midnight = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
-  midnight.setHours(0,0,0,0);
-  const formatter2 = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric', month: '2-digit', day: '2-digit'
-  });
-  const formattedDate = formatter2.format(now);
-  const [mm, dd, yyyy] = formattedDate.split('/');
-  const targetMidnightLocal = new Date(Number(yyyy), Number(mm)-1, Number(dd), 0, 0, 0);
-  const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-  tzDate.setHours(0, 0, 0, 0);
-  const diff = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: timezone })).getTime();
-  return new Date(tzDate.getTime() + diff);
-}
-
-function getLocalISOWeekStart(timezone) {
-  const todayStart = getLocalDayStart(timezone);
-  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' });
-  const weekdayStr = formatter.format(todayStart); 
-  
-  const dayOffsets = { "Sun": 6, "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5 };
-  const offset = dayOffsets[weekdayStr] || 0;
-  
-  return new Date(todayStart.getTime() - offset * 24 * 60 * 60 * 1000);
-}
-
-function getLocalMonthStart(timezone, reference = new Date()) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
-  });
-  const parts = formatter.format(reference).split('-');
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const firstDay = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
-  const monthStart = getLocalDayStart(timezone, firstDay);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  return { monthStart, daysInMonth };
 }
 
 export async function getUsageQuotas(timezone = "UTC") {
@@ -914,10 +848,10 @@ export async function getUsageQuotas(timezone = "UTC") {
   let scanMonthlyLimit = 2;
   let simLimit = 1;
 
-  if (user.tier === 'premium') {
+  if (user.tier === TIERS.PREMIUM) {
      scanMonthlyLimit = daysInMonth; 
      simLimit = 4;
-  } else if (user.tier === 'standard') {
+  } else if (user.tier === TIERS.STANDARD) {
      scanMonthlyLimit = 15;
      simLimit = 3;
   } else {
@@ -939,15 +873,15 @@ export async function getUsageQuotas(timezone = "UTC") {
 
   if (scansToday >= scanDailyLimit) {
      canScanToday = false;
-     scanDenialReason = "daily_limit";
+     scanDenialReason = DENIAL_REASONS.DAILY_LIMIT;
      wouldBeDenied = true;
   } else if (scansThisMonth >= scanMonthlyLimit) {
      canScanToday = false;
-     scanDenialReason = "monthly_limit";
+     scanDenialReason = DENIAL_REASONS.MONTHLY_LIMIT;
      wouldBeDenied = true;
-  } else if (user.tier === 'standard' && user.standardPlanFrequency === 'every_other_day' && scansYesterday > 0) {
+  } else if (user.tier === TIERS.STANDARD && user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY && scansYesterday > 0) {
      canScanToday = false;
-     scanDenialReason = "every_other_day";
+     scanDenialReason = DENIAL_REASONS.EVERY_OTHER_DAY;
      wouldBeDenied = true;
   }
 
@@ -1014,59 +948,67 @@ export async function deleteSavedSimulation(simId) {
 }
 
 export async function getWeeklyHistory() {
-  const user = await getDbUser();
-  const allSelfies = await Selfie.find({ userId: user._id, isAnalyzed: { $ne: false } }).sort({ takenAt: -1 });
-
-  const weeksMap = new Map();
-  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
-
-  allSelfies.forEach(s => {
-    const d = new Date(s.takenAt);
-    const day = d.getDay() || 7;
-    const start = new Date(d);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - day + 1);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    
-    const weekKey = start.getTime();
-    if (!weeksMap.has(weekKey)) {
-      weeksMap.set(weekKey, {
-        weekLabel: `${formatter.format(start)} (Mon) – ${formatter.format(end)} (Sun)`,
-        timestamp: weekKey,
-        selfies: []
-      });
+  try {
+    const user = await getDbUser();
+    if (!user) {
+      return errorResult(ERROR_CODES.UNAUTHORIZED, "Unauthorized");
     }
-    weeksMap.get(weekKey).selfies.push(s);
-  });
+    const allSelfies = await Selfie.find({ userId: user._id, isAnalyzed: { $ne: false } }).sort({ takenAt: -1 });
 
-  const history = Array.from(weeksMap.values())
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 12)
-    .map(week => {
-      let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
-      week.selfies.forEach(s => {
-        sumOverall += s.overallScore || 0;
-        sumWrinkles += s.scores?.wrinkles || 0;
-        sumFirmness += s.scores?.firmness || 0;
-        sumSpots += s.scores?.spots || 0;
-        sumRadiance += s.scores?.radiance || 0;
-      });
-      const count = week.selfies.length;
-      return {
-        weekLabel: week.weekLabel,
-        scanCount: count,
-        avgOverall: Math.round(sumOverall / count),
-        avgScores: {
-          wrinkles: Math.round(sumWrinkles / count),
-          firmness: Math.round(sumFirmness / count),
-          spots: Math.round(sumSpots / count),
-          radiance: Math.round(sumRadiance / count)
-        }
-      };
+    const weeksMap = new Map();
+    const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+
+    allSelfies.forEach(s => {
+      const d = new Date(s.takenAt);
+      const day = d.getDay() || 7;
+      const start = new Date(d);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - day + 1);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      
+      const weekKey = start.getTime();
+      if (!weeksMap.has(weekKey)) {
+        weeksMap.set(weekKey, {
+          weekLabel: `${formatter.format(start)} (Mon) – ${formatter.format(end)} (Sun)`,
+          timestamp: weekKey,
+          selfies: []
+        });
+      }
+      weeksMap.get(weekKey).selfies.push(s);
     });
 
-  return JSON.parse(JSON.stringify(history));
+    const history = Array.from(weeksMap.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 12)
+      .map(week => {
+        let sumOverall = 0, sumWrinkles = 0, sumFirmness = 0, sumSpots = 0, sumRadiance = 0;
+        let countOverall = 0, countWrinkles = 0, countFirmness = 0, countSpots = 0, countRadiance = 0;
+        week.selfies.forEach(s => {
+          if (typeof s.overallScore === "number") { sumOverall += s.overallScore; countOverall++; }
+          if (typeof s.scores?.wrinkles === "number") { sumWrinkles += s.scores.wrinkles; countWrinkles++; }
+          if (typeof s.scores?.firmness === "number") { sumFirmness += s.scores.firmness; countFirmness++; }
+          if (typeof s.scores?.spots === "number") { sumSpots += s.scores.spots; countSpots++; }
+          if (typeof s.scores?.radiance === "number") { sumRadiance += s.scores.radiance; countRadiance++; }
+        });
+        const count = week.selfies.length;
+        return {
+          weekLabel: week.weekLabel,
+          scanCount: count,
+          avgOverall: countOverall > 0 ? Math.round(sumOverall / countOverall) : null,
+          avgScores: {
+            wrinkles: countWrinkles > 0 ? Math.round(sumWrinkles / countWrinkles) : null,
+            firmness: countFirmness > 0 ? Math.round(sumFirmness / countFirmness) : null,
+            spots: countSpots > 0 ? Math.round(sumSpots / countSpots) : null,
+            radiance: countRadiance > 0 ? Math.round(sumRadiance / countRadiance) : null
+          }
+        };
+      });
+
+    return okResult({ history: JSON.parse(JSON.stringify(history)) });
+  } catch {
+    return errorResult(ERROR_CODES.ANALYSIS_FAILED, "Failed to load score history.");
+  }
 }
 export async function analyzeProductImage(base64Image) {
   try {
@@ -1172,6 +1114,8 @@ export async function getUserProfile() {
       tier: user.tier || "free",
       skinType: user.skinType || null,
       optInComparison: user.optInComparison || false,
+      standardPlanFrequency: user.standardPlanFrequency || "flexible",
+      photoPrivacy: user.photoPrivacy || "store",
     };
   } catch {
     return null;
@@ -1183,23 +1127,13 @@ export async function updateUserSettings(settings) {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
-    const updates = {};
-    const validSkinTypes = ["oily", "dry", "combination", "normal", "sensitive"];
-    if (typeof settings.skinType === "string" && validSkinTypes.includes(settings.skinType.toLowerCase())) {
-      updates.skinType = settings.skinType.toLowerCase();
-    }
-    if (typeof settings.displayName === "string" && settings.displayName.trim()) {
-      updates.displayName = settings.displayName.trim().slice(0, 50);
-    }
-    if (typeof settings.optInComparison === "boolean") {
-      updates.optInComparison = settings.optInComparison;
-    }
-    if (typeof settings.standardPlanFrequency === "string" && ["every_other_day", "flexible"].includes(settings.standardPlanFrequency)) {
-      updates.standardPlanFrequency = settings.standardPlanFrequency;
+    const validation = validateUserSettings(settings);
+    if (!validation.isValid) {
+      return { success: false, error: validation.error || "Failed to update settings." };
     }
 
-    if (Object.keys(updates).length > 0) {
-      await User.findByIdAndUpdate(user._id, updates);
+    if (Object.keys(validation.sanitized).length > 0) {
+      await User.findByIdAndUpdate(user._id, validation.sanitized);
     }
     return { success: true };
   } catch {
@@ -1207,26 +1141,25 @@ export async function updateUserSettings(settings) {
   }
 }
 
-export async function updateUserTier(tier, standardPlanFrequency = "flexible") {
+export async function updateUserTier(tier, standardPlanFrequency = STANDARD_PACING.FLEXIBLE) {
   try {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
-    const validTiers = ['free', 'standard', 'premium'];
-    if (!validTiers.includes(tier)) return { success: false, error: "Invalid tier" };
+    if (!ALLOWED_USER_TIERS.includes(tier)) return { success: false, error: "Invalid tier" };
 
     // In production, direct client-side upgrading can be locked down
     const demoMode = process.env.ENABLE_DEMO_TIER_SWITCHING === "true";
-    if (!demoMode && tier !== 'free') {
+    if (!demoMode && tier !== TIERS.FREE) {
       return { 
         success: false, 
         error: "Direct tier switching is disabled. Subscriptions must be processed via the checkout portal." 
       };
     }
 
-    const updates = { tier, isSubscribed: tier === 'premium' || tier === 'standard' };
+    const updates = { tier, isSubscribed: ACTIVE_SUBSCRIPTION_TIERS.includes(tier) };
     
-    if (tier === 'standard') {
+    if (tier === TIERS.STANDARD && Object.values(STANDARD_PACING).includes(standardPlanFrequency)) {
       updates.standardPlanFrequency = standardPlanFrequency;
     }
 

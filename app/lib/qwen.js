@@ -1,17 +1,14 @@
 import "server-only";
 import OpenAI from "openai";
+import { sanitizeForPrompt } from "@/lib/utils/sanitize";
+import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
+import { STATUS, ERROR_CODES } from "@/lib/constants/status";
+import { okResult, errorResult } from "@/lib/utils/result";
 
 const openai = new OpenAI({
   apiKey: process.env.QWEN_API_KEY || process.env.OPENAI_API_KEY,
   baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
 });
-
-function sanitizeForPrompt(str, maxLength = 100) {
-  if (!str || typeof str !== "string") return "";
-  // Strip control characters, quotes, curly braces, angle brackets, backticks, and newlines
-  const sanitized = str.replace(/[{}\[\]`"'<>\r\n]/g, " ").replace(/\s+/g, " ").trim();
-  return sanitized.slice(0, maxLength);
-}
 
 export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null) {
   try {
@@ -34,8 +31,9 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     const safeSex = typeof user.sex === "string" ? user.sex.slice(0, 20) : "Unknown";
     const safeSkinType = typeof user.skinType === "string" ? user.skinType.slice(0, 20) : "Unknown";
 
+    const formatScore = (val) => (typeof val === "number" && !isNaN(val) ? Math.round(val) : "Unknown");
     const userProfile = `Age: ${userAge}, Sex: ${safeSex}, Skin Type: ${safeSkinType}, Goals: ${goalsList}${customGoal}`;
-    const skinData = `Overall Score: ${Math.round(overallScore ?? 50)}/100, Skin Age: ${Math.round(skinAge ?? 30)}, Wrinkles: ${Math.round(scores?.wrinkles ?? 50)}, Firmness: ${Math.round(scores?.firmness ?? 50)}, Spots: ${Math.round(scores?.spots ?? 50)}, Radiance: ${Math.round(scores?.radiance ?? 50)}`;
+    const skinData = `Overall Score: ${formatScore(overallScore)}/100, Skin Age: ${formatScore(skinAge)}, Wrinkles: ${formatScore(scores?.wrinkles)}, Firmness: ${formatScore(scores?.firmness)}, Spots: ${formatScore(scores?.spots)}, Radiance: ${formatScore(scores?.radiance)}`;
     const uvData = uvIndex !== null && !isNaN(uvIndex) ? `Current UV Index: ${Number(uvIndex)}` : 'Current UV Index: Unknown';
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 
@@ -89,19 +87,18 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     
     content = content.replace(/^```json/im, "").replace(/^```/im, "").replace(/```$/im, "").trim();
     const result = JSON.parse(content);
-    return result;
+    return okResult({
+      critique: typeof result.critique === "string" ? result.critique : "",
+      amRoutine: Array.isArray(result.amRoutine) ? result.amRoutine : [],
+      pmRoutine: Array.isArray(result.pmRoutine) ? result.pmRoutine : [],
+      facialWorkout: typeof result.facialWorkout === "string" ? result.facialWorkout : "",
+      products: Array.isArray(result.products) ? result.products : []
+    });
   } catch {
-    return {
-      critique: "Your skin shows a unique balance. Keep up with consistent hydration and sun protection to maintain your glow.",
-      amRoutine: ["Drink 8 glasses of water", "Apply SPF 50 daily"],
-      pmRoutine: ["Cleanse before bed", "Apply moisturizer"],
-      facialWorkout: "Gentle upward facial massage during your cleansing routine to promote lymphatic drainage.",
-      products: [
-        { type: "Cleanser", formula: "Gentle Hydrating Cleanser", description: "To maintain your skin barrier without stripping natural oils." },
-        { type: "Serum", formula: "Vitamin C", description: "To boost radiance and provide antioxidant protection." },
-        { type: "Moisturizer", formula: "Ceramide Cream", description: "To lock in moisture and keep skin plump throughout the day." }
-      ]
-    };
+    return errorResult(
+      ERROR_CODES.AI_ADVICE_UNAVAILABLE,
+      "Personalized AI advice is temporarily unavailable."
+    );
   }
 }
 

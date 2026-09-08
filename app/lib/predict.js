@@ -1,9 +1,11 @@
-const BASE_VELOCITY =  {
-    wrinkles: -1.8,
-    firmness: -1.5,
-    spots: -1.2,
-    radiance: -1.0,
-}
+import { SKIN_METRICS } from "@/lib/constants/metrics";
+
+const BASE_VELOCITY = {
+  [SKIN_METRICS.WRINKLES]: -1.8,
+  [SKIN_METRICS.FIRMNESS]: -1.5,
+  [SKIN_METRICS.SPOTS]: -1.2,
+  [SKIN_METRICS.RADIANCE]: -1.0,
+};
 
 const MULTIPLIERS = {
   spfDaily: 0.55,    // Daily SPF = -45% photoaging

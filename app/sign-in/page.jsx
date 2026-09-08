@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/app/lib/firebase/client";
 import { checkOnboardingStatus } from "@/app/lib/actions";
+import { setSessionCookie } from "@/lib/utils/auth-cookie";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -27,8 +28,7 @@ export default function SignInPage() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const token = await userCredential.user.getIdToken();
-      const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
+      setSessionCookie(token);
 
       try {
         const { complete } = await checkOnboardingStatus();

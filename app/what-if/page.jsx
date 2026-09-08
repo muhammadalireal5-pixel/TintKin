@@ -125,7 +125,7 @@ export default function WhatIfPage() {
     getLatestData()
       .then((d) => {
         setUserTier(d.user?.tier || 'free');
-        if (!d.latestSelfie || !d.latestSelfie.imageUrl) {
+        if (!d.latestSelfie || !d.latestSelfie.imageUrl || !d.latestSelfie.scores || typeof d.latestSelfie.scores.wrinkles !== "number") {
           setHasSelfie(false);
         }
         
@@ -133,7 +133,9 @@ export default function WhatIfPage() {
           setProducts(d.latestSelfie.recommendedProducts);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setError("Could not load your skin profile data. Please check your connection.");
+      });
 
     getSavedSimulations().then((res) => {
       if (res.success && res.simulations) {
@@ -713,7 +715,15 @@ export default function WhatIfPage() {
                   </h3>
                 </div>
                 <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30 self-start sm:self-auto">
-                  Skin Age Improvement: {Math.abs(result.deltas.skinAge ?? result.scenarioA.skinAgeDelta)} yrs <Sparkles size={14}/>
+                  Skin Age Difference: {
+                    typeof result.deltas?.skinAge === "number"
+                      ? result.deltas.skinAge > 0
+                        ? `${result.deltas.skinAge} yrs younger`
+                        : result.deltas.skinAge < 0
+                          ? `${Math.abs(result.deltas.skinAge)} yrs older`
+                          : "No difference"
+                      : "N/A"
+                  } <Sparkles size={14}/>
                 </span>
               </div>
               
@@ -733,8 +743,16 @@ export default function WhatIfPage() {
                       <td className="px-6 py-4 text-center text-sage text-sm font-semibold">{result.scenarioA.finalSkinAge} yrs</td>
                       <td className="px-6 py-4 text-center text-muted text-sm font-semibold">{result.scenarioB.finalSkinAge} yrs</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage border border-sage/20">
-                          {Math.abs(result.deltas.skinAge ?? 1)} yrs younger
+                        <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${
+                          (result.deltas?.skinAge || 0) > 0 ? 'bg-sage/15 text-sage border-sage/20' : (result.deltas?.skinAge || 0) < 0 ? 'bg-red-50/80 text-red-800 border-red-200' : 'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}>
+                          {typeof result.deltas?.skinAge === "number"
+                            ? result.deltas.skinAge > 0
+                              ? `${result.deltas.skinAge} yrs younger`
+                              : result.deltas.skinAge < 0
+                                ? `${Math.abs(result.deltas.skinAge)} yrs older`
+                                : "No difference"
+                            : "—"}
                         </span>
                       </td>
                     </tr>
@@ -777,8 +795,18 @@ export default function WhatIfPage() {
                     <span className="text-sm font-semibold text-muted">{result.scenarioB.finalSkinAge} yrs</span>
                   </div>
                   <div className="pt-3 border-t border-black/5 flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
-                    <span className="text-xs font-bold text-sage bg-sage/15 px-2 py-0.5 rounded-md">{Math.abs(result.deltas.skinAge ?? 1)} yrs younger</span>
+                    <span className="text-xs font-medium text-muted uppercase tracking-wider">Impact</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                      (result.deltas?.skinAge || 0) > 0 ? 'text-sage bg-sage/15' : (result.deltas?.skinAge || 0) < 0 ? 'text-red-800 bg-red-50/80' : 'text-gray-500 bg-gray-100'
+                    }`}>
+                      {typeof result.deltas?.skinAge === "number"
+                        ? result.deltas.skinAge > 0
+                          ? `${result.deltas.skinAge} yrs younger`
+                          : result.deltas.skinAge < 0
+                            ? `${Math.abs(result.deltas.skinAge)} yrs older`
+                            : "No difference"
+                        : "—"}
+                    </span>
                   </div>
                 </div>
 

@@ -1,9 +1,10 @@
 import "server-only";
 import mongoose from 'mongoose';
+import { PRODUCT_TYPES } from "@/lib/constants/products";
 
-let cached = global.mongoose;
+let cached = /** @type {any} */ (global).mongoose;
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = /** @type {any} */ (global).mongoose = { conn: null, promise: null };
 }
 
 export const connectDb = async () => {
@@ -19,7 +20,7 @@ export const connectDb = async () => {
             serverSelectionTimeoutMS: 10000,
             socketTimeoutMS: 45000,
         };
-        cached.promise = mongoose.connect(process.env.MONGODB_URI, opts)
+        cached.promise = mongoose.connect(process.env.MONGODB_URI || "", opts)
             .then(mongoose => mongoose)
             .catch(error => {
                 cached.promise = null;
@@ -87,6 +88,7 @@ const SelfieSchema = new mongoose.Schema({
     overallScore: Number,
     skinAge: Number,
     scores: { wrinkles: Number, firmness: Number, spots: Number, radiance: Number },
+    adviceStatus: { type: String, enum: ['ok', 'pending', 'error', 'partial', 'empty'], default: 'ok' },
     critique: String,
     habits: [String],
     facialWorkout: String,
@@ -94,13 +96,18 @@ const SelfieSchema = new mongoose.Schema({
     pmRoutine: [String],
     recommendedProducts: {
       type: [{
-        type: { type: String, enum: ["Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant"] },
+        type: { type: String, enum: PRODUCT_TYPES },
         formula: { type: String, required: true },
-        description: { type: String, required: true }
+        description: { type: String, required: true },
+        isDefaultFallback: { type: Boolean, default: false }
       }],
       validate: {
-        validator: function(v) { return !this.isAnalyzed || (Array.isArray(v) && v.length === 3); },
-        message: 'Exactly 3 recommended products are required for analyzed selfies.'
+        validator: function(/** @type {any} */ v) {
+          if (!this.isAnalyzed) return true;
+          if (this.adviceStatus === 'error') return true;
+          return Array.isArray(v) && (v.length === 0 || v.length === 3);
+        },
+        message: 'Recommended products must contain 3 items or be empty if advice failed.'
       }
     }
 }, { strict: true });
@@ -113,6 +120,8 @@ const LifestyleSchema = new mongoose.Schema({
     spfUsed: Boolean,
     uvMinutes: Number,
     sugarServings: Number,
+    smokeCigarettes: Number,
+    exerciseMinutes: Number,
 }, { strict: true });
 LifestyleSchema.index({ userId: 1, date: -1 });
 

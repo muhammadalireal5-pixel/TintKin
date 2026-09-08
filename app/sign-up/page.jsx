@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/app/lib/firebase/client";
+import { setSessionCookie } from "@/lib/utils/auth-cookie";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -29,8 +30,7 @@ export default function SignUpPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(userCredential.user, { displayName: name.trim() });
       const token = await userCredential.user.getIdToken();
-      const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
+      setSessionCookie(token);
       window.location.href = "/onboarding";
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
