@@ -19,14 +19,14 @@ export const metadata = {
   metadataBase: new URL("https://tintkin.com"),
   title: {
     template: "%s | TintKin",
-    default: "TintKin — Wellness Journal",
+    default: "TintKin — AI Skin Analysis & Wellness Journal",
   },
   icons: {
     icon: "/favicon.png",
   },
   description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
   openGraph: {
-    title: "TintKin — Wellness Journal",
+    title: "TintKin — AI Skin Analysis & Wellness Journal",
     description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
     url: "https://tintkin.com",
     siteName: "TintKin",
@@ -43,7 +43,7 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TintKin — Wellness Journal",
+    title: "TintKin — AI Skin Analysis & Wellness Journal",
     description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
     images: ["/og-image.jpg"],
   },
@@ -53,62 +53,95 @@ export const metadata = {
   },
 };
 
+const rootStructuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "TintKin",
+      "url": "https://tintkin.com",
+      "logo": "https://tintkin.com/favicon.png",
+      "description": "AI-powered longitudinal skin wellness tracking and simulation platform."
+    },
+    {
+      "@type": "WebSite",
+      "name": "TintKin",
+      "url": "https://tintkin.com"
+    },
+    {
+      "@type": "WebApplication",
+      "name": "TintKin",
+      "url": "https://tintkin.com",
+      "description": "AI-powered skincare wellness journal and analysis.",
+      "applicationCategory": "HealthAndFitnessApplication",
+      "operatingSystem": "Web",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free Tier",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Standard Plan",
+          "price": "12",
+          "priceCurrency": "USD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro Plan",
+          "price": "24",
+          "priceCurrency": "USD"
+        }
+      ]
+    }
+  ]
+};
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${playfair.variable} h-full`}>
+    <html lang="en" dir="ltr" className={`${outfit.variable} ${playfair.variable} h-full`}>
       <body className="tk-body min-h-screen min-h-[100dvh] flex flex-col">
         <AuthProvider>
-          <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-md border-b border-white/20 transition-all duration-300 shrink-0">
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
-
-              {/* Logo */}
-              <Link href="/" className="flex items-center gap-1.5 flex-shrink-0 text-primary hover:opacity-80 transition-opacity min-w-0">
-                <img src="/icon.png" alt="TintKin Logo" className="w-28 sm:w-40 h-auto object-contain" />
-              </Link>
-
-              <HeaderAuth />
-            </div>
-          </header>
-
           <ToastProvider>
+            <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-md border-b border-white/20 transition-all duration-300 shrink-0">
+              <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
+
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-1.5 flex-shrink-0 text-primary hover:opacity-80 transition-opacity min-w-0">
+                  <img src="/icon.png" alt="TintKin Logo" className="w-28 sm:w-40 h-auto object-contain" />
+                </Link>
+
+                <HeaderAuth />
+              </div>
+            </header>
+
             <main className="flex-1 flex flex-col w-full">
               {children}
             </main>
+
+            <footer className="mt-auto border-t border-black/5 bg-base/80 backdrop-blur-md shrink-0">
+              <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-lavender text-primary shadow-[0_2px_8px_rgba(230,230,250,0.8)] flex-shrink-0 text-[10px]">✦</span>
+                  <span className="text-sm font-display text-primary font-medium">© {new Date().getFullYear()} TintKin. All rights reserved.</span>
+                </div>
+                <div className="flex items-center gap-6">
+                  <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy Policy</Link>
+                  <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms of Service</Link>
+                  <a href="mailto:support@tintkin.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
+                </div>
+              </div>
+            </footer>
+
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(rootStructuredData),
+              }}
+            />
           </ToastProvider>
-
-          <footer className="mt-auto border-t border-black/5 bg-base/80 backdrop-blur-md shrink-0">
-            <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-lavender text-primary shadow-[0_2px_8px_rgba(230,230,250,0.8)] flex-shrink-0 text-[10px]">✦</span>
-                <span className="text-sm font-display text-primary font-medium">© {new Date().getFullYear()} TintKin. All rights reserved.</span>
-              </div>
-              <div className="flex items-center gap-6">
-                <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy Policy</Link>
-                <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms of Service</Link>
-                <a href="mailto:support@tintkin.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
-              </div>
-            </div>
-          </footer>
-
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "WebApplication",
-                name: "TintKin",
-                url: "https://tintkin.com",
-                description: "AI-powered skincare wellness journal and analysis.",
-                applicationCategory: "HealthAndFitnessApplication",
-                operatingSystem: "Web",
-                offers: {
-                  "@type": "Offer",
-                  price: "0",
-                  priceCurrency: "USD",
-                },
-              }),
-            }}
-          />
         </AuthProvider>
       </body>
     </html>

@@ -1,9 +1,19 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function ProgressChart({ allSelfies }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!allSelfies || allSelfies.length === 0) return null;
+
+  if (!mounted) {
+    return <div className="w-full h-full min-h-[300px]" />;
+  }
 
   const data = allSelfies
     .filter(selfie => selfie.isAnalyzed !== false)

@@ -57,13 +57,12 @@ export default function OnboardingPage() {
         try {
             const res = await completeOnboarding(formData);
             if (res.success) {
-                router.push("/capture");
+                router.push("/pricing");
             } else {
                 setError(res.error || "Something went wrong.");
                 setLoading(false);
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
             setError("Something went wrong, please try again later");
             setLoading(false);
         }

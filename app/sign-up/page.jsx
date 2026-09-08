@@ -33,7 +33,6 @@ export default function SignUpPage() {
       document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
       window.location.href = "/onboarding";
     } catch (err) {
-      console.error("Sign up error:", err);
       if (err.code === "auth/email-already-in-use") {
         setError("This email is already registered. Please sign in instead.");
       } else if (err.code === "auth/weak-password") {

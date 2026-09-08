@@ -39,7 +39,6 @@ export default function SignInPage() {
         window.location.href = "/dashboard";
       }
     } catch (err) {
-      console.error("Sign in error:", err);
       if (
         err.code === "auth/invalid-credential" ||
         err.code === "auth/wrong-password" ||
@@ -74,7 +73,6 @@ export default function SignInPage() {
       setSuccessMessage(`Password reset email sent to ${targetEmail}. Check your inbox and spam folder.`);
       setResetLoading(false);
     } catch (err) {
-      console.error("Password reset error:", err);
       if (err.code === "auth/user-not-found") {
         setError("No account found with this email address.");
       } else if (err.code === "auth/invalid-email") {

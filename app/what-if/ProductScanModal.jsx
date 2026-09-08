@@ -59,7 +59,7 @@ export default function ProductScanModal({
         {!isAnalyzing && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors"
             aria-label="Close"
           >
             <X size={18} />
@@ -108,7 +108,7 @@ export default function ProductScanModal({
 
             <div className="relative flex py-1 items-center">
               <div className="flex-grow border-t border-gray-200" />
-              <span className="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase tracking-widest font-medium">
+              <span className="flex-shrink-0 mx-4 text-muted text-xs uppercase tracking-widest font-semibold">
                 or
               </span>
               <div className="flex-grow border-t border-gray-200" />

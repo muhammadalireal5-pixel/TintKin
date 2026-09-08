@@ -62,7 +62,7 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
                 const checked = amChecks.includes(step);
                 return (
                   <li key={idx} className="flex items-start gap-3 cursor-pointer group" onClick={() => toggleCheck("am", step)}>
-                    <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${checked ? 'bg-sage border-sage text-white' : 'border-gray-300 group-hover:border-sage/50'}`}>
+                    <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${checked ? 'bg-sage border-sage text-[#2C3E50]' : 'border-gray-300 group-hover:border-sage/50'}`}>
                       {checked && <Check size={12} strokeWidth={3} />}
                     </div>
                     <span className={`text-sm leading-snug transition-colors ${checked ? 'text-muted line-through' : 'text-primary group-hover:text-sage'}`}>{step}</span>

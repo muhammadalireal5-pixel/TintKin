@@ -5,7 +5,7 @@ import ProgressChart from "./ProgressChart";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
 import ProductImage from "./ProductImage";
-import { Sparkles, ArrowRight, Dumbbell } from "lucide-react";
+import { Sparkles, ArrowRight, Dumbbell, Flame, Camera, Share2 } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
 import RoutineChecklist from "./RoutineChecklist";
@@ -13,7 +13,7 @@ import TrophyCase from "./TrophyCase";
 import PercentileCard from "./PercentileCard";
 
 export default async function DashboardPage() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog } = await getLatestData();
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
                     {user?.currentStreak > 0 && (
                         <div>
                             <div className="inline-flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-full border border-orange-200 shadow-sm">
-                                <span className="text-lg">🔥</span>
+                                <Flame className="w-5 h-5 text-orange-500 tk-anim-flame" />
                                 <span className="font-bold text-orange-600">{user.currentStreak} Day Streak</span>
                             </div>
                         </div>
@@ -95,9 +95,14 @@ export default async function DashboardPage() {
                         <div>
                             <div className="flex justify-between items-start mb-2">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
-                                <Link href="/history" className="text-xs font-medium text-sage hover:text-primary transition-colors flex items-center gap-1">
-                                    View History <ArrowRight size={14} />
-                                </Link>
+                                <div className="flex items-center gap-3">
+                                    <Link href="/share" className="text-xs font-semibold text-sage hover:text-primary transition-colors flex items-center gap-1.5 bg-sage/10 px-3 py-1 rounded-full border border-sage/20">
+                                        <Share2 size={12} /> Share Card
+                                    </Link>
+                                    <Link href="/history" className="text-xs font-medium text-muted hover:text-primary transition-colors flex items-center gap-1">
+                                        History <ArrowRight size={13} />
+                                    </Link>
+                                </div>
                             </div>
                             <p className="text-sm text-primary mb-6">Your skin&apos;s overall balance and vitality.</p>
                         </div>
@@ -171,9 +176,14 @@ export default async function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Trophy Case */}
-                    <div className="md:col-span-3 lg:col-span-1 tk-anim-4 flex flex-col" style={{ animationDelay: '0.1s' }}>
-                        <TrophyCase badges={user.badges} />
+                    {/* Trophy Case (Full Width Landscape Banner) */}
+                    <div className="col-span-1 md:col-span-3 lg:col-span-4 tk-anim-4 flex flex-col" style={{ animationDelay: '0.1s' }}>
+                        <TrophyCase 
+                            badges={user?.badges} 
+                            achievements={achievements} 
+                            achievementStats={achievementStats} 
+                            userName={user?.displayName || "Wellness Seeker"} 
+                        />
                     </div>
 
                     {/* Journey Chart */}
@@ -260,6 +270,17 @@ export default async function DashboardPage() {
                         </Link>
                     </div>
                 </div>
+            </div>
+
+            {/* Sticky Mobile Capture CTA */}
+            <div className="md:hidden fixed bottom-6 right-6 z-40">
+                <Link
+                    href="/capture"
+                    className="flex items-center gap-2 bg-primary text-white text-xs font-semibold px-5 py-3 rounded-full shadow-2xl hover:bg-primary/90 transition-transform active:scale-95 border border-white/20"
+                >
+                    <Camera size={16} />
+                    <span>Log Today&apos;s Skin</span>
+                </Link>
             </div>
         </div>
     );

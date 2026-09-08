@@ -37,8 +37,8 @@ export async function GET() {
           hasMore = false;
         }
       }
-    } catch (err) {
-      console.error("[Admin Users] Firebase fetch error:", err);
+    } catch {
+      // Best-effort Firebase user fetch
     }
 
     const userIds = users.map((u) => u._id);
@@ -125,8 +125,7 @@ export async function GET() {
     };
 
     return Response.json({ success: true, users: enrichedUsers, stats });
-  } catch (err) {
-    console.error("[Admin Users] Error:", err);
+  } catch {
     return Response.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

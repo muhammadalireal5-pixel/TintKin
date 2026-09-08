@@ -16,8 +16,9 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
-import { saveLocation, getUserProfile, updateUserSettings } from "@/app/lib/actions";
+import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings } from "@/app/lib/actions";
 import { useAuthContext } from "../context/AuthContext";
+import { useToast } from "@/app/components/ToastProvider";
 
 const emptySubscribe = () => () => {};
 function useMounted() {
@@ -30,6 +31,7 @@ function useMounted() {
 
 export default function SettingsModal({ isOpen, onClose }) {
   const { user, signOutUser } = useAuthContext();
+  const { showToast } = useToast();
   const mounted = useMounted();
   const [profile, setProfile] = useState(null);
   const [locationMode, setLocationMode] = useState("idle"); // idle | editing | loading | saved
@@ -37,6 +39,8 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [currentCity, setCurrentCity] = useState("");
   const [skinType, setSkinType] = useState("");
   const [optIn, setOptIn] = useState(false);
+  const [photoPrivacy, setPhotoPrivacy] = useState("store");
+  const [standardPlanFrequency, setStandardPlanFrequency] = useState("flexible");
   const panelRef = useRef(null);
 
   // Fetch DB profile data when modal opens
@@ -50,6 +54,12 @@ export default function SettingsModal({ isOpen, onClose }) {
           }
           if (data.skinType) {
             setSkinType(data.skinType);
+          }
+          if (data.standardPlanFrequency) {
+            setStandardPlanFrequency(data.standardPlanFrequency);
+          }
+          if (data.photoPrivacy) {
+            setPhotoPrivacy(data.photoPrivacy);
           }
           setOptIn(Boolean(data.optInComparison));
         }
@@ -82,7 +92,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     setLocationMode("loading");
     if (!("geolocation" in navigator)) {
       setLocationMode("idle");
-      alert("Geolocation is not supported by your browser.");
+      showToast({ type: 'error', title: 'Not Supported', message: "Geolocation is not supported by your browser." });
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -104,8 +114,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                 cityName = geoData.locality;
               }
             }
-          } catch (e) {
-            console.error("Reverse geocode failed:", e);
+          } catch {
+            // Reverse geocode failed silently
           }
 
           if (!cityName) {
@@ -124,8 +134,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           } else {
             setLocationMode("editing");
           }
-        } catch (err) {
-          console.error("Save location error:", err);
+        } catch {
           setLocationMode("idle");
         }
       },
@@ -133,6 +142,22 @@ export default function SettingsModal({ isOpen, onClose }) {
         setLocationMode("editing");
       }
     );
+  };
+
+  const handlePrivacyChange = async (e) => {
+    const val = e.target.value;
+    const previousVal = photoPrivacy;
+    setPhotoPrivacy(val);
+    try {
+      const res = await updatePrivacySettings(val);
+      if (!res?.success) {
+        setPhotoPrivacy(previousVal);
+        showToast({ type: 'error', title: 'Error', message: "Failed to update privacy settings." });
+      }
+    } catch {
+      setPhotoPrivacy(previousVal);
+      showToast({ type: 'error', title: 'Error', message: "Failed to update privacy settings." });
+    }
   };
 
   const handleManualSubmit = async (e) => {
@@ -158,15 +183,15 @@ export default function SettingsModal({ isOpen, onClose }) {
           setLocationMode("saved");
           setTimeout(() => setLocationMode("idle"), 2000);
         } else {
-          alert("Could not save location. Please try again.");
+          showToast({ type: 'error', title: 'Save Failed', message: "Could not save location. Please try again." });
           setLocationMode("editing");
         }
       } else {
-        alert("City not found. Please try again.");
+        showToast({ type: 'error', title: 'Not Found', message: "City not found. Please try again." });
         setLocationMode("editing");
       }
     } catch {
-      alert("Error finding city.");
+      showToast({ type: 'error', title: 'Error', message: "Error finding city." });
       setLocationMode("editing");
     }
   };
@@ -182,6 +207,12 @@ export default function SettingsModal({ isOpen, onClose }) {
     setOptIn(nextVal);
     await updateUserSettings({ optInComparison: nextVal });
     setProfile((prev) => ({ ...prev, optInComparison: nextVal }));
+  };
+
+  const handleFrequencyChange = async (newFrequency) => {
+    setStandardPlanFrequency(newFrequency);
+    await updateUserSettings({ standardPlanFrequency: newFrequency });
+    setProfile((prev) => ({ ...prev, standardPlanFrequency: newFrequency }));
   };
 
   if (!mounted) return null;
@@ -255,16 +286,42 @@ export default function SettingsModal({ isOpen, onClose }) {
                   {profile?.tier || "Free"}
                 </span>
               </div>
-              {profile?.tier !== "premium" && (
-                <Link
-                  href="/dashboard/upgrade"
-                  onClick={onClose}
-                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors flex items-center gap-0.5"
-                >
-                  Upgrade <ChevronRight size={12} />
-                </Link>
-              )}
+              <Link
+                href="/pricing"
+                onClick={onClose}
+                className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors flex items-center gap-0.5"
+              >
+                Change Plan <ChevronRight size={12} />
+              </Link>
             </div>
+            
+            {profile?.tier === "standard" && (
+              <div className="mt-3 pt-3 border-t border-black/5">
+                <label className="text-xs text-[#5B6D7F] block mb-2">Scan Pacing</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleFrequencyChange("every_other_day")}
+                    className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
+                      standardPlanFrequency === "every_other_day"
+                        ? "bg-[#2C3E50] text-white border-[#2C3E50]"
+                        : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
+                    }`}
+                  >
+                    Every Other Day
+                  </button>
+                  <button
+                    onClick={() => handleFrequencyChange("flexible")}
+                    className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
+                      standardPlanFrequency === "flexible"
+                        ? "bg-[#2C3E50] text-white border-[#2C3E50]"
+                        : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
+                    }`}
+                  >
+                    Flexible
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Skin Profile & Preferences */}
@@ -405,6 +462,50 @@ export default function SettingsModal({ isOpen, onClose }) {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Privacy & Photo Retention */}
+          <div className="px-6 py-5 border-b border-black/5">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA] mb-3">
+              Photo Privacy
+            </p>
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative flex items-center justify-center w-4 h-4 mt-0.5">
+                  <input
+                    type="radio"
+                    name="photoPrivacy"
+                    value="store"
+                    checked={photoPrivacy === "store"}
+                    onChange={handlePrivacyChange}
+                    className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
+                  />
+                  {photoPrivacy === "store" && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                </div>
+                <div className="flex-1 text-sm text-[#2C3E50]">
+                  <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Store photo till next scan (Recommended)</p>
+                  <p className="text-xs text-[#8E9BAA] mt-0.5">Keep your latest selfie for fast "What-If" simulations and journal display.</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative flex items-center justify-center w-4 h-4 mt-0.5">
+                  <input
+                    type="radio"
+                    name="photoPrivacy"
+                    value="delete"
+                    checked={photoPrivacy === "delete"}
+                    onChange={handlePrivacyChange}
+                    className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
+                  />
+                  {photoPrivacy === "delete" && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                </div>
+                <div className="flex-1 text-sm text-[#2C3E50]">
+                  <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Delete immediately</p>
+                  <p className="text-xs text-[#8E9BAA] mt-0.5">For privacy. Your photo is analyzed and instantly deleted. Simulations will require a new upload.</p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Quick Links */}

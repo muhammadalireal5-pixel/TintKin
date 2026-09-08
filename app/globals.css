@@ -67,6 +67,19 @@
   100% { opacity: 0; transform: translateY(10px) scale(0.95); }
 }
 
+@keyframes flameIgnite {
+  0% { transform: scale(0.5) translateY(10px) rotate(-10deg); opacity: 0; }
+  40% { transform: scale(1.2) translateY(-2px) rotate(10deg); opacity: 1; }
+  60% { transform: scale(0.9) translateY(1px) rotate(-5deg); }
+  80% { transform: scale(1.1) translateY(0) rotate(3deg); }
+  100% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
+}
+
+.tk-anim-flame {
+  animation: flameIgnite 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  transform-origin: bottom center;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

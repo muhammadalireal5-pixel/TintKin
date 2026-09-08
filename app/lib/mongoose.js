@@ -1,4 +1,5 @@
-import mongoose from 'mongoose'
+import "server-only";
+import mongoose from 'mongoose';
 
 let cached = global.mongoose;
 if (!cached) {
@@ -13,6 +14,7 @@ export const connectDb = async () => {
     if (!cached.promise || mongoose.connection.readyState === 0) {
         const opts = {
             bufferCommands: false,
+            maxPoolSize: 10,
             maxIdleTimeMS: 10000,
             serverSelectionTimeoutMS: 10000,
             socketTimeoutMS: 45000,
@@ -33,21 +35,21 @@ export const connectDb = async () => {
     }
     
     return cached.conn;
-}
+};
 
 const UserSchema = new mongoose.Schema({
-    firebaseUid: {type: String, unique: true, sparse: true},
-    email: {type: String},
-    displayName: {type: String},
-    photoURL: {type: String},
-    lastLoginAt: {type: Date},
-    createdAt: {type: Date, default: Date.now},
-    birthDate: {type: Date},
-    sex: {type: String},
-    skinType: {type: String},
+    firebaseUid: { type: String, unique: true, sparse: true, index: true },
+    email: { type: String, index: true },
+    displayName: { type: String },
+    photoURL: { type: String },
+    lastLoginAt: { type: Date },
+    createdAt: { type: Date, default: Date.now },
+    birthDate: { type: Date },
+    sex: { type: String },
+    skinType: { type: String },
     goals: [String],
     customGoal: String,
-    onboardingComplete: {type: Boolean, default: false},
+    onboardingComplete: { type: Boolean, default: false },
     recommendationsLockedUntil: { type: Date, default: null },
     workoutLockedUntil: { type: Date, default: null },
     isSubscribed: { type: Boolean, default: false },
@@ -66,19 +68,22 @@ const UserSchema = new mongoose.Schema({
     lastUploadDate: { type: Date, default: null },
     badges: [{ type: String }],
     optInComparison: { type: Boolean, default: false },
+    standardPlanFrequency: { type: String, enum: ['every_other_day', 'flexible'], default: 'flexible' },
     region: { type: String, default: null },
     location: {
       lat: Number,
       lng: Number,
       city: String
-    }
-});
+    },
+    photoPrivacy: { type: String, enum: ['store', 'delete'], default: 'store' },
+    baselineSelfie: { type: String, default: null }
+}, { strict: true });
 
 const SelfieSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     imageUrl: String,
     isAnalyzed: { type: Boolean, default: true },
-    takenAt: { type: Date, default: Date.now },
+    takenAt: { type: Date, default: Date.now, index: true },
     overallScore: Number,
     skinAge: Number,
     scores: { wrinkles: Number, firmness: Number, spots: Number, radiance: Number },
@@ -88,30 +93,31 @@ const SelfieSchema = new mongoose.Schema({
     amRoutine: [String],
     pmRoutine: [String],
     recommendedProducts: {
-    type: [{
-      type: { type: String, enum: ["Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant"] },
-      formula: { type: String, required: true },
-      description: { type: String, required: true }
-    }],
-    validate: {
-      validator: function(v) { return !this.isAnalyzed || (Array.isArray(v) && v.length === 3); },
-      message: 'Exactly 3 recommended products are required for analyzed selfies.'
+      type: [{
+        type: { type: String, enum: ["Cleanser", "Serum", "Moisturizer", "Sunscreen", "Exfoliant"] },
+        formula: { type: String, required: true },
+        description: { type: String, required: true }
+      }],
+      validate: {
+        validator: function(v) { return !this.isAnalyzed || (Array.isArray(v) && v.length === 3); },
+        message: 'Exactly 3 recommended products are required for analyzed selfies.'
+      }
     }
-    }
-});
-
+}, { strict: true });
+SelfieSchema.index({ userId: 1, takenAt: -1 });
 
 const LifestyleSchema = new mongoose.Schema({
-    userId: mongoose.Schema.Types.ObjectId,
-    date: { type: Date, default: Date.now },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    date: { type: Date, default: Date.now, index: true },
     sleepHours: Number,
     spfUsed: Boolean,
     uvMinutes: Number,
     sugarServings: Number,
-});
+}, { strict: true });
+LifestyleSchema.index({ userId: 1, date: -1 });
 
 const SimulationSchema = new mongoose.Schema({
-    userId: mongoose.Schema.Types.ObjectId,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: String,
     scenarioA: Object,
     scenarioB: Object,
@@ -119,17 +125,34 @@ const SimulationSchema = new mongoose.Schema({
     targetAge: Number,
     resultA: Object,
     resultB: Object,
-    createdAt: { type: Date, default: Date.now },
-});
+    createdAt: { type: Date, default: Date.now, index: true },
+}, { strict: true });
+SimulationSchema.index({ userId: 1, createdAt: -1 });
+
+const RoutineLogSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    date: { type: Date, default: Date.now, index: true },
+    amCompleted: [String],
+    pmCompleted: [String],
+}, { strict: true });
+RoutineLogSchema.index({ userId: 1, date: -1 });
 
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);
 export const Selfie = mongoose.models.Selfie || mongoose.model('Selfie', SelfieSchema);
 export const Lifestyle = mongoose.models.Lifestyle || mongoose.model('Lifestyle', LifestyleSchema);
 export const Simulation = mongoose.models.Simulation || mongoose.model('Simulation', SimulationSchema);
-const RoutineLogSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    date: { type: Date, default: Date.now },
-    amCompleted: [String],
-    pmCompleted: [String],
-});
 export const RoutineLog = mongoose.models.RoutineLog || mongoose.model('RoutineLog', RoutineLogSchema);
+
+const AdminOTPSchema = new mongoose.Schema({
+    email: { type: String, required: true, index: true },
+    code: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+    ttlExpiresAt: { type: Date, required: true },
+    attempts: { type: Number, default: 0 },
+    used: { type: Boolean, default: false },
+}, { timestamps: true, strict: true });
+AdminOTPSchema.index({ ttlExpiresAt: 1 }, { expireAfterSeconds: 0 });
+AdminOTPSchema.index({ email: 1, createdAt: -1 });
+
+export const AdminOTP = mongoose.models.AdminOTP || mongoose.model('AdminOTP', AdminOTPSchema);
+

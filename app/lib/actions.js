@@ -3,13 +3,35 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/app/lib/firebase/admin";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
+import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
+import { evaluateUserAchievements } from "./achievements";
 import crypto from "crypto";
+import mongoose from "mongoose";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = "ml_default";
+
+function validateTrustedImageUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const allowedHostnames = [
+      "res.cloudinary.com",
+      "yce-us.s3-accelerate.amazonaws.com",
+      "yce-us.s3.amazonaws.com",
+      "tintkin.com",
+    ];
+    return allowedHostnames.some(
+      (host) => parsed.hostname === host || parsed.hostname.endsWith("." + host)
+    );
+  } catch {
+    return false;
+  }
+}
 
 async function uploadUrlToCloudinary(imageUrl) {
   if (!imageUrl || !imageUrl.startsWith('http')) return imageUrl;
@@ -27,21 +49,30 @@ async function uploadUrlToCloudinary(imageUrl) {
     const data = await res.json();
     return data.secure_url;
   } catch (e) {
-    
     return imageUrl;
   }
 }
 
+function getCloudinaryPublicId(imageUrl) {
+  if (!imageUrl || !imageUrl.includes("cloudinary.com")) return null;
+  const parts = imageUrl.split("/upload/");
+  if (parts.length !== 2) return null;
+  
+  let segments = parts[1].split('/');
+  while (segments.length > 1 && (segments[0].includes(',') || /^v\d+$/.test(segments[0]))) {
+    segments.shift();
+  }
+  
+  let pathPart = segments.join('/');
+  const dotIndex = pathPart.lastIndexOf(".");
+  return dotIndex !== -1 ? pathPart.substring(0, dotIndex) : pathPart;
+}
+
 async function deleteImageFromCloudinary(imageUrl) {
-  if (!imageUrl || !imageUrl.includes("cloudinary.com")) return;
+  const publicId = getCloudinaryPublicId(imageUrl);
+  if (!publicId) return;
 
   try {
-    const parts = imageUrl.split("/upload/");
-    if (parts.length !== 2) return;
-    const pathPart = parts[1];
-    const publicIdWithExt = pathPart.substring(pathPart.indexOf("/") + 1);
-    const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf("."));
-
     const timestamp = Math.floor(Date.now() / 1000);
     const signatureString = `public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
     const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
@@ -52,20 +83,19 @@ async function deleteImageFromCloudinary(imageUrl) {
     form.append("timestamp", timestamp);
     form.append("signature", signature);
 
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
+    await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
       method: "POST",
       body: form,
     });
-    console.log(`[Cloudinary] Deleted ${publicId}:`, await res.text());
-  } catch (e) {
-    console.error("[Cloudinary] Destroy error:", e);
+  } catch {
+    // Non-blocking cleanup
   }
 }
 
 function applyFaceCropToCloudinary(url){
   if (!url || !url.includes('cloudinary.com')) return url;
   const parts = url.split('/upload/');
-  if(parts.length !== 2) return url
+  if(parts.length !== 2) return url;
   return `${parts[0]}/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/${parts[1]}`;
 }
 
@@ -80,7 +110,16 @@ export async function uploadSelfieServerAction(formData) {
 
   try {
     const file = formData.get("file");
-    if (!file) throw new Error("No file provided");
+    if (!file) return { success: false, error: "No file provided" };
+
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (file.type && !allowedMimeTypes.includes(file.type)) {
+      return { success: false, error: "Only JPEG, PNG, and WebP images are supported." };
+    }
+
+    if (file.size && file.size > 8 * 1024 * 1024) {
+      return { success: false, error: "Image file exceeds 8MB limit." };
+    }
 
     const timestamp = Math.floor(Date.now() / 1000);
     const isFlipped = formData.get("flip") === "true";
@@ -111,8 +150,7 @@ export async function uploadSelfieServerAction(formData) {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Upload failed: ${errorText}`);
+      return { success: false, error: "Upload failed. Please try again later." };
     }
 
     const data = await res.json();
@@ -188,16 +226,20 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
 
   try {
-    const todayStart = getLocalDayStart(timezone);
-    const uploadsToday = await Selfie.countDocuments({
-      userId: user._id, takenAt: { $gte: todayStart }
-    });
-    if (uploadsToday >= 1) {
-      return { success: false, error: "SCAN_LIMIT", message: "You've already logged a photo today. Come back tomorrow to keep your streak going!" };
+    const quotas = await getUsageQuotas(timezone);
+    if (!quotas.scans.canScanToday) {
+       let msg = "You've reached your scan limit.";
+       if (quotas.scans.denialReason === 'daily_limit') msg = "You've already logged a photo today. Come back tomorrow to keep your streak going!";
+       if (quotas.scans.denialReason === 'monthly_limit') msg = "You've used all your scans for this month.";
+       if (quotas.scans.denialReason === 'every_other_day') msg = "Your plan is set to every-other-day. Come back tomorrow!";
+       return { success: false, error: "SCAN_LIMIT", message: msg };
     }
-    if (!imageUrl) throw new Error("No image provided");
 
-    // Update streak logic
+    if (!imageUrl || !validateTrustedImageUrl(imageUrl)) {
+      return { success: false, error: "Invalid or untrusted image URL." };
+    }
+
+    const todayStart = getLocalDayStart(timezone);
     const now = new Date();
     let newStreak = user.currentStreak || 0;
     if (user.lastUploadDate) {
@@ -213,93 +255,52 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       newStreak = 1;
     }
     
-    user.currentStreak = newStreak;
-    if (newStreak > (user.longestStreak || 0)) {
-      user.longestStreak = newStreak;
-    }
-    user.lastUploadDate = now;
-
     // Badge Logic
-    const milestones = {
-      7: "7-Day Streak",
-      30: "1-Month Consistency",
-      90: "3-Month Master",
-      365: "1-Year Dedication"
+    const updatedBadges = [...(user.badges || [])];
+    if (!updatedBadges.includes("first_glow")) {
+      updatedBadges.push("first_glow");
+    }
+    if (newStreak >= 7 && !updatedBadges.includes("week_radiance")) {
+      updatedBadges.push("week_radiance");
+    }
+    if (newStreak >= 30 && !updatedBadges.includes("consistency_champion")) {
+      updatedBadges.push("consistency_champion");
+    }
+
+    // Move user fields to updatesToUser so they are saved only if analysis succeeds
+    const userUpdatesForStreak = {
+      currentStreak: newStreak,
+      longestStreak: newStreak > (user.longestStreak || 0) ? newStreak : user.longestStreak,
+      lastUploadDate: now,
+      badges: updatedBadges
     };
-    if (milestones[newStreak] && !(user.badges || []).includes(milestones[newStreak])) {
-      if (!user.badges) user.badges = [];
-      user.badges.push(milestones[newStreak]);
-    }
 
-    // Determine if this is an analysis day
-    let shouldAnalyze = false;
-    let consumeFreeScan = false;
-    let consumeExtraScan = false;
-
-    if (user.tier === 'premium' || user.tier === 'standard') {
-      const todayStart = getLocalDayStart(timezone);
-      const lastAnalyzed = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
-
-      if (!lastAnalyzed) {
-        shouldAnalyze = true;
-      } else {
-        const diffTime = Math.abs(todayStart - getLocalDayStart(timezone, lastAnalyzed.takenAt));
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (user.tier === 'premium' && diffDays >= 1) {
-          shouldAnalyze = true;
-        } else if (user.tier === 'standard' && diffDays >= 2) {
-          shouldAnalyze = true;
-        }
+    let extraScanConsumed = false;
+    if (quotas.scans.wouldBeDenied) {
+      const consumed = await User.findOneAndUpdate(
+        { _id: user._id, extraScans: { $gt: 0 } },
+        { $inc: { extraScans: -1 } }
+      );
+      if (!consumed) {
+        return { success: false, error: "SCAN_LIMIT", message: "You've reached your scan limit." };
       }
-    } else {
-      // Free or Pending
-      if ((user.scanCount || 0) < 2) {
-        shouldAnalyze = true;
-        consumeFreeScan = true;
-      }
-    }
-
-    // Check extra scans if not entitled by tier
-    if (!shouldAnalyze && user.extraScans > 0) {
-      shouldAnalyze = true;
-      consumeExtraScan = true;
-    }
-
-    // Save user streak and counts before we do the heavy lifting
-    await user.save();
-
-    if (!shouldAnalyze) {
-      // Streak-only upload
-      await Selfie.create({ userId: user._id, imageUrl: imageUrl, isAnalyzed: false });
-      return { success: true, isAnalyzed: false, message: "Streak logged! Your next full analysis is coming up soon." };
+      extraScanConsumed = true;
     }
 
     const youCamResult = await analyzeSkin(imageUrl);
-    
-    // Now that analysis succeeded, deduct the quotas
-    if (consumeFreeScan) {
-      user.scanCount = (user.scanCount || 0) + 1;
-      await user.save();
-    } else if (consumeExtraScan) {
-      user.extraScans -= 1;
-      await user.save();
-    }
 
     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
     const scoreInfo = await extractScoreInfo(data);
-    console.log("[Scores] Extracted scoreInfo:", JSON.stringify(scoreInfo, null, 2));
 
     const readScore = (key, label) => {
       const entry = scoreInfo[key];
       if (!entry) {
-        
         return null;
       }
       if (typeof entry === "number") return entry;
       const val = entry.ui_score ?? entry.raw_score ?? entry.score ?? entry.value;
       if (val === undefined || val === null) {
-        
         return null;
       }
       return val;
@@ -312,11 +313,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       radiance: readScore("radiance", "radiance"),
     };
 
-   
-
     const overallScore = scoreInfo.all?.score ?? scoreInfo.overall_score ?? null;
     const skinAge = scoreInfo.skin_age ?? scoreInfo.age ?? null;
-
 
     const lastSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
     let useCachedAdvice = false;
@@ -345,8 +343,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         products: lastSelfie.recommendedProducts
       };
     } else {
-      // Fetch UV index if possible (latitude and longitude from user profile if we added it, or we just pass null for now if we don't have it).
-      // Let's assume we can fetch it if we have coordinates, otherwise it will just be null.
       let uvIndex = null;
       if (user.location && user.location.lat && user.location.lng) {
         try {
@@ -358,8 +354,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
             const uvData = await uvRes.json();
             uvIndex = uvData?.daily?.uv_index_max?.[0] || null;
           }
-        } catch(e) {
-          console.error("Failed to fetch UV index", e);
+        } catch {
+          // UV index is best-effort
         }
       }
       advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex);
@@ -409,8 +405,18 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       }
     }
 
-    if (Object.keys(updatesToUser).length > 0) {
-      await User.findByIdAndUpdate(user._id, updatesToUser);
+    if (skinAge != null && user.birthDate) {
+      const birthYear = new Date(user.birthDate).getFullYear();
+      const currentYear = new Date().getFullYear();
+      const realAge = currentYear - birthYear;
+      if (skinAge < realAge && !userUpdatesForStreak.badges.includes("youth_catalyst")) {
+        userUpdatesForStreak.badges.push("youth_catalyst");
+      }
+    }
+
+    const finalUpdates = { ...updatesToUser, ...userUpdatesForStreak };
+    if (Object.keys(finalUpdates).length > 0) {
+      await User.findByIdAndUpdate(user._id, finalUpdates);
     }
 
     if(!Array.isArray(recommendedProducts) || recommendedProducts.length !== 3 ){
@@ -441,9 +447,15 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     let amRoutine = advice.amRoutine || [];
     let pmRoutine = advice.pmRoutine || [];
 
+    let finalImageUrl = imageUrl;
+    if (user.photoPrivacy === 'delete') {
+      await deleteImageFromCloudinary(imageUrl).catch(() => {});
+      finalImageUrl = null;
+    }
+
     const selfie = await Selfie.create({
       userId: user._id,
-      imageUrl,
+      imageUrl: finalImageUrl,
       overallScore,
       skinAge,
       scores,
@@ -457,7 +469,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       recommendedProducts,
     });
 
-    await User.findByIdAndUpdate(user._id, { baselineSelfie: imageUrl });
+    await User.findByIdAndUpdate(user._id, { baselineSelfie: finalImageUrl });
 
     return { 
       success: true, 
@@ -467,7 +479,12 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       workoutChanged
     };
   } catch (err) {
-    console.error("[analyzeAndSaveSelfie] Error:", err);
+    if (extraScanConsumed) {
+      await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
+    }
+    if (imageUrl) {
+      await deleteImageFromCloudinary(imageUrl).catch(() => {});
+    }
     return { success: false, error: "Analysis failed. Please try a clearer photo or try again later." };
   }
 }
@@ -533,44 +550,72 @@ export async function getLatestData(timezone = "UTC") {
     date: { $gte: todayStart }
   });
 
-  const data = { user, latestSelfie, latestAnalyzedSelfie, allSelfies, lifestyleLogs, realAge, weeklyAverage, todayRoutineLog };
+  const simCount = await Simulation.countDocuments({ userId: user._id });
+  const { evaluatedAchievements, unlockedCount, totalCount, newlyUnlockedIds } = evaluateUserAchievements({
+    user,
+    allSelfies,
+    simulationCount: simCount,
+    todayRoutineLog,
+    realAge,
+  });
+
+  if (newlyUnlockedIds && newlyUnlockedIds.length > 0) {
+    await User.findByIdAndUpdate(user._id, {
+      $addToSet: { badges: { $each: newlyUnlockedIds } }
+    }).catch(() => {});
+    if (!user.badges) user.badges = [];
+    newlyUnlockedIds.forEach(id => {
+      if (!user.badges.includes(id)) user.badges.push(id);
+    });
+  }
+
+  const data = { 
+    user, 
+    latestSelfie, 
+    latestAnalyzedSelfie, 
+    allSelfies, 
+    lifestyleLogs, 
+    realAge, 
+    weeklyAverage, 
+    todayRoutineLog,
+    achievements: evaluatedAchievements,
+    achievementStats: { unlockedCount, totalCount }
+  };
   return JSON.parse(JSON.stringify(data));
 }
 
-export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC") {
+export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+  const sourceImageUrl = customImageUrl || latestSelfie?.imageUrl;
+  if (customImageUrl && !validateTrustedImageUrl(customImageUrl)) {
+    return { success: false, error: "Invalid or untrusted image URL." };
+  }
 
   try {
-    let allowedMonthly = 0;
-    if (user.tier === 'premium') allowedMonthly = 20;
-    else if (user.tier === 'standard') allowedMonthly = 4;
-
-    const now = new Date();
-    const calendarMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const periodStart = user.currentPeriodStart ? new Date(user.currentPeriodStart) : calendarMonthStart;
-    const monthStart = periodStart > calendarMonthStart ? periodStart : calendarMonthStart;
-    
-    const simsThisPeriod = await Simulation.countDocuments({
-      userId: user._id, createdAt: { $gte: monthStart }
-    });
-
-    if (simsThisPeriod >= allowedMonthly) {
-      if (user.extraSimulations > 0) {
-        await User.updateOne({ _id: user._id }, { $inc: { extraSimulations: -1 } });
-      } else {
+    const quotas = await getUsageQuotas(timezone);
+    if (quotas.simulations.used >= quotas.simulations.limit) {
+      const consumed = await User.findOneAndUpdate(
+        { _id: user._id, extraSimulations: { $gt: 0 } },
+        { $inc: { extraSimulations: -1 } }
+      );
+      if (!consumed) {
         return {
           success: false,
           error: "SIM_LIMIT",
-          message: allowedMonthly === 0
-            ? "Simulations are available on the Standard and Premium plans. Upgrade to run a simulation."
-            : `You've used all ${allowedMonthly} simulations for this billing cycle.`
+          message: quotas.simulations.limit === 1 && user.tier === 'free'
+            ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro for more!"
+            : `You've used all ${quotas.simulations.limit} simulations for this month.`
         };
       }
     }
-    if (!latestSelfie) throw new Error("Please take a selfie first to run the AI simulation!");
+    
+    if (!sourceImageUrl) {
+      return { success: false, error: "No photo available to run the AI simulation on!" };
+    }
 
     const TARGET_YEARS = 1;
-    const baseline = latestSelfie.scores;
+    // Default to some baseline scores if latestSelfie.scores is missing
+    const baseline = latestSelfie?.scores || { wrinkles: 50, firmness: 50, spots: 50, radiance: 50 };
 
     const listA = Array.isArray(interventionsA) ? interventionsA : (interventionsA ? [interventionsA] : []);
     const listB = Array.isArray(interventionsB) ? interventionsB : (interventionsB ? [interventionsB] : []);
@@ -588,7 +633,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         age_spot: getIntensity(baseline.spots, proj.scores.spots),
         radiance: getIntensity(baseline.radiance, proj.scores.radiance),
       };
-      let finalUrl = latestSelfie.imageUrl;
+      
+      let finalUrl = sourceImageUrl;
       if (interventions.length === 0 && finalUrl && finalUrl.includes("/upload/")) {
         // Apply the same crop that simulateSkin uses to ensure Slider alignment
         finalUrl = finalUrl.replace("/upload/", "/upload/c_thumb,g_face,z_1.05,w_1200,h_1200/");
@@ -600,7 +646,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           intensities.radiance = 0.05;
         }
 
-        const sim = await simulateSkin(latestSelfie.imageUrl, intensities);
+        const sim = await simulateSkin(sourceImageUrl, intensities);
 
         const extractSimUrl = (sim) => {
           if (sim.results?.url) return sim.results.url;
@@ -615,20 +661,15 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           if (sim.data?.output_image_url) return sim.data.output_image_url;
           if (sim.url) return sim.url;
 
-          return latestSelfie.imageUrl;
+          return sourceImageUrl;
         };
 
         finalUrl = extractSimUrl(sim);
 
-        if (finalUrl && finalUrl !== latestSelfie.imageUrl) {
+        if (finalUrl && finalUrl !== sourceImageUrl) {
           finalUrl = await uploadUrlToCloudinary(finalUrl);
         }
-      }else{
-          finalUrl = applyFaceCropToCloudinary(latestSelfie.imageUrl);
       }
-      
-
-      console.log(`[WhatIf] Scenario "${label}" generated Cloudinary URL:`, finalUrl);
 
       return {
         label,
@@ -656,6 +697,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS
     });
 
+    await User.findByIdAndUpdate(user._id, { $addToSet: { badges: "future_gazer" } }).catch(() => {});
+
     return { 
       success: true, 
       id: simRecord._id.toString(), 
@@ -666,6 +709,51 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     };
   } catch (err) {
     return { success: false, error: "Simulation failed. Please try again later." };
+  }
+}
+
+export async function updateSimulationPrivacy(simId, keepPhoto) {
+  try {
+    await connectDb();
+    const decoded = await getAuthenticatedUser();
+    if (!decoded) return { success: false, error: "Unauthorized" };
+    
+    const user = await User.findOne({ firebaseUid: decoded.uid });
+    if (!user) return { success: false, error: "User not found" };
+
+    if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
+      return { success: false, error: "Invalid simulation ID" };
+    }
+
+    const sim = await Simulation.findOne({ _id: simId, userId: user._id });
+    if (!sim) return { success: false, error: "Simulation not found" };
+
+    if (!keepPhoto) {
+      const baselineId = getCloudinaryPublicId(user.baselineSelfie);
+      
+      if (sim.scenarioA?.imageUrl) {
+        const idA = getCloudinaryPublicId(sim.scenarioA.imageUrl);
+        if (idA && idA !== baselineId) {
+          await deleteImageFromCloudinary(sim.scenarioA.imageUrl).catch(() => {});
+        }
+      }
+      if (sim.scenarioB?.imageUrl) {
+        const idB = getCloudinaryPublicId(sim.scenarioB.imageUrl);
+        if (idB && idB !== baselineId) {
+          await deleteImageFromCloudinary(sim.scenarioB.imageUrl).catch(() => {});
+        }
+      }
+      
+      // We always remove them from the sim record if they didn't want to keep them for the sim
+      if (sim.scenarioA) sim.scenarioA.imageUrl = null;
+      if (sim.scenarioB) sim.scenarioB.imageUrl = null;
+      
+      await sim.save();
+    }
+    
+    return { success: true, sim };
+  } catch (err) {
+    return { success: false, error: "Failed to update simulation" };
   }
 }
 
@@ -684,17 +772,42 @@ export async function completeOnboarding(data) {
     const decoded = await getAuthenticatedUser();
     if (!decoded) redirect('/sign-in');
 
-    const { birthDate, sex, skinType, goals, customGoal } = data;
+    const { birthDate, sex, skinType, goals, customGoal } = data || {};
+
+    const parsedDate = new Date(birthDate);
+    if (isNaN(parsedDate.getTime())) {
+      return { success: false, error: "Invalid birth date provided." };
+    }
+    const currentYear = new Date().getFullYear();
+    const birthYear = parsedDate.getFullYear();
+    const age = currentYear - birthYear;
+    if (age < 13 || age > 120) {
+      return { success: false, error: "Age must be between 13 and 120." };
+    }
+
+    const validSexes = ["female", "male", "other", "prefer_not_to_say"];
+    const normalizedSex = typeof sex === "string" && validSexes.includes(sex.toLowerCase()) ? sex.toLowerCase() : "prefer_not_to_say";
+
+    const validSkinTypes = ["oily", "dry", "combination", "normal", "sensitive"];
+    const normalizedSkinType = typeof skinType === "string" && validSkinTypes.includes(skinType.toLowerCase()) ? skinType.toLowerCase() : "combination";
+
+    const validGoals = Array.isArray(goals)
+      ? goals.filter(g => typeof g === "string").map(g => g.slice(0, 50)).slice(0, 10)
+      : [];
+
+    const cleanCustomGoal = typeof customGoal === "string"
+      ? customGoal.replace(/[{}\[\]`"'<>\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
+      : "";
     
     await User.findOneAndUpdate(
       { firebaseUid: decoded.uid },
       {
         email: decoded.email || undefined,
-        birthDate: new Date(birthDate),
-        sex: sex ? sex.toLowerCase() : undefined, 
-        skinType: skinType, 
-        goals: goals, 
-        customGoal: customGoal || "",
+        birthDate: parsedDate,
+        sex: normalizedSex, 
+        skinType: normalizedSkinType, 
+        goals: validGoals, 
+        customGoal: cleanCustomGoal,
         onboardingComplete: true
       },
       { upsert: true }
@@ -703,6 +816,23 @@ export async function completeOnboarding(data) {
     return { success: true };
   } catch (err) {
     return { success: false, error: "Something went wrong, please try again later" };
+  }
+}
+
+export async function updatePrivacySettings(photoPrivacy) {
+  try {
+    await connectDb();
+    const decoded = await getAuthenticatedUser();
+    if (!decoded) return { success: false, error: "Unauthorized" };
+
+    const user = await User.findOne({ firebaseUid: decoded.uid });
+    if (!user) return { success: false, error: "User not found" };
+
+    user.photoPrivacy = photoPrivacy;
+    await user.save();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: "Failed to update settings" };
   }
 }
 
@@ -750,29 +880,94 @@ function getLocalISOWeekStart(timezone) {
   return new Date(todayStart.getTime() - offset * 24 * 60 * 60 * 1000);
 }
 
+function getLocalMonthStart(timezone, reference = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  const parts = formatter.format(reference).split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const firstDay = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
+  const monthStart = getLocalDayStart(timezone, firstDay);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return { monthStart, daysInMonth };
+}
+
 export async function getUsageQuotas(timezone = "UTC") {
   const user = await getDbUser();
   const todayStart = getLocalDayStart(timezone);
-  
-  const now = new Date();
-  const calendarMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const periodStart = user.currentPeriodStart ? new Date(user.currentPeriodStart) : calendarMonthStart;
-  const monthStart = periodStart > calendarMonthStart ? periodStart : calendarMonthStart;
+  const { monthStart, daysInMonth } = getLocalMonthStart(timezone);
 
   const scansToday = await Selfie.countDocuments({
     userId: user._id, takenAt: { $gte: todayStart }
   });
-  const simsThisPeriod = await Simulation.countDocuments({
+  
+  const scansThisMonth = await Selfie.countDocuments({
+    userId: user._id, takenAt: { $gte: monthStart }
+  });
+  
+  const simsThisMonth = await Simulation.countDocuments({
     userId: user._id, createdAt: { $gte: monthStart }
   });
 
-  let simLimit = 0;
-  if (user.tier === 'premium') simLimit = 20;
-  else if (user.tier === 'standard') simLimit = 4;
+  let scanDailyLimit = 1; 
+  let scanMonthlyLimit = 2;
+  let simLimit = 1;
+
+  if (user.tier === 'premium') {
+     scanMonthlyLimit = daysInMonth; 
+     simLimit = 4;
+  } else if (user.tier === 'standard') {
+     scanMonthlyLimit = 15;
+     simLimit = 3;
+  } else {
+     scanMonthlyLimit = 2; 
+     simLimit = 1;
+  }
+
+  const extraScans = user.extraScans || 0;
+
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const scansYesterday = await Selfie.countDocuments({
+    userId: user._id, takenAt: { $gte: yesterdayStart, $lt: todayStart }
+  });
+
+  let canScanToday = true;
+  let scanDenialReason = "";
+  let wouldBeDenied = false;
+
+  if (scansToday >= scanDailyLimit) {
+     canScanToday = false;
+     scanDenialReason = "daily_limit";
+     wouldBeDenied = true;
+  } else if (scansThisMonth >= scanMonthlyLimit) {
+     canScanToday = false;
+     scanDenialReason = "monthly_limit";
+     wouldBeDenied = true;
+  } else if (user.tier === 'standard' && user.standardPlanFrequency === 'every_other_day' && scansYesterday > 0) {
+     canScanToday = false;
+     scanDenialReason = "every_other_day";
+     wouldBeDenied = true;
+  }
+
+  // If they would be denied but have extra scans, allow them
+  if (wouldBeDenied && extraScans > 0) {
+     canScanToday = true;
+     scanDenialReason = "";
+  }
 
   return {
-    scans: { used: scansToday, limit: 1 },
-    simulations: { used: simsThisPeriod, limit: simLimit }
+    scans: { 
+      usedToday: scansToday, 
+      usedMonth: scansThisMonth,
+      dailyLimit: scanDailyLimit,
+      monthlyLimit: scanMonthlyLimit,
+      canScanToday,
+      denialReason: scanDenialReason,
+      wouldBeDenied
+    },
+    simulations: { used: simsThisMonth, limit: simLimit }
   };
 }
 
@@ -797,18 +992,23 @@ export async function getSavedSimulations() {
 }
 
 export async function deleteSavedSimulation(simId) {
-  const user = await getDbUser();
   try {
+    const user = await getDbUser();
+    if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
+      return { success: false, error: "Invalid simulation ID" };
+    }
+
     const sim = await Simulation.findOne({ _id: simId, userId: user._id });
-    if (!sim) throw new Error("Simulation not found");
+    if (!sim) {
+      return { success: false, error: "Simulation not found" };
+    }
 
-    if (sim.scenarioA?.imageUrl) await deleteImageFromCloudinary(sim.scenarioA.imageUrl);
-    if (sim.scenarioB?.imageUrl) await deleteImageFromCloudinary(sim.scenarioB.imageUrl);
+    if (sim.scenarioA?.imageUrl) await deleteImageFromCloudinary(sim.scenarioA.imageUrl).catch(() => {});
+    if (sim.scenarioB?.imageUrl) await deleteImageFromCloudinary(sim.scenarioB.imageUrl).catch(() => {});
 
-    await Simulation.deleteOne({ _id: simId });
+    await Simulation.deleteOne({ _id: simId, userId: user._id });
     return { success: true };
   } catch (err) {
-    console.error("[deleteSavedSimulation] Error:", err);
     return { success: false, error: "Failed to delete simulation." };
   }
 }
@@ -870,13 +1070,19 @@ export async function getWeeklyHistory() {
 }
 export async function analyzeProductImage(base64Image) {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    const authUser = await getAuthenticatedUser();
+    if (!authUser) throw new Error("Unauthorized");
 
     const result = await analyzeProductIngredients(base64Image);
+
+    await connectDb();
+    await User.findOneAndUpdate(
+      { firebaseUid: authUser.uid },
+      { $addToSet: { badges: "ingredient_alchemist" } }
+    ).catch(() => {});
+
     return { success: true, product: result };
-  } catch (error) {
-    console.error("Failed to analyze product image:", error);
+  } catch {
     return { success: false, error: "Failed to analyze product image" };
   }
 }
@@ -903,12 +1109,50 @@ export async function requestUpgrade(tier) {
 export async function saveLocation(locationData) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false };
+    if (!user) return { success: false, error: "Unauthorized" };
     
-    await User.findByIdAndUpdate(user._id, { location: locationData });
-    return { success: true, location: locationData };
-  } catch (err) {
-    return { success: false };
+    let { lat, lng, city } = locationData;
+
+    if (lat && lng && !city) {
+      try {
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+        if (res.ok) {
+          const data = await res.json();
+          city = data.city || data.locality || data.principalSubdivision || "Unknown Location";
+        }
+      } catch {
+        // Reverse geocoding is best-effort
+      }
+    } else if (city && (!lat || !lng)) {
+      try {
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            lat = data.results[0].latitude;
+            lng = data.results[0].longitude;
+            city = data.results[0].name;
+          } else {
+            return { success: false, error: "City not found. Please try another city." };
+          }
+        } else {
+          return { success: false, error: "Geocoding service unavailable." };
+        }
+      } catch {
+        // Forward geocoding failed
+        return { success: false, error: "Error connecting to geocoding service." };
+      }
+    }
+
+    if (!lat || !lng) {
+      return { success: false, error: "Could not determine location coordinates." };
+    }
+
+    const updatedLocation = { lat, lng, city };
+    await User.findByIdAndUpdate(user._id, { location: updatedLocation });
+    return { success: true, location: updatedLocation };
+  } catch {
+    return { success: false, error: "Internal server error" };
   }
 }
 
@@ -929,8 +1173,7 @@ export async function getUserProfile() {
       skinType: user.skinType || null,
       optInComparison: user.optInComparison || false,
     };
-  } catch (err) {
-    console.error("getUserProfile error:", err);
+  } catch {
     return null;
   }
 }
@@ -941,21 +1184,76 @@ export async function updateUserSettings(settings) {
     if (!user) return { success: false, error: "Unauthorized" };
 
     const updates = {};
-    if (typeof settings.skinType === "string") updates.skinType = settings.skinType;
+    const validSkinTypes = ["oily", "dry", "combination", "normal", "sensitive"];
+    if (typeof settings.skinType === "string" && validSkinTypes.includes(settings.skinType.toLowerCase())) {
+      updates.skinType = settings.skinType.toLowerCase();
+    }
     if (typeof settings.displayName === "string" && settings.displayName.trim()) {
-      updates.displayName = settings.displayName.trim();
+      updates.displayName = settings.displayName.trim().slice(0, 50);
     }
     if (typeof settings.optInComparison === "boolean") {
       updates.optInComparison = settings.optInComparison;
+    }
+    if (typeof settings.standardPlanFrequency === "string" && ["every_other_day", "flexible"].includes(settings.standardPlanFrequency)) {
+      updates.standardPlanFrequency = settings.standardPlanFrequency;
     }
 
     if (Object.keys(updates).length > 0) {
       await User.findByIdAndUpdate(user._id, updates);
     }
     return { success: true };
-  } catch (err) {
-    console.error("updateUserSettings error:", err);
-    return { success: false, error: "Failed to update settings." };
+  } catch {
+    return { success: false, error: "Failed to update settings. Please try again." };
+  }
+}
+
+export async function updateUserTier(tier, standardPlanFrequency = "flexible") {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const validTiers = ['free', 'standard', 'premium'];
+    if (!validTiers.includes(tier)) return { success: false, error: "Invalid tier" };
+
+    // In production, direct client-side upgrading can be locked down
+    const demoMode = process.env.ENABLE_DEMO_TIER_SWITCHING === "true";
+    if (!demoMode && tier !== 'free') {
+      return { 
+        success: false, 
+        error: "Direct tier switching is disabled. Subscriptions must be processed via the checkout portal." 
+      };
+    }
+
+    const updates = { tier, isSubscribed: tier === 'premium' || tier === 'standard' };
+    
+    if (tier === 'standard') {
+      updates.standardPlanFrequency = standardPlanFrequency;
+    }
+
+    await User.findByIdAndUpdate(user._id, updates);
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to update tier" };
+  }
+}
+
+export async function adminAddExtraScans(userId, amount = 1) {
+  try {
+    const session = await verifyAdminSession();
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return { success: false, error: "Invalid user ID" };
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) return { success: false, error: "User not found" };
+
+    targetUser.extraScans = (targetUser.extraScans || 0) + amount;
+    await targetUser.save();
+    return { success: true, extraScans: targetUser.extraScans };
+  } catch {
+    return { success: false, error: "Failed to add extra scans" };
   }
 }
 
@@ -991,6 +1289,13 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
     }
     
     await log.save();
+
+    if (log.amCompleted.length > 0 && log.pmCompleted.length > 0) {
+      await User.findByIdAndUpdate(user._id, {
+        $addToSet: { badges: "routine_master" }
+      }).catch(() => {});
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false };
@@ -1046,8 +1351,7 @@ export async function getPercentileRank() {
     const percentile = Math.round((lowerOrEqual / peerScores.length) * 100);
 
     return { success: true, percentile, peerCount: peerScores.length };
-  } catch (err) {
-    console.error("Percentile error", err);
+  } catch {
     return { success: false };
   }
 }

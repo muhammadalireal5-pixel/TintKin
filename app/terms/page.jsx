@@ -3,7 +3,15 @@ import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
   title: "Terms of Service",
-  description: "Terms of Service for TintKin.",
+  description: "Terms of Service and user agreement for TintKin's AI skin wellness journal.",
+  alternates: {
+    canonical: "/terms",
+  },
+  openGraph: {
+    title: "Terms of Service | TintKin",
+    description: "Terms of Service and user agreement for TintKin's AI skin wellness journal.",
+    url: "https://tintkin.com/terms",
+  },
 };
 
 export default function TermsPage() {
@@ -14,12 +22,12 @@ export default function TermsPage() {
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
         </Link>
         <h1 className="text-3xl md:text-5xl font-display font-medium text-primary mb-6">Terms of Service</h1>
-        <p className="text-sm text-muted mb-10">Last Updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+        <p className="text-sm text-muted mb-10">Last Updated: May 1, 2025</p>
 
         <div className="space-y-8 text-primary leading-relaxed">
           <section>
             <h2 className="text-xl font-display font-medium mb-3">1. Welcome to TintKin</h2>
-            <p>Welcome to TintKin. By using our website and services ("Services"), you agree to these Terms of Service. Please read them carefully.</p>
+            <p>Welcome to TintKin. By using our website and services (&quot;Services&quot;), you agree to these Terms of Service. Please read them carefully.</p>
           </section>
 
           <section>
@@ -28,7 +36,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">3. Image Processing & Retention</h2>
+            <h2 className="text-xl font-display font-medium mb-3">3. Image Processing &amp; Retention</h2>
             <p>When you use our scanning feature, you upload a photo of your face. We temporarily process this image using secure third-party services (Cloudinary for staging, PerfectCorp/YouCam for analysis) to generate your skin insights. <strong>We do not permanently retain your facial images.</strong> Every time you take a new scan, your previous image is automatically and permanently deleted from our servers and third-party storage. Only the numerical scores and AI advice are retained in your journal history.</p>
           </section>
 
@@ -44,7 +52,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-xl font-display font-medium mb-3">6. Limitation of Liability</h2>
-            <p>TintKin is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, or consequential damages resulting from your use of the Services or reliance on any insights provided.</p>
+            <p>TintKin is provided &quot;as is&quot; without warranties of any kind. We shall not be liable for any indirect, incidental, or consequential damages resulting from your use of the Services or reliance on any insights provided.</p>
           </section>
 
           <section>

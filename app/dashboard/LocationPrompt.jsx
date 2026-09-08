@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { saveLocation } from "@/app/lib/actions";
+import { useToast } from "@/app/components/ToastProvider";
 
 export default function LocationPrompt({ user }) {
+  const { showToast } = useToast();
   const [show, setShow] = useState(false);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,14 +22,23 @@ export default function LocationPrompt({ user }) {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          await saveLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setShow(false);
-          setLoading(false);
+          try {
+            const res = await saveLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+            if (res?.success) {
+              setShow(false);
+            } else {
+              showToast({ type: 'error', title: 'Error', message: res?.error || "Failed to save location." });
+            }
+          } catch {
+            showToast({ type: 'error', title: 'Error', message: "Failed to save location." });
+          } finally {
+            setLoading(false);
+          }
         },
         () => {
           // Denied, fallback to manual input below
           setLoading(false);
-          alert("Location access denied. You can manually enter your city instead.");
+          showToast({ type: 'error', title: 'Location Denied', message: "Location access denied. You can manually enter your city instead." });
         }
       );
     } else {
@@ -39,22 +50,19 @@ export default function LocationPrompt({ user }) {
     e.preventDefault();
     if (!city.trim()) return;
     setLoading(true);
-    // Simple geocoding fallback or just save city
-    // For UV index to work we need lat/lng. Open-Meteo geocoding:
+    
     try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
-      const data = await res.json();
-      if (data.results && data.results.length > 0) {
-        const { latitude, longitude, name } = data.results[0];
-        await saveLocation({ lat: latitude, lng: longitude, city: name });
+      const res = await saveLocation({ city });
+      if (res?.success) {
         setShow(false);
       } else {
-        alert("City not found. Please try again.");
+        showToast({ type: 'error', title: 'Error', message: res?.error || "City not found. Please try again." });
       }
-    } catch(err) {
-      alert("Error finding city.");
+    } catch {
+      showToast({ type: 'error', title: 'Error', message: "Failed to save location." });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!show) return null;
@@ -62,7 +70,7 @@ export default function LocationPrompt({ user }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="tk-glass bg-white max-w-md w-full rounded-3xl p-8 border border-white/50 shadow-2xl relative">
-        <button onClick={() => setShow(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+        <button onClick={() => setShow(false)} className="absolute top-4 right-4 text-muted hover:text-primary">
           ✕
         </button>
         <h2 className="text-2xl font-display font-medium text-primary mb-2">Want weather-aware advice?</h2>
@@ -80,7 +88,7 @@ export default function LocationPrompt({ user }) {
 
         <div className="relative flex py-2 items-center mb-4">
           <div className="flex-grow border-t border-gray-200"></div>
-          <span className="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase tracking-widest">or</span>
+          <span className="flex-shrink-0 mx-4 text-muted text-xs uppercase tracking-widest font-semibold">or</span>
           <div className="flex-grow border-t border-gray-200"></div>
         </div>
 
@@ -95,7 +103,7 @@ export default function LocationPrompt({ user }) {
           <button 
             type="submit" 
             disabled={loading}
-            className="px-4 py-2 bg-sage/20 text-sage font-medium rounded-xl hover:bg-sage/30"
+            className="px-4 py-2 bg-sage text-white font-medium rounded-xl hover:bg-sage/90 shadow-sm transition-colors"
           >
             Save
           </button>

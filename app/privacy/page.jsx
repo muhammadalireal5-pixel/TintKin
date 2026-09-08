@@ -3,7 +3,15 @@ import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
   title: "Privacy Policy",
-  description: "Privacy Policy for TintKin.",
+  description: "TintKin privacy policy: Learn about our minimal-retention image processing, data encryption, and user rights.",
+  alternates: {
+    canonical: "/privacy",
+  },
+  openGraph: {
+    title: "Privacy Policy | TintKin",
+    description: "TintKin privacy policy: Learn about our minimal-retention image processing, data encryption, and user rights.",
+    url: "https://tintkin.com/privacy",
+  },
 };
 
 export default function PrivacyPage() {
@@ -14,7 +22,7 @@ export default function PrivacyPage() {
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
         </Link>
         <h1 className="text-3xl md:text-5xl font-display font-medium text-primary mb-6">Privacy Policy</h1>
-        <p className="text-sm text-muted mb-10">Last Updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+        <p className="text-sm text-muted mb-10">Last Updated: May 1, 2025</p>
 
         <div className="space-y-8 text-primary leading-relaxed">
           <section>

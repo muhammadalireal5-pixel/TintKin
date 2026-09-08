@@ -43,15 +43,13 @@ export function AuthProvider({ children }) {
             document.cookie = "__session=; path=/; max-age=0";
             if (isMounted) setUser(null);
           }
-        } catch (err) {
-          console.error("Auth state change error:", err);
+        } catch {
           if (isMounted) setUser(null);
         } finally {
           if (isMounted) setLoading(false);
         }
       },
-      (error) => {
-        console.error("onAuthStateChanged error:", error);
+      () => {
         if (isMounted) {
           setUser(null);
           setLoading(false);
@@ -66,8 +64,8 @@ export function AuthProvider({ children }) {
         try {
           const token = await currentUser.getIdToken(true);
           setSessionCookie(token);
-        } catch (e) {
-          console.error("Token refresh error:", e);
+        } catch {
+          // Token refresh failure will naturally re-authenticate on next request
         }
       }
     }, 55 * 60 * 1000);
@@ -90,8 +88,8 @@ export function AuthProvider({ children }) {
       if (auth) {
         await signOut(auth);
       }
-    } catch (e) {
-      console.error("Sign out error:", e);
+    } catch {
+      // Best-effort sign out
     }
     document.cookie = "__session=; path=/; max-age=0";
     setUser(null);

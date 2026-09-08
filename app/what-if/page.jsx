@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage } from "@/app/lib/actions";
+import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage, uploadSelfieServerAction, updateSimulationPrivacy } from "@/app/lib/actions";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
@@ -28,6 +28,17 @@ const DEFAULT_PRODUCTS = [
   },
 ];
 
+function formatSimDate(dateString) {
+  if (!dateString) return "Just now";
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "Recently";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "Recently";
+  }
+}
+
 export default function WhatIfPage() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [hasSelfie, setHasSelfie] = useState(true);
@@ -42,6 +53,13 @@ export default function WhatIfPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  const [customImageUrl, setCustomImageUrl] = useState(null);
+  const [customImageUploading, setCustomImageUploading] = useState(false);
+  
+  const [keepPhoto, setKeepPhoto] = useState(false);
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const [simConfirmed, setSimConfirmed] = useState(false);
 
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [productScanError, setProductScanError] = useState("");
@@ -73,18 +91,45 @@ export default function WhatIfPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleCustomPhotoSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCustomImageUploading(true);
+    setError("");
+    
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await uploadSelfieServerAction(form);
+      if (res.success && res.url) {
+        setCustomImageUrl(res.url);
+      } else {
+        setError(res.error || "Failed to upload photo.");
+      }
+    } catch (err) {
+      setError("Error uploading photo.");
+    } finally {
+      setCustomImageUploading(false);
+    }
+  };
+
   const [history, setHistory] = useState([]);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [simToDelete, setSimToDelete] = useState(null);
   const [quotas, setQuotas] = useState(null);
+  const [userTier, setUserTier] = useState('free');
 
   useEffect(() => {
     getLatestData()
       .then((d) => {
-        if (!d.latestSelfie) {
+        setUserTier(d.user?.tier || 'free');
+        if (!d.latestSelfie || !d.latestSelfie.imageUrl) {
           setHasSelfie(false);
-        } else if (d.latestSelfie.recommendedProducts && d.latestSelfie.recommendedProducts.length > 0) {
+        }
+        
+        if (d.latestSelfie && d.latestSelfie.recommendedProducts && d.latestSelfie.recommendedProducts.length > 0) {
           setProducts(d.latestSelfie.recommendedProducts);
         }
       })
@@ -111,7 +156,7 @@ export default function WhatIfPage() {
   }, [result]);
 
   const handleRunSimulation = async () => {
-    if (!hasSelfie) {
+    if (!hasSelfie && !customImageUrl) {
       setError("Please capture or upload a selfie first to run the AI image simulation.");
       return;
     }
@@ -156,11 +201,13 @@ export default function WhatIfPage() {
 
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB, tz);
+      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB, tz, customImageUrl);
       setLoading(false);
 
       if (res.success) {
         setResult(res);
+        setSimConfirmed(false); // Reset confirmation state
+        // Temporarily add to history. If they discard, we'll remove it.
         setHistory((prev) => [res, ...prev]);
       } else {
         setError(res.message || res.error || "Simulation failed. Please try again.");
@@ -201,6 +248,29 @@ export default function WhatIfPage() {
     }
   };
 
+  const handleConfirmSimulation = async () => {
+    if (!result || !result.id) return;
+    setIsSavingPrivacy(true);
+    const res = await updateSimulationPrivacy(result.id, keepPhoto);
+    setIsSavingPrivacy(false);
+    
+    if (res.success) {
+      setSimConfirmed(true);
+      // Update history with the final sim (which might have null imageUrls)
+      setHistory((prev) => prev.map(s => (s.id || s._id) === result.id ? res.sim : s));
+    }
+  };
+
+  const handleDiscardSimulation = async () => {
+    if (!result || !result.id) return;
+    setIsSavingPrivacy(true);
+    await deleteSavedSimulation(result.id);
+    setHistory((prev) => prev.filter(s => (s.id || s._id) !== result.id));
+    setResult(null);
+    setSimConfirmed(false);
+    setIsSavingPrivacy(false);
+  };
+
   return (
     <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
       <div className="max-w-5xl mx-auto relative z-10">
@@ -223,21 +293,61 @@ export default function WhatIfPage() {
           </p>
         </div>
 
-        {!hasSelfie && (
-          <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-10 text-center border border-amber-200/50 bg-amber-50/40">
-            <p className="text-primary font-medium text-lg mb-1">Selfie Required for AI Visuals</p>
-            <p className="text-muted text-sm mb-5 max-w-md mx-auto">
-              Take a quick photo to unlock AI skin aging simulation for your recommended products.
+        {(!hasSelfie || customImageUrl) ? (
+          <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-10 text-center border border-primary/10">
+            <p className="text-primary font-medium text-lg mb-1">
+              {customImageUrl ? "Photo Ready for Simulation" : "Photo Required for AI Visuals"}
             </p>
-            <Link href="/capture" className="tk-pill-btn tk-btn-primary inline-flex items-center gap-2">
-              Capture Selfie First
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </Link>
+            <p className="text-muted text-sm mb-5 max-w-md mx-auto">
+              {customImageUrl ? "You've successfully added a photo for this simulation." : "Take or upload a photo to visualize skin improvements."}
+            </p>
+            
+            {!customImageUrl && (
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
+                <label className="tk-pill-btn tk-btn-primary inline-flex items-center gap-2 cursor-pointer opacity-90 hover:opacity-100">
+                  {customImageUploading ? "Uploading..." : "Take / Upload Photo"}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleCustomPhotoSelected} 
+                    disabled={customImageUploading}
+                  />
+                  {!customImageUploading && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>}
+                </label>
+              </div>
+            )}
+            
+            {customImageUrl && (
+              <button 
+                onClick={() => setCustomImageUrl(null)} 
+                className="text-xs text-muted hover:text-primary transition-colors underline underline-offset-2"
+              >
+                Use a different photo
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="tk-anim-2 tk-glass p-6 rounded-3xl mb-10 flex flex-col sm:flex-row items-center justify-between gap-4 border border-primary/10">
+            <div className="text-center sm:text-left">
+              <p className="text-primary font-medium text-sm">Using your latest saved journal photo</p>
+              <p className="text-xs text-muted">Simulations will run on your baseline selfie.</p>
+            </div>
+            <label className="tk-pill-btn bg-white border border-black/10 text-primary text-xs py-2 inline-flex items-center gap-2 cursor-pointer hover:bg-black/5 transition-colors">
+              {customImageUploading ? "Uploading..." : "Upload New Photo"}
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleCustomPhotoSelected} 
+                disabled={customImageUploading}
+              />
+            </label>
           </div>
         )}
 
         <div className="mb-10 tk-anim-2">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
               <h2 className="text-xl font-display font-medium text-primary">Your Recommended Products</h2>
               <p className="text-xs text-muted">Tailored formulations derived from your skin analysis</p>
@@ -251,11 +361,19 @@ export default function WhatIfPage() {
                   setProductScanError("");
                   setScanModalOpen(true);
                 }}
-                disabled={isAnalyzingProduct}
-                className="text-xs font-semibold px-4 py-1.5 bg-primary text-white rounded-full flex items-center gap-1.5 hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-sm"
+                disabled={isAnalyzingProduct || userTier !== 'premium'}
+                title={userTier !== 'premium' ? "Custom product scanning is a Pro feature" : "Scan a custom product"}
+                className="text-xs font-semibold px-4 py-1.5 bg-primary text-white rounded-full flex items-center gap-1.5 hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-sm relative group"
               >
                 {isAnalyzingProduct ? <span className="animate-spin text-[10px]">⏳</span> : <Sparkles className="w-3 h-3" />}
                 {isAnalyzingProduct ? "Analyzing..." : "Scan My Product"}
+                
+                {/* Tooltip for non-premium */}
+                {userTier !== 'premium' && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    Pro feature
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -491,8 +609,8 @@ export default function WhatIfPage() {
                 )}
               </button>
               {quotas && (
-                <div className={`text-xs font-semibold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-primary/5 text-primary border border-primary/10'}`}>
-                  {quotas.simulations.used >= quotas.simulations.limit ? '4/4 simulations used this week. Resets Monday!' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
+                <div className={`text-xs font-bold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-red-50/80 text-red-900 border border-red-200 shadow-sm' : 'bg-primary/5 text-primary border border-primary/10'}`}>
+                  {quotas.simulations.used >= quotas.simulations.limit ? 'Monthly simulation limit reached.' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
                 </div>
               )}
             </div>
@@ -534,7 +652,7 @@ export default function WhatIfPage() {
                 </div>
 
                 <div className="inline-flex items-center gap-2 justify-end">
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-200/60 flex items-center">
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100/50 text-orange-800 border border-orange-300 flex items-center shadow-sm">
                     {result.scenarioB.label} <ArrowRight size={14} className="ml-1" />
                   </span>
                   <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
@@ -542,23 +660,36 @@ export default function WhatIfPage() {
               </div>
               
               <div className="relative min-h-[380px] sm:min-h-[460px] bg-black/5" style={{ aspectRatio: '4/3' }}>
-                <ReactCompareSlider
-                  handle={
-                    <ReactCompareSliderHandle 
-                      buttonStyle={{
-                        backdropFilter: 'blur(6px)',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid rgba(44,62,80,0.15)',
-                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                        color: '#2C3E50',
-                      }}
-                      linesStyle={{ opacity: 0.6, color: '#2C3E50' }}
-                    />
-                  }
-                  itemOne={<ReactCompareSliderImage src={result.scenarioA.imageUrl} alt={result.scenarioA.label} className="w-full h-full object-cover" />}
-                  itemTwo={<ReactCompareSliderImage src={result.scenarioB.imageUrl} alt={result.scenarioB.label} className="w-full h-full object-cover" />}
-                  className="w-full h-full min-h-[380px] sm:min-h-[460px]"
-                />
+                {result.scenarioA.imageUrl && result.scenarioB.imageUrl ? (
+                  <ReactCompareSlider
+                    handle={
+                      <ReactCompareSliderHandle 
+                        buttonStyle={{
+                          backdropFilter: 'blur(6px)',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid rgba(44,62,80,0.15)',
+                          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                          color: '#2C3E50',
+                        }}
+                        linesStyle={{ opacity: 0.6, color: '#2C3E50' }}
+                      />
+                    }
+                    itemOne={<ReactCompareSliderImage src={result.scenarioA.imageUrl} alt={result.scenarioA.label} className="w-full h-full object-cover" />}
+                    itemTwo={<ReactCompareSliderImage src={result.scenarioB.imageUrl} alt={result.scenarioB.label} className="w-full h-full object-cover" />}
+                    className="w-full h-full min-h-[380px] sm:min-h-[460px]"
+                  />
+                ) : (
+                  <div className="w-full h-full min-h-[380px] sm:min-h-[460px] flex flex-col items-center justify-center bg-[#FDFBF7] p-8 text-center border-y border-black/5">
+                    <div className="w-16 h-16 rounded-full bg-sage/10 flex items-center justify-center mb-4 text-sage border border-sage/20">
+                      <Sparkles size={24} />
+                    </div>
+                    <p className="text-primary font-medium text-lg mb-2">Photos Removed for Privacy</p>
+                    <p className="text-muted text-sm max-w-md">
+                      You chose not to save the photos for this simulation. 
+                      You can still review the data-driven score projections below!
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="flex items-center justify-center gap-2 py-4 bg-white/30 text-xs font-medium text-muted">
@@ -622,7 +753,7 @@ export default function WhatIfPage() {
                           <td className="px-6 py-4 text-center text-muted text-sm">{scoreB} / 100</td>
                           <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center justify-center min-w-[4rem] px-3 py-1 rounded-full text-xs font-semibold border ${
-                              deltaVal > 0 ? 'bg-sage/15 text-sage border-sage/20' : deltaVal < 0 ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-gray-100 text-gray-500 border-gray-200'
+                              deltaVal > 0 ? 'bg-sage/15 text-sage border-sage/20' : deltaVal < 0 ? 'bg-red-50/80 text-red-800 border-red-200' : 'bg-gray-100 text-gray-500 border-gray-200'
                             }`}>
                               {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
                             </span>
@@ -672,7 +803,7 @@ export default function WhatIfPage() {
                       <div className="pt-3 border-t border-black/5 flex justify-between items-center">
                         <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                          deltaVal > 0 ? 'bg-sage/15 text-sage' : deltaVal < 0 ? 'bg-orange-50 text-orange-500' : 'bg-black/5 text-muted'
+                          deltaVal > 0 ? 'bg-sage/15 text-sage' : deltaVal < 0 ? 'bg-red-50/80 text-red-800 border border-red-200' : 'bg-black/5 text-muted'
                         }`}>
                           {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
                         </span>
@@ -682,6 +813,50 @@ export default function WhatIfPage() {
                 })}
               </div>
             </div>
+
+            {!simConfirmed ? (
+              <div className="tk-glass rounded-3xl p-6 border border-white/50 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="keepPhoto"
+                    checked={keepPhoto}
+                    onChange={(e) => setKeepPhoto(e.target.checked)}
+                    disabled={isSavingPrivacy}
+                    className="w-4 h-4 rounded border-black/20 text-[#8A9A5B] focus:ring-[#8A9A5B]"
+                  />
+                  <label htmlFor="keepPhoto" className="text-sm font-medium text-primary cursor-pointer select-none">
+                    Keep this photo attached to my results
+                  </label>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={handleDiscardSimulation}
+                    disabled={isSavingPrivacy}
+                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold text-muted bg-white/50 hover:bg-white hover:text-red-600 transition-colors border border-white/60 shadow-sm disabled:opacity-50"
+                  >
+                    Delete Results
+                  </button>
+                  <button
+                    onClick={handleConfirmSimulation}
+                    disabled={isSavingPrivacy}
+                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#8A9A5B] hover:bg-[#7A8A4B] transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSavingPrivacy ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    Save Results
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="tk-glass rounded-3xl p-4 border border-sage/20 bg-sage/5 flex items-center gap-3 mt-6 justify-center text-sage text-sm font-medium">
+                <Check size={16} />
+                Results saved to your history.
+              </div>
+            )}
 
             </ComponentErrorFallback>
           </div>
@@ -728,10 +903,17 @@ export default function WhatIfPage() {
                     <span className="text-orange-500">{sim.scenarioB?.label || sim.name?.split(" vs ")[1] || "Scenario B"}</span>
                   </p>
                   <div className="h-24 rounded-lg overflow-hidden bg-black/5 border border-white/50">
-                    {sim.scenarioA?.imageUrl ? <img src={sim.scenarioA.imageUrl} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full bg-black/5"></div>}
+                    {sim.scenarioA?.imageUrl ? (
+                      <img src={sim.scenarioA.imageUrl} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full bg-[#FDFBF7] flex flex-col items-center justify-center text-sage">
+                        <Sparkles size={16} />
+                        <span className="text-[10px] font-medium mt-1 uppercase tracking-widest opacity-60">Private</span>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 text-xs font-semibold text-sage flex justify-between items-center opacity-80 group-hover:opacity-100 transition-opacity">
-                    <span className="text-muted/60">{sim.createdAt ? new Date(sim.createdAt).toLocaleDateString() : 'Just now'}</span>
+                    <span className="text-muted/60">{formatSimDate(sim.createdAt)}</span>
                     <span className="flex items-center gap-1">View Details <ArrowRight size={12} /></span>
                   </div>
                 </div>
@@ -740,6 +922,27 @@ export default function WhatIfPage() {
           </div>
         )}
 
+      </div>
+
+      {/* Sticky Mobile Simulation CTA */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base/90 backdrop-blur-md border-t border-black/5 z-40 pb-safe">
+        <button
+          onClick={handleRunSimulation}
+          disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
+          className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold py-3"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+              Running Simulation...
+            </>
+          ) : (
+            <>
+              <Sparkles size={16} />
+              Generate Simulation
+            </>
+          )}
+        </button>
       </div>
 
       <ConfirmModal

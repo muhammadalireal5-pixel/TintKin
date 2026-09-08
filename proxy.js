@@ -1,16 +1,47 @@
 import { NextResponse } from "next/server";
 
-const protectedPaths = ["/dashboard", "/capture", "/what-if", "/history", "/onboarding"];
+const protectedUserPaths = [
+  "/dashboard",
+  "/capture",
+  "/what-if",
+  "/history",
+  "/onboarding",
+  "/share",
+];
 
-export function proxy(request) {
+const authPaths = [
+  "/sign-in",
+  "/sign-up",
+];
+
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
-  const isProtected = protectedPaths.some(p => pathname.startsWith(p));
 
-  if (isProtected) {
-    const session = request.cookies.get("__session")?.value;
-    if (!session) {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
+  // Protect Admin routes
+  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
+    const adminSession = request.cookies.get("admin-session")?.value || request.cookies.get("admin_session")?.value;
+    if (!adminSession) {
+      const loginUrl = new URL("/admin/login", request.url);
+      return NextResponse.redirect(loginUrl);
     }
+  }
+
+  // Protect User routes
+  const isProtectedUserPath = protectedUserPaths.some((p) => pathname.startsWith(p));
+  const session = request.cookies.get("__session")?.value;
+
+  if (isProtectedUserPath) {
+    if (!session) {
+      const signInUrl = new URL("/sign-in", request.url);
+      signInUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(signInUrl);
+    }
+  }
+
+  // If already logged in, redirect away from auth pages to dashboard
+  const isAuthPath = authPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (isAuthPath && session) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
@@ -18,7 +49,6 @@ export function proxy(request) {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)",
   ],
 };

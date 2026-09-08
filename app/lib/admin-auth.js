@@ -1,8 +1,10 @@
 "use server";
 
+import "server-only";
 import crypto from "crypto";
 import { Resend } from "resend";
 import { cookies } from "next/headers";
+import { connectDb, AdminOTP } from "./mongoose";
 
 let resendClient = null;
 function getResendClient() {
@@ -12,57 +14,73 @@ function getResendClient() {
   return resendClient;
 }
 
-const ADMIN_EMAIL = "muhammad0alire@gmail.com";
+function getAdminEmail() {
+  const configured = process.env.ADMIN_EMAIL;
+  if (!configured) throw new Error("ADMIN_EMAIL is not configured");
+  return configured.toLowerCase().trim();
+}
+
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_OTP_REQUESTS = 3;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-
-// { code, expiresAt, used }
-let otpStore = null;
-
-const rateLimitLog = []; // timestamps of OTP requests
+const MAX_OTP_VERIFY_ATTEMPTS = 5;
 
 function generateOTP() {
   return crypto.randomInt(100000, 999999).toString();
 }
 
-function checkRateLimit() {
-  const now = Date.now();
-  // Remove entries older than the window
-  while (rateLimitLog.length > 0 && rateLimitLog[0] < now - RATE_LIMIT_WINDOW_MS) {
-    rateLimitLog.shift();
-  }
-  if (rateLimitLog.length >= MAX_OTP_REQUESTS) {
-    return false;
-  }
-  rateLimitLog.push(now);
-  return true;
-}
-
 export async function sendAdminOTP(email) {
-  // Only allow the admin email
-  if (email.toLowerCase().trim() !== ADMIN_EMAIL) {
-    // Return generic response — don't leak whether the email exists
-    return { success: true }; // Silently succeed to avoid email enumeration
+  let adminEmail;
+  try {
+    adminEmail = getAdminEmail();
+  } catch {
+    return { success: true };
   }
 
-  if (!checkRateLimit()) {
+  if (!email || email.toLowerCase().trim() !== adminEmail) {
+    // Return generic response — don't leak whether the email exists
+    return { success: true };
+  }
+
+  await connectDb();
+
+  // Persistent serverless rate limiting via MongoDB
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+  const recentRequests = await AdminOTP.countDocuments({
+    email: adminEmail,
+    createdAt: { $gte: windowStart }
+  });
+
+  if (recentRequests >= MAX_OTP_REQUESTS) {
     return { success: false, error: "Too many attempts. Try again later." };
   }
 
   const code = generateOTP();
-  otpStore = {
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+  const ttlExpiresAt = new Date(Date.now() + RATE_LIMIT_WINDOW_MS);
+
+  // Invalidate any previously active OTPs for this admin
+  await AdminOTP.updateMany(
+    { email: adminEmail, used: false },
+    { $set: { used: true } }
+  );
+
+  // Create persistent OTP document (auto-purged by MongoDB TTL index)
+  await AdminOTP.create({
+    email: adminEmail,
     code,
-    expiresAt: Date.now() + OTP_EXPIRY_MS,
+    expiresAt,
+    ttlExpiresAt,
     used: false,
-  };
+    attempts: 0
+  });
 
   try {
     const resend = getResendClient();
     await resend.emails.send({
       from: "TintKin Admin <onboarding@resend.dev>",
-      to: [ADMIN_EMAIL],
+      to: [adminEmail],
       subject: `🔐 TintKin Admin — Your code is ${code}`,
       html: `
         <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 420px; margin: 0 auto; padding: 40px 24px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px;">
@@ -83,35 +101,62 @@ export async function sendAdminOTP(email) {
     });
     return { success: true };
   } catch (err) {
-    console.error("[Admin OTP] Failed to send:", err);
     return { success: false, error: "Failed to send OTP. Try again." };
   }
 }
 
 export async function verifyAdminOTP(email, code) {
-  if (email.toLowerCase().trim() !== ADMIN_EMAIL) {
+  let adminEmail;
+  try {
+    adminEmail = getAdminEmail();
+  } catch {
+    return { success: false, error: "Admin authentication is not configured." };
+  }
+
+  if (!email || email.toLowerCase().trim() !== adminEmail) {
     return { success: false, error: "Invalid credentials." };
   }
 
-  if (!otpStore || otpStore.used) {
-    return { success: false, error: "No OTP found. Please request a new one." };
+  if (typeof code !== "string" || !code.trim()) {
+    return { success: false, error: "Invalid code. Please try again." };
   }
 
-  if (Date.now() > otpStore.expiresAt) {
-    otpStore = null;
-    return { success: false, error: "OTP expired. Please request a new one." };
+  await connectDb();
+
+  const otpRecord = await AdminOTP.findOne({
+    email: adminEmail,
+    used: false,
+    expiresAt: { $gt: new Date() }
+  }).sort({ createdAt: -1 });
+
+  if (!otpRecord) {
+    return { success: false, error: "No active OTP found. Please request a new code." };
   }
 
-  if (otpStore.code !== code.trim()) {
+  if (otpRecord.attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
+    otpRecord.used = true;
+    await otpRecord.save();
+    return { success: false, error: "Too many incorrect attempts. Please request a new code." };
+  }
+
+  otpRecord.attempts += 1;
+
+  const expectedBuffer = Buffer.from(otpRecord.code);
+  const inputBuffer = Buffer.from(code.trim());
+
+  const matches = expectedBuffer.length === inputBuffer.length && crypto.timingSafeEqual(expectedBuffer, inputBuffer);
+  if (!matches) {
+    await otpRecord.save();
     return { success: false, error: "Invalid code. Please try again." };
   }
 
   // Mark as used (single-use)
-  otpStore.used = true;
+  otpRecord.used = true;
+  await otpRecord.save();
 
   // Create session
   const token = signAdminToken({
-    email: ADMIN_EMAIL,
+    email: adminEmail,
     loginAt: Date.now(),
     expiresAt: Date.now() + SESSION_EXPIRY_MS,
   });
@@ -123,7 +168,7 @@ export async function verifyAdminOTP(email, code) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: SESSION_EXPIRY_MS / 1000, // seconds
+    maxAge: SESSION_EXPIRY_MS / 1000,
   });
 
   return { success: true };
@@ -143,7 +188,7 @@ function signAdminToken(payload) {
 export async function verifyAdminSession() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("admin-session")?.value;
+    const token = cookieStore.get("admin-session")?.value || cookieStore.get("admin_session")?.value;
     if (!token) return null;
 
     const [encoded, signature] = token.split(".");
@@ -154,12 +199,17 @@ export async function verifyAdminSession() {
       .update(encoded)
       .digest("base64url");
 
-    if (signature !== expectedSig) return null;
+    const sigBuffer = Buffer.from(signature);
+    const expBuffer = Buffer.from(expectedSig);
+
+    if (sigBuffer.length !== expBuffer.length || !crypto.timingSafeEqual(sigBuffer, expBuffer)) {
+      return null;
+    }
 
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString());
 
     if (payload.expiresAt < Date.now()) return null;
-    if (payload.email !== ADMIN_EMAIL) return null;
+    if (payload.email !== getAdminEmail()) return null;
 
     return payload;
   } catch {
@@ -170,5 +220,6 @@ export async function verifyAdminSession() {
 export async function adminLogout() {
   const cookieStore = await cookies();
   cookieStore.delete("admin-session");
+  cookieStore.delete("admin_session");
   return { success: true };
 }

@@ -47,6 +47,7 @@ export default async function SharePage() {
           overallScore={overallScore}
           skinAge={skinAge}
           realAge={realAge}
+          userName={user?.displayName || ""}
         />
       </div>
     </div>

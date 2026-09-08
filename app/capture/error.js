@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { CameraOff, RotateCcw } from "lucide-react";
 
-export default function CaptureError({ error, reset }) {
-  useEffect(() => {
-    console.error("Capture Error:", error);
-  }, [error]);
-
+export default function CaptureError({ reset }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] p-6">
       <div className="tk-glass p-10 md:p-14 rounded-3xl flex flex-col items-center text-center max-w-lg w-full tk-anim-1">

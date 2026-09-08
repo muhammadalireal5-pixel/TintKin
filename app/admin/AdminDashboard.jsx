@@ -3,8 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import {
   Users, Activity, Clock, Crown, Eye, BarChart3, Search,
-  ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle
+  ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle, Plus
 } from 'lucide-react';
+import { adminAddExtraScans } from "@/app/lib/actions";
+import { useToast } from "@/app/components/ToastProvider";
 
 const formatRelativeTime = (dateString) => {
   const d = new Date(dateString);
@@ -99,6 +101,7 @@ const ScoreCircle = ({ score }) => {
 };
 
 export default function AdminDashboard({ initialUsers = [], initialStats = {} }) {
+  const { showToast } = useToast();
   const [users, setUsers] = useState(initialUsers);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('All');
@@ -135,14 +138,38 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
       });
 
       if (!res.ok) throw new Error('Failed to update tier');
-    } catch (error) {
-      console.error(error);
+      
+      showToast({ type: 'success', title: 'Tier Updated', message: `User moved to ${newTier}.` });
+    } catch {
       setUsers(currentUsers =>
         currentUsers.map(u =>
           u._id === userId ? { ...u, tier: previousTier, isSubscribed: previousIsSubscribed } : u
         )
       );
-      alert('Failed to update tier. Please try again.');
+      showToast({ type: 'error', title: 'Update Failed', message: 'Failed to update tier. Please try again.' });
+    } finally {
+      setTogglingMap(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleAddExtraScans = async (userId, amount) => {
+    if (togglingMap[userId]) return;
+    setTogglingMap(prev => ({ ...prev, [userId]: true }));
+    
+    try {
+      const res = await adminAddExtraScans(userId, amount);
+      if (res?.success) {
+        setUsers(currentUsers => 
+          currentUsers.map(u => 
+            u._id === userId ? { ...u, extraScans: res.extraScans } : u
+          )
+        );
+        showToast({ type: 'success', title: 'Extra Scan Added', message: `Added ${amount} extra scan(s). User can scan again!` });
+      } else {
+        showToast({ type: 'error', title: 'Action Failed', message: res?.error || "Failed to add extra scans." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Action Failed', message: "Failed to add extra scans." });
     } finally {
       setTogglingMap(prev => ({ ...prev, [userId]: false }));
     }
@@ -330,6 +357,15 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                       <div className="text-2xl font-semibold text-[var(--tk-text-primary)]">{user.simulationCount || 0}</div>
                                       <span className="text-xs text-[var(--tk-text-muted)]">Simulations</span>
                                     </div>
+                                  </div>
+                                  <div className="pt-2">
+                                    <button 
+                                      onClick={() => handleAddExtraScans(user._id, 1)}
+                                      disabled={togglingMap[user._id]}
+                                      className="w-full flex items-center justify-center gap-2 py-2 bg-sage/10 hover:bg-sage/20 text-sage text-sm font-semibold rounded-lg transition-colors border border-sage/20 disabled:opacity-50"
+                                    >
+                                      <Plus size={16} /> Add Extra Scan
+                                    </button>
                                   </div>
                                 </div>
 

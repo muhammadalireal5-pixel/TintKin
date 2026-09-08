@@ -117,7 +117,6 @@ export async function extractScoreInfo(data) {
   }
 
   if (data.wrinkle || data.firmness || data.age_spot || data.radiance) {
-    console.log("[YouCam] Parsing flat object response");
     return data;
   }
 
@@ -126,8 +125,6 @@ export async function extractScoreInfo(data) {
 
 export async function analyzeSkin(imageUrl) {
   const croppedUrl = faceCroppedUrl(imageUrl);
-  console.log("[YouCam] Original URL:", imageUrl);
-  console.log("[YouCam] Cropped URL sent:", croppedUrl);
 
   const response = await fetch(`${BASE}/s2s/v2.0/task/skin-analysis`, {
     method: "POST",

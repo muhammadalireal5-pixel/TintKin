@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 
-export default function HistoryError({ error, reset }) {
-  useEffect(() => {
-    console.error("History Error:", error);
-  }, [error]);
-
+export default function HistoryError({ reset }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] p-6">
       <div className="tk-glass p-10 md:p-14 rounded-3xl flex flex-col items-center text-center max-w-lg w-full tk-anim-1">
@@ -20,7 +15,7 @@ export default function HistoryError({ error, reset }) {
         </h1>
         
         <p className="text-muted leading-relaxed mb-8 tk-anim-4">
-          We couldn't load your scan history. There might be an issue connecting to your journal data.
+          We couldn&apos;t load your scan history. There might be an issue connecting to your journal data.
         </p>
         
         <button 

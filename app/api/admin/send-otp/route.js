@@ -14,8 +14,7 @@ export async function POST(request) {
     }
 
     return Response.json({ success: true });
-  } catch (err) {
-    console.error("[Admin Send OTP]", err);
+  } catch {
     return Response.json({ success: false, error: "Something went wrong." }, { status: 500 });
   }
 }

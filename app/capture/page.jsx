@@ -57,8 +57,8 @@ export default function CapturePage() {
                 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 const data = await getUsageQuotas(tz);
                 setQuotas(data);
-            } catch (err) {
-                console.error("Failed to fetch quotas", err);
+            } catch {
+                // Best-effort quota fetch
             }
         };
         fetchQuotas();
@@ -174,9 +174,9 @@ export default function CapturePage() {
                         </div>
                         
                         {!loading && (
-                            <div className="preview-actions flex gap-2 mt-4 w-full">
+                            <div className="preview-actions flex flex-wrap sm:flex-nowrap gap-2 mt-4 w-full px-1">
                                 <button 
-                                    className="cta-btn cta-secondary flex-1 justify-center" 
+                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[90px] text-xs sm:text-sm py-2 sm:py-3" 
                                     onClick={() => setIsFlipped(!isFlipped)}
                                 >
                                     Flip <FlipHorizontal size={18} className="ml-1" />
@@ -199,19 +199,29 @@ export default function CapturePage() {
                     </div>
                 ) : (
                     <div className="cta-group">
-                        {quotas && quotas.scans.used >= quotas.scans.limit && (
-                            <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-100 text-orange-800 text-sm flex items-start gap-2">
-                                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                        {quotas && !quotas.scans.canScanToday && (
+                            <div className="mb-4 p-4 rounded-xl bg-red-50/80 backdrop-blur-sm border border-red-200 text-red-900 text-sm flex items-start gap-3 shadow-sm">
+                                <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-600" />
                                 <div>
-                                    <p className="font-semibold text-base">Daily Scan Limit Reached</p>
-                                    <p className="mt-0.5 opacity-90">You&apos;ve used your 1 scan for today. Come back tomorrow for a new scan!</p>
+                                    <p className="font-bold text-base text-red-950">
+                                        {quotas.scans.denialReason === 'monthly_limit' 
+                                            ? "Monthly Limit Reached" 
+                                            : "Daily Scan Limit Reached"}
+                                    </p>
+                                    <p className="mt-0.5 opacity-90">
+                                        {quotas.scans.denialReason === 'monthly_limit' 
+                                            ? "You've used all your scans for this month. Upgrade your plan or wait for the next billing cycle." 
+                                            : quotas.scans.denialReason === 'every_other_day'
+                                            ? "Your plan is set to every-other-day pacing. Come back tomorrow for your next scan!"
+                                            : "You've already logged a photo today. Come back tomorrow to keep your streak going!"}
+                                    </p>
                                 </div>
                             </div>
                         )}
                         <button
                             className="cta-btn cta-primary"
                             onClick={() => handleActionClick('camera')}
-                            disabled={loading || checkingOnboarding || (quotas && quotas.scans.used >= quotas.scans.limit)}
+                            disabled={loading || checkingOnboarding || (quotas && !quotas.scans.canScanToday)}
                         >
                             <span className="cta-icon">
                                 <Camera size={22} strokeWidth={2} />
@@ -230,7 +240,7 @@ export default function CapturePage() {
                         <button
                             className="cta-btn cta-secondary"
                             onClick={() => handleActionClick('gallery')}
-                            disabled={loading || checkingOnboarding || (quotas && quotas.scans.used >= quotas.scans.limit)}
+                            disabled={loading || checkingOnboarding || (quotas && !quotas.scans.canScanToday)}
                         >
                             <span className="cta-icon cta-icon-gallery">
                                 <ImageIcon size={20} strokeWidth={2} />

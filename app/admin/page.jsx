@@ -33,8 +33,8 @@ async function fetchAdminData() {
         hasMore = false;
       }
     }
-  } catch (err) {
-    console.error("[Admin] Firebase fetch error:", err);
+  } catch {
+    // Best-effort Firebase user sync
   }
 
   const userIds = users.map((u) => u._id);

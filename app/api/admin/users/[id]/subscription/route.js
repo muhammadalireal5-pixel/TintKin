@@ -1,5 +1,6 @@
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { connectDb, User } from "@/app/lib/mongoose";
+import mongoose from "mongoose";
 
 const ALLOWED_TIERS = ['free', 'pending', 'standard', 'premium'];
 
@@ -11,7 +12,12 @@ export async function PATCH(request, { params }) {
 
   try {
     const { id } = await params;
-    const { tier } = await request.json();
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return Response.json({ error: "Invalid user ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const tier = body?.tier;
     if (!ALLOWED_TIERS.includes(tier)) {
       return Response.json({ error: "Invalid tier" }, { status: 400 });
     }
@@ -45,8 +51,7 @@ export async function PATCH(request, { params }) {
         subscribedAt: user.subscribedAt,
       },
     });
-  } catch (err) {
-    console.error("[Admin Subscription Toggle]", err);
+  } catch {
     return Response.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

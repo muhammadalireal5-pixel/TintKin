@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   RadarChart, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip
 } from "recharts";
@@ -18,7 +19,16 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function RadarChartClient({ scores }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!scores) return null;
+
+  if (!mounted) {
+    return <div className="h-full w-full absolute inset-0 pb-6" />;
+  }
 
   const getSupportiveTag = (value) => {
     if (value >= 80) return "Glowing";
