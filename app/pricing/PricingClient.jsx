@@ -199,14 +199,36 @@ export default function PricingClient() {
 
             {/* Sticky Mobile CTA */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-base/90 backdrop-blur-md border-t border-black/5 z-40 pb-safe">
-                <button
-                    onClick={() => handleSelectPlan(TIERS.STANDARD)}
-                    disabled={loading}
-                    className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold"
-                >
-                    Get Standard Plan — $12/mo
-                    <ArrowRight className="w-4 h-4" />
-                </button>
+                {activeTab === TIERS.FREE && (
+                    <button
+                        onClick={() => handleSelectPlan(TIERS.FREE)}
+                        disabled={loading}
+                        className="tk-pill-btn w-full bg-white/90 border border-lavender text-primary shadow-lg flex items-center justify-center gap-2 text-sm font-semibold hover:bg-white"
+                    >
+                        Select Free Plan — $0/mo
+                        <ArrowRight className="w-4 h-4" />
+                    </button>
+                )}
+                {activeTab === TIERS.STANDARD && (
+                    <button
+                        onClick={() => handleSelectPlan(TIERS.STANDARD)}
+                        disabled={loading}
+                        className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold"
+                    >
+                        Get Standard Plan — $12/mo
+                        <ArrowRight className="w-4 h-4" />
+                    </button>
+                )}
+                {activeTab === TIERS.PREMIUM && (
+                    <button
+                        onClick={() => handleSelectPlan(TIERS.PREMIUM)}
+                        disabled={loading}
+                        className="tk-pill-btn bg-primary text-white w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold hover:bg-primary/90"
+                    >
+                        Get Pro Plan — $24/mo
+                        <ArrowRight className="w-4 h-4" />
+                    </button>
+                )}
             </div>
 
             {/* Loading Overlay */}

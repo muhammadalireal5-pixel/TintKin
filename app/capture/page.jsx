@@ -99,18 +99,21 @@ export default function CapturePage() {
             const res = await analyzeAndSaveSelfie(imgUrl, tz);
 
             if (res.success) {
-                if (res.habitsChanged) {
-                    setTimeout(() => showToast({ type: "habit", title: "New habits recommended", message: "Your habits have been updated based on today's scan." }), 500);
-                }
-                if (res.workoutChanged) {
-                    setTimeout(() => showToast({ type: "workout", title: "New workout suggested", message: "Check your dashboard for a fresh facial workout." }), 1000);
-                }
-                if (res.productsChanged) {
-                    setTimeout(() => showToast({ type: "product", title: "New products recommended", message: "Your 30-day product cycle has refreshed!" }), 1500);
+                const refreshed = [];
+                if (res.habitsChanged) refreshed.push("habits");
+                if (res.workoutChanged) refreshed.push("facial workout");
+                if (res.productsChanged) refreshed.push("30-day routine");
+
+                if (refreshed.length > 0) {
+                    showToast({
+                        type: "success",
+                        title: "Plan Refreshed!",
+                        message: `Updated your ${refreshed.join(", ")} based on today's scan.`,
+                    });
                 }
 
                 setStatus({ type: "success", msg: "Done! Opening your journal…" });
-                setTimeout(() => router.push("/dashboard"), 900);
+                setTimeout(() => router.push("/dashboard"), 800);
             } else {
                 setStatus({ type: "error", msg: `Oops: ${res.message || res.error}` });
                 setLoading(false);

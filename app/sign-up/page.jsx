@@ -1,19 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/app/lib/firebase/client";
 import { setSessionCookie } from "@/lib/utils/auth-cookie";
+import { useAuthContext } from "@/app/context/AuthContext";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuthContext();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.replace("/dashboard");
+    }
+  }, [user, authLoading, router]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -31,6 +41,11 @@ export default function SignUpPage() {
       await updateProfile(userCredential.user, { displayName: name.trim() });
       const token = await userCredential.user.getIdToken();
       setSessionCookie(token);
+      await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+      }).catch(() => {});
       window.location.href = "/onboarding";
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
@@ -44,6 +59,17 @@ export default function SignUpPage() {
     }
   };
 
+
+  if (user && !authLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
+        <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
+          <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
+          <p className="text-sm font-medium text-primary">Opening your skin journal...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-12 sm:px-6 lg:px-8">

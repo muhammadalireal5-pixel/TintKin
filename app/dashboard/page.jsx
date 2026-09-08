@@ -8,6 +8,7 @@ import ProductImage from "./ProductImage";
 import { Sparkles, ArrowRight, Dumbbell, Flame, Camera, Share2 } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
+import StreakPhotoBanner from "./StreakPhotoBanner";
 import RoutineChecklist from "./RoutineChecklist";
 import TrophyCase from "./TrophyCase";
 import PercentileCard from "./PercentileCard";
@@ -50,8 +51,8 @@ export default async function DashboardPage() {
 
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
-            <LocationPrompt user={user} />
             <div className="max-w-6xl mx-auto">
+                <LocationPrompt user={user} />
                 
                 {/* Page Title */}
                 <div className="mb-8 tk-anim-1 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
@@ -74,13 +75,7 @@ export default async function DashboardPage() {
                 </div>
 
                 {latestSelfie && latestSelfie.isAnalyzed === false && (
-                    <div className="mb-8 p-4 bg-sage/10 border border-sage/30 rounded-2xl flex items-start gap-3 tk-anim-2">
-                        <Sparkles className="w-5 h-5 text-sage shrink-0 mt-0.5" />
-                        <div>
-                            <h3 className="font-semibold text-primary">Photo logged!</h3>
-                            <p className="text-sm text-muted">You&apos;ve successfully maintained your streak today. Your next deep analysis is coming up based on your subscription tier.</p>
-                        </div>
-                    </div>
+                    <StreakPhotoBanner />
                 )}
 
                 {/* Bento Grid */}

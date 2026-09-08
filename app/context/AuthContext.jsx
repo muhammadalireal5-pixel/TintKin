@@ -29,14 +29,20 @@ export function AuthProvider({ children }) {
       async (firebaseUser) => {
         try {
           if (firebaseUser) {
-            // Force refresh to get a fresh token every time auth state changes
-            const token = await firebaseUser.getIdToken(true).catch(() => null);
+            const token = await firebaseUser.getIdToken().catch(() => null);
             if (token) {
               setSessionCookie(token);
+              // Mint authentic 14-day HttpOnly server session cookie
+              fetch("/api/auth/session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken: token }),
+              }).catch(() => {});
             }
             if (isMounted) setUser(firebaseUser);
           } else {
             clearSessionCookie();
+            fetch("/api/auth/session", { method: "DELETE" }).catch(() => {});
             if (isMounted) setUser(null);
           }
         } catch {
@@ -53,13 +59,18 @@ export function AuthProvider({ children }) {
       }
     );
 
-    // Refresh the token every 55 minutes to prevent expiry (tokens last 60 min)
+    // Refresh token every 55 minutes and keep session active
     const refreshInterval = setInterval(async () => {
       const currentUser = auth.currentUser;
       if (currentUser) {
         try {
           const token = await currentUser.getIdToken(true);
           setSessionCookie(token);
+          fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: token }),
+          }).catch(() => {});
         } catch {
           // Token refresh failure will naturally re-authenticate on next request
         }
@@ -80,12 +91,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOutUser = async () => {
-    try {
-      if (auth) {
-        await signOut(auth);
-      }
-    } catch {
-      // Best-effort sign out
+    const res = await fetch("/api/auth/session", { method: "DELETE" });
+    if (!res.ok) {
+      throw new Error("Failed to clear server session. Please try again.");
+    }
+    if (auth) {
+      await signOut(auth);
     }
     clearSessionCookie();
     setUser(null);

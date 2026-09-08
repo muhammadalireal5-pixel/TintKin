@@ -26,9 +26,17 @@ export async function getAuthenticatedUser() {
   if (!adminAuth) throw new Error("Firebase Admin SDK not initialized");
 
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    // Primary path: Verify 14-day authentic Firebase Session Cookie
+    const decoded = await adminAuth.verifySessionCookie(token, true);
     return decoded;
-  } catch (err) {
-    throw new Error("Unauthorized: Invalid token");
+  } catch (sessionErr) {
+    // DEBT-EXPIRY: 2026-09-22 — Temporary migration shim for legacy 1-hour ID tokens.
+    // Remove this fallback block 14 days post-deploy once all client sessions have rotated to session cookies.
+    try {
+      const decoded = await adminAuth.verifyIdToken(token);
+      return decoded;
+    } catch {
+      throw new Error("Unauthorized: Invalid session");
+    }
   }
 }

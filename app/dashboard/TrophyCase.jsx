@@ -155,8 +155,8 @@ export default function TrophyCase({
         </div>
       </div>
 
-      {/* 7-Badge Landscape Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-3.5">
+      {/* 7-Badge Ribbon on mobile, Landscape Grid on desktop */}
+      <div className="flex sm:grid overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-none gap-3 sm:gap-3.5 pb-2 sm:pb-0 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 -mx-1 px-1 sm:mx-0 sm:px-0">
         {badgeList.map((badge) => {
           const Icon = ICON_MAP[badge.iconName] || Award;
           const isUnlocked = badge.isUnlocked;
@@ -165,7 +165,7 @@ export default function TrophyCase({
             <button
               key={badge.id}
               onClick={() => setSelectedBadge(badge)}
-              className={`group p-4 rounded-2xl text-left flex flex-col justify-between transition-all duration-300 relative overflow-hidden border ${
+              className={`group p-4 rounded-2xl text-left flex flex-col justify-between transition-all duration-300 relative overflow-hidden border shrink-0 w-[145px] sm:w-auto snap-start ${
                 isUnlocked
                   ? "bg-white/80 hover:bg-white shadow-sm hover:shadow-md border-black/10 hover:border-black/20 hover:-translate-y-1 cursor-pointer"
                   : "bg-black/[0.02] border-black/5 opacity-60 hover:opacity-85 hover:-translate-y-0.5 cursor-pointer"

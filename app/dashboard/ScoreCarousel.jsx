@@ -1,93 +1,37 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { SKIN_METRICS, METRIC_LABELS } from "@/lib/constants/metrics";
 
 export default function ScoreCarousel({ scores, weeklyScores }) {
-  const [activeGroup, setActiveGroup] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const groups = [
-    [
-      { key: SKIN_METRICS.WRINKLES, val: scores.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: METRIC_LABELS[SKIN_METRICS.WRINKLES] },
-      { key: SKIN_METRICS.FIRMNESS, val: scores.firmness, weeklyVal: weeklyScores?.firmness, label: METRIC_LABELS[SKIN_METRICS.FIRMNESS] },
-    ],
-    [
-      { key: SKIN_METRICS.SPOTS, val: scores.spots, weeklyVal: weeklyScores?.spots, label: METRIC_LABELS[SKIN_METRICS.SPOTS] },
-      { key: SKIN_METRICS.RADIANCE, val: scores.radiance, weeklyVal: weeklyScores?.radiance, label: METRIC_LABELS[SKIN_METRICS.RADIANCE] },
-    ],
+  const metrics = [
+    { key: SKIN_METRICS.WRINKLES, val: scores?.wrinkles, weeklyVal: weeklyScores?.wrinkles, label: METRIC_LABELS[SKIN_METRICS.WRINKLES] },
+    { key: SKIN_METRICS.FIRMNESS, val: scores?.firmness, weeklyVal: weeklyScores?.firmness, label: METRIC_LABELS[SKIN_METRICS.FIRMNESS] },
+    { key: SKIN_METRICS.SPOTS, val: scores?.spots, weeklyVal: weeklyScores?.spots, label: METRIC_LABELS[SKIN_METRICS.SPOTS] },
+    { key: SKIN_METRICS.RADIANCE, val: scores?.radiance, weeklyVal: weeklyScores?.radiance, label: METRIC_LABELS[SKIN_METRICS.RADIANCE] },
   ];
 
-  useEffect(() => {
-    if (isHovered) return;
-    const interval = setInterval(() => {
-      setActiveGroup((prev) => (prev === 0 ? 1 : 0));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [isHovered]);
-
-  const timerRef = useRef(null);
-
-  const handleSwipe = (direction) => {
-    setActiveGroup((prev) => (prev === 0 ? 1 : 0));
-  };
-
-  const touchStartXRef = useRef(0);
-  const onTouchStart = (e) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    setIsHovered(true);
-  };
-  const onTouchEnd = (e) => {
-    setIsHovered(false);
-    const touchEndX = e.changedTouches[0].clientX;
-    if (touchStartXRef.current - touchEndX > 50) handleSwipe("left");
-    if (touchStartXRef.current - touchEndX < -50) handleSwipe("right");
-  };
-
-  const currentScores = groups[activeGroup];
-
   return (
-    <div 
-      className="col-span-1 md:col-span-3 lg:col-span-4"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
+    <div className="col-span-1 md:col-span-3 lg:col-span-4 tk-anim-4">
       <div className="flex justify-between items-center mb-4">
         <p className="text-xs font-semibold tracking-widest uppercase text-muted">Core Metrics</p>
-        <div className="flex gap-2">
-          {groups.map((_, idx) => (
-            <button 
-              key={idx}
-              onClick={() => {
-                setActiveGroup(idx);
-                setIsHovered(true);
-                clearTimeout(timerRef.current);
-                timerRef.current = setTimeout(() => setIsHovered(false), 3000);
-              }}
-              className={`w-2 h-2 rounded-full transition-all ${activeGroup === idx ? "bg-primary w-4" : "bg-primary/20 hover:bg-primary/40"}`}
-              aria-label={`Show metrics group ${idx + 1}`}
-            />
-          ))}
-        </div>
+        <span className="text-[10px] text-muted font-medium">4 Key Biomarkers</span>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
-        {currentScores.map(({ key, val, weeklyVal, label }) => {
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        {metrics.map(({ key, val, weeklyVal, label }) => {
           const hasWeekly = typeof weeklyVal === "number";
           const delta = hasWeekly && typeof val === "number" ? val - weeklyVal : 0;
           return (
             <div
               key={key}
-              className="tk-glass p-5 sm:p-6 transition-all relative overflow-hidden group flex flex-col justify-between h-[195px] sm:h-[210px] select-none"
+              className="tk-glass p-4 sm:p-5 transition-all relative overflow-hidden group flex flex-col justify-between h-[180px] sm:h-[195px] select-none"
             >
               <div>
-                <p className="text-xs font-semibold tracking-widest uppercase text-muted h-8 flex items-start leading-tight mb-2">
+                <p className="text-xs font-semibold tracking-widest uppercase text-muted h-7 flex items-start leading-tight mb-1">
                   {label}
                 </p>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <p className="text-3xl font-display text-primary">{typeof val === "number" ? val : "—"}</p>
+                  <p className="text-2xl sm:text-3xl font-display text-primary">{typeof val === "number" ? val : "—"}</p>
                   {hasWeekly && delta !== 0 && (
                     <span className={`text-xs font-semibold ${delta > 0 ? "text-sage" : "text-orange-400"}`}>
                       {delta > 0 ? `+${delta} ↑` : `${delta} ↓`}
@@ -118,14 +62,14 @@ export default function ScoreCarousel({ scores, weeklyScores }) {
                     />
                   )}
                 </div>
-                <div className="h-7 flex items-center mt-2 overflow-hidden">
+                <div className="h-6 flex items-center mt-2 overflow-hidden">
                   {val > 75 ? (
                     <p className="text-[10px] text-sage font-medium leading-tight truncate">
-                      {key === "wrinkles" ? `Top resilience (${val}% barrier)` : "Optimal vitality score"}
+                      {key === "wrinkles" ? `Top resilience (${val}%)` : "Optimal vitality"}
                     </p>
                   ) : (
                     <p className="text-[10px] text-muted font-medium leading-tight truncate">
-                      {val > 50 ? "Steady progress with daily routine" : "Nurture with targeted care"}
+                      {val > 50 ? "Steady daily routine" : "Targeted care needed"}
                     </p>
                   )}
                 </div>

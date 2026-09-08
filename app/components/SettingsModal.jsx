@@ -542,7 +542,7 @@ export default function SettingsModal({ isOpen, onClose }) {
               </Link>
 
               <Link
-                href="/dashboard/upgrade"
+                href="/pricing"
                 onClick={onClose}
                 className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
               >
@@ -560,8 +560,12 @@ export default function SettingsModal({ isOpen, onClose }) {
         <div className="px-6 py-5 border-t border-black/5 shrink-0 bg-[#FDFBF7]">
           <button
             onClick={async () => {
-              onClose();
-              await signOutUser();
+              try {
+                await signOutUser();
+                onClose();
+              } catch (err) {
+                showToast({ type: 'error', title: 'Sign Out Failed', message: err.message });
+              }
             }}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
           >

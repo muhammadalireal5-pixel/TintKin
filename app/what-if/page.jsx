@@ -7,7 +7,7 @@ import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
 import ProductScanModal from "./ProductScanModal";
-import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight } from "lucide-react";
+import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight, Plus, Lock, X } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 
 const DEFAULT_PRODUCTS = [
@@ -62,6 +62,7 @@ export default function WhatIfPage() {
   const [simConfirmed, setSimConfirmed] = useState(false);
 
   const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [productScanError, setProductScanError] = useState("");
   const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
 
@@ -348,39 +349,81 @@ export default function WhatIfPage() {
           </div>
         )}
 
-        <div className="mb-10 tk-anim-2">
+        {/* Step 1: Comparison Mode */}
+        <div className="tk-glass p-6 sm:p-8 rounded-3xl mb-8 tk-anim-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <label className="block text-xs font-semibold uppercase tracking-widest text-muted">
+              Step 1: Choose Simulation Comparison Mode
+            </label>
+            <span className="text-[11px] text-muted">Select how you want to evaluate formulas</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button
+              onClick={() => setSimMode("single")}
+              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
+                simMode === "single"
+                  ? "bg-primary text-white border-primary shadow-md"
+                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+              }`}
+            >
+              <FlaskConical size={18} className="text-current" />
+              <span>1 Product vs None</span>
+            </button>
+
+            <button
+              onClick={() => setSimMode("compare")}
+              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
+                simMode === "compare"
+                  ? "bg-primary text-white border-primary shadow-md"
+                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+              }`}
+            >
+              <Scale size={18} className="text-current" />
+              <span>Product A vs Product B</span>
+            </button>
+
+            <button
+              onClick={() => setSimMode("full")}
+              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
+                simMode === "full"
+                  ? "bg-primary text-white border-primary shadow-md"
+                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+              }`}
+            >
+              <Star size={18} className="text-current" />
+              <span>Full Routine (All 3)</span>
+            </button>
+
+            <button
+              onClick={() => setSimMode("custom")}
+              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
+                simMode === "custom"
+                  ? "bg-primary text-white border-primary shadow-md"
+                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+              }`}
+            >
+              <Settings size={18} className="text-current" />
+              <span>Custom Selection</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Step 2: Product Formulations & Selection */}
+        <div className="mb-8 tk-anim-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
-              <h2 className="text-xl font-display font-medium text-primary">Your Recommended Products</h2>
-              <p className="text-xs text-muted">Tailored formulations derived from your skin analysis</p>
+              <h2 className="text-xl font-display font-medium text-primary">Your Recommended Formulations</h2>
+              <p className="text-xs text-muted">Select active formulas below to apply to your simulation</p>
             </div>
             <div className="flex gap-3 items-center">
               <span className="text-xs font-semibold px-3 py-1 bg-sage/15 text-sage rounded-full border border-sage/20">
                 {products.length} Active Formulas
               </span>
-              <button
-                onClick={() => {
-                  setProductScanError("");
-                  setScanModalOpen(true);
-                }}
-                disabled={isAnalyzingProduct || userTier !== 'premium'}
-                title={userTier !== 'premium' ? "Custom product scanning is a Pro feature" : "Scan a custom product"}
-                className="text-xs font-semibold px-4 py-1.5 bg-primary text-white rounded-full flex items-center gap-1.5 hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-sm relative group"
-              >
-                {isAnalyzingProduct ? <span className="animate-spin text-[10px]">⏳</span> : <Sparkles className="w-3 h-3" />}
-                {isAnalyzingProduct ? "Analyzing..." : "Scan My Product"}
-                
-                {/* Tooltip for non-premium */}
-                {userTier !== 'premium' && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Pro feature
-                  </div>
-                )}
-              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.map((prod, idx) => {
               const isSelectedSingle = selectedSingle === idx;
               const isProdA = prodAIndex === idx;
@@ -446,7 +489,7 @@ export default function WhatIfPage() {
                     {simMode === "single" && (
                       <button
                         onClick={() => setSelectedSingle(idx)}
-                        className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                           isSelectedSingle
                             ? "bg-sage text-white shadow-sm"
                             : "bg-white/60 text-primary hover:bg-white hover:shadow-xs"
@@ -460,7 +503,7 @@ export default function WhatIfPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => setProdAIndex(idx)}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             isProdA
                               ? "bg-sage text-white shadow-xs"
                               : "bg-white/60 text-primary hover:bg-white"
@@ -470,7 +513,7 @@ export default function WhatIfPage() {
                         </button>
                         <button
                           onClick={() => setProdBIndex(idx)}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             isProdB
                               ? "bg-orange-400 text-white shadow-xs"
                               : "bg-white/60 text-primary hover:bg-white"
@@ -485,7 +528,7 @@ export default function WhatIfPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => toggleCustomItem(idx, "A")}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             inCustomA
                               ? "bg-sage text-white shadow-xs"
                               : "bg-white/50 text-muted hover:bg-white"
@@ -495,7 +538,7 @@ export default function WhatIfPage() {
                         </button>
                         <button
                           onClick={() => toggleCustomItem(idx, "B")}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             inCustomB
                               ? "bg-orange-400 text-white shadow-xs"
                               : "bg-white/50 text-muted hover:bg-white"
@@ -515,65 +558,55 @@ export default function WhatIfPage() {
                 </div>
               );
             })}
+
+            {/* 4th Tile: + Add Custom Product */}
+            <div
+              onClick={() => {
+                if (userTier === 'premium') {
+                  setProductScanError("");
+                  setScanModalOpen(true);
+                } else {
+                  setUpgradeModalOpen(true);
+                }
+              }}
+              className="tk-glass rounded-3xl p-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-sage/40 hover:border-sage bg-white/40 hover:bg-white/75 transition-all min-h-[360px] cursor-pointer group shadow-xs hover:shadow-md relative overflow-hidden"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-sage/15 border border-sage/20 flex items-center justify-center text-sage mb-4 group-hover:scale-110 transition-transform shadow-xs">
+                <Plus size={26} strokeWidth={2.2} />
+              </div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <h3 className="font-display text-base font-semibold text-primary">Add Custom Product</h3>
+                {userTier !== 'premium' && (
+                  <span className="px-2 py-0.5 bg-lavender/60 text-[#792CA2] text-[10px] font-bold rounded-full uppercase tracking-wider">
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted leading-relaxed max-w-[210px] mb-5">
+                Scan ingredients label from your real skincare products to test custom formulations.
+              </p>
+              <div className="mt-auto pt-3 border-t border-black/5 w-full">
+                <span className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-xs font-semibold bg-white/60 text-primary group-hover:bg-sage group-hover:text-white transition-all shadow-xs">
+                  {userTier === 'premium' ? (
+                    <>
+                      <Sparkles size={14} />
+                      Scan Product Label
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={13} className="text-muted group-hover:text-white" />
+                      Unlock with Pro
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="tk-glass p-6 sm:p-8 rounded-3xl mb-10 tk-anim-3">
-          <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-4">
-            Simulation Comparison Mode
-          </label>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <button
-              onClick={() => setSimMode("single")}
-              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border ${
-                simMode === "single"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
-              }`}
-            >
-              <FlaskConical size={18} className="text-current" />
-              <span>1 Product vs None</span>
-            </button>
-
-            <button
-              onClick={() => setSimMode("compare")}
-              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border ${
-                simMode === "compare"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
-              }`}
-            >
-              <Scale size={18} className="text-current" />
-              <span>Product A vs Product B</span>
-            </button>
-
-            <button
-              onClick={() => setSimMode("full")}
-              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border ${
-                simMode === "full"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
-              }`}
-            >
-              <Star size={18} className="text-current" />
-              <span>Full Routine (All 3)</span>
-            </button>
-
-            <button
-              onClick={() => setSimMode("custom")}
-              className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border ${
-                simMode === "custom"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
-              }`}
-            >
-              <Settings size={18} className="text-current" />
-              <span>Custom Selection</span>
-            </button>
-          </div>
-
-          <div className="bg-white/40 border border-white/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Step 3: Run Simulation Summary Bar */}
+        <div className="tk-glass p-6 sm:p-7 rounded-3xl mb-10 tk-anim-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-muted">
               {simMode === "single" && (
                 <p>Simulating improvement with <span className="font-semibold text-primary">{products[selectedSingle]?.formula || products[selectedSingle]?.type}</span> versus no treatment.</p>
@@ -594,7 +627,7 @@ export default function WhatIfPage() {
                 onClick={handleRunSimulation}
                 disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
                 className={`
-                  tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold
+                  tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold cursor-pointer
                   ${(loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)) ? "bg-primary/70 text-white cursor-not-allowed" : "tk-btn-primary shadow-[0_8px_24px_rgba(44,62,80,0.18)]"}
                 `}
               >
@@ -996,6 +1029,69 @@ export default function WhatIfPage() {
         isAnalyzing={isAnalyzingProduct}
         error={productScanError}
       />
+
+      {/* Pro Custom Product Upgrade Modal */}
+      {upgradeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="tk-glass bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 border border-white/50 shadow-2xl relative animate-scale-up">
+            <button
+              onClick={() => setUpgradeModalOpen(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-lavender/30 flex items-center justify-center text-[#792CA2] mb-4 shadow-sm">
+              <Sparkles size={24} />
+            </div>
+
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-lavender/50 text-[#792CA2]">
+                Pro Feature
+              </span>
+            </div>
+
+            <h2 className="text-2xl font-display font-medium text-primary mb-2">
+              Custom Product Scanning
+            </h2>
+
+            <p className="text-muted text-sm mb-5 leading-relaxed">
+              Upgrade to <strong>Pro</strong> to scan ingredient labels from any vanity skincare product and simulate how your exact routine impacts facial aging.
+            </p>
+
+            <div className="space-y-2.5 mb-6 bg-sage/10 p-4 rounded-2xl border border-sage/20 text-xs text-primary">
+              <div className="flex items-center gap-2">
+                <span className="text-sage font-bold">✓</span>
+                <span>Unlimited custom formula label scans</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sage font-bold">✓</span>
+                <span>Side-by-side A/B intervention testing</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sage font-bold">✓</span>
+                <span>5 full AI aging simulations per month</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <Link
+                href="/pricing"
+                className="w-full py-3 bg-primary text-white font-semibold text-center rounded-xl hover:bg-primary/90 transition shadow-sm"
+              >
+                View Pro Membership
+              </Link>
+              <button
+                onClick={() => setUpgradeModalOpen(false)}
+                className="w-full py-2 text-xs text-muted hover:text-primary transition font-medium cursor-pointer"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

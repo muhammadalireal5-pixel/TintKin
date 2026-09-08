@@ -77,7 +77,8 @@ const UserSchema = new mongoose.Schema({
       city: String
     },
     photoPrivacy: { type: String, enum: ['store', 'delete'], default: 'store' },
-    baselineSelfie: { type: String, default: null }
+    baselineSelfie: { type: String, default: null },
+    locationPromptDismissed: { type: Boolean, default: false }
 }, { strict: true });
 
 const SelfieSchema = new mongoose.Schema({

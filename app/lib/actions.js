@@ -205,6 +205,7 @@ export async function checkOnboardingStatus() {
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
 
+  let extraScanConsumed = false;
   try {
     const quotas = await getUsageQuotas(timezone);
     if (!quotas.scans.canScanToday) {
@@ -255,7 +256,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       badges: updatedBadges
     };
 
-    let extraScanConsumed = false;
     if (quotas.scans.wouldBeDenied) {
       const consumed = await User.findOneAndUpdate(
         { _id: user._id, extraScans: { $gt: 0 } },

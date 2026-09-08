@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/app/lib/firebase/client";
 import { checkOnboardingStatus } from "@/app/lib/actions";
 import { setSessionCookie } from "@/lib/utils/auth-cookie";
+import { useAuthContext } from "@/app/context/AuthContext";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 
-export default function SignInPage() {
+function SignInForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuthContext();
+  const requestedRedirect = searchParams.get("redirect");
+  const redirectTarget =
+    requestedRedirect?.startsWith("/") &&
+    !requestedRedirect.startsWith("//") &&
+    !requestedRedirect.includes("\\")
+      ? requestedRedirect
+      : "/dashboard";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,6 +31,12 @@ export default function SignInPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.replace(redirectTarget);
+    }
+  }, [user, authLoading, redirectTarget, router]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -29,14 +48,17 @@ export default function SignInPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const token = await userCredential.user.getIdToken();
       setSessionCookie(token);
+      await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+      }).catch(() => {});
 
       try {
         const { complete } = await checkOnboardingStatus();
-        window.location.href = complete ? "/dashboard" : "/onboarding";
+        window.location.href = complete ? redirectTarget : "/onboarding";
       } catch (err) {
-        // Default to dashboard — if they already onboarded, don't re-show it
-        // The server-side getDbUser() will redirect to onboarding if truly needed
-        window.location.href = "/dashboard";
+        window.location.href = redirectTarget;
       }
     } catch (err) {
       if (
@@ -83,6 +105,17 @@ export default function SignInPage() {
       setResetLoading(false);
     }
   };
+
+  if (user && !authLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
+        <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
+          <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
+          <p className="text-sm font-medium text-primary">Opening your skin journal...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8 sm:px-6 lg:px-8">
@@ -220,6 +253,23 @@ export default function SignInPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
+          <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
+            <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
+            <p className="text-sm font-medium text-primary">Loading sign in...</p>
+          </div>
+        </div>
+      }
+    >
+      <SignInForm />
+    </Suspense>
   );
 }
 
