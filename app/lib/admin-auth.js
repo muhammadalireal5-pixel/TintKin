@@ -161,12 +161,12 @@ export async function verifyAdminOTP(email, code) {
     expiresAt: Date.now() + SESSION_EXPIRY_MS,
   });
 
-  // Set cookie
+  // Set cookie with secure settings for all environments
   const cookieStore = await cookies();
   cookieStore.set("admin-session", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: true, // Always enforce HTTPS - use mkcert/local HTTPS for dev
+    sameSite: "lax",
     path: "/",
     maxAge: SESSION_EXPIRY_MS / 1000,
   });

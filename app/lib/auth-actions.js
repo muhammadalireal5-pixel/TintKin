@@ -23,8 +23,37 @@ export async function registerUser({ email, password, name }) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
-  if (password.length < 6) {
-    return { success: false, error: "Password must be at least 6 characters long." };
+  
+  // NIST 800-63B compliant: minimum 12 characters, no composition rules
+  if (password.length < 12) {
+    return { success: false, error: "Password must be at least 12 characters long." };
+  }
+
+  // Check against breached passwords via HIBP API (fail open on error)
+  try {
+    const sha1 = crypto.createHash("sha1").update(password).digest("hex").toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { 
+      signal: AbortSignal.timeout(3000) // 3 second timeout
+    });
+    
+    if (res.ok) {
+      const data = await res.text();
+      const isBreached = data.split('\n').some(line => line.startsWith(suffix));
+      if (isBreached) {
+        return { 
+          success: false, 
+          error: "This password has been exposed in a data breach. Please choose a different password." 
+        };
+      }
+    } else {
+      // HIBP API unavailable - log warning but proceed (fail open)
+      console.warn("[HIBP] API unavailable, proceeding with registration");
+    }
+  } catch (err) {
+    // Network error or timeout - fail open to prevent DoS
+    console.warn("[HIBP] Check failed, proceeding with registration:", err.message);
   }
 
   await connectDb();
@@ -32,7 +61,9 @@ export async function registerUser({ email, password, name }) {
   const existingUser = await User.findOne({ email: cleanEmail }).select("+passwordHash");
   if (existingUser) {
     if (existingUser.passwordHash) {
-      return { success: false, error: "This email is already registered. Please sign in instead." };
+      // Account already exists with password - silent return to prevent enumeration
+      // Optionally send password reset email if this is a legitimate user
+      return { success: true };
     }
     // Account exists via Google or legacy without password: set password
     existingUser.passwordHash = await bcrypt.hash(password, 12);
@@ -64,6 +95,25 @@ export async function requestPasswordReset(email) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
+  
+  // Get client IP for rate limiting (will be passed from request context)
+  // For server actions, we use a generic identifier since IP isn't directly available
+  const identifier = `email:${cleanEmail}`;
+  
+  // Check rate limit (3 per hour per email)
+  const rateLimitResult = await checkRateLimit(
+    identifier,
+    "password-reset",
+    RATE_LIMIT_CONFIGS.PASSWORD_RESET.limit,
+    RATE_LIMIT_CONFIGS.PASSWORD_RESET.windowMs
+  );
+  
+  if (!rateLimitResult.allowed) {
+    // Still return success to prevent enumeration, but don't send email
+    console.warn(`[PASSWORD_RESET] Rate limited for ${cleanEmail}`);
+    return { success: true };
+  }
+
   await connectDb();
 
   const user = await User.findOne({ email: cleanEmail });
@@ -81,7 +131,8 @@ export async function requestPasswordReset(email) {
   await user.save();
 
   const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "http://localhost:3000";
-  const resetUrl = `${baseUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(cleanEmail)}`;
+  // Use one-time exchange URL instead of direct reset form
+  const exchangeUrl = `${baseUrl}/reset-password/exchange?token=${rawToken}`;
 
   try {
     const resend = getResendClient();
@@ -101,12 +152,12 @@ export async function requestPasswordReset(email) {
               <p style="color: #555; font-size: 14px; margin: 0 0 18px; line-height: 1.5;">
                 We received a request to reset your password. Click the button below to choose a new password:
               </p>
-              <a href="${resetUrl}" style="display: inline-block; background: #2C3E50; color: #FFFFFF; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;">
+              <a href="${exchangeUrl}" style="display: inline-block; background: #2C3E50; color: #FFFFFF; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;">
                 Reset Password
               </a>
             </div>
             <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
-              This link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email.
+              This link is valid for 1 hour and can only be used once. If you didn't request a password reset, you can safely ignore this email.
             </p>
           </div>
         `,
@@ -127,8 +178,9 @@ export async function resetPassword({ token, email, newPassword }) {
     return { success: false, error: "Invalid request parameters." };
   }
 
-  if (newPassword.length < 6) {
-    return { success: false, error: "Password must be at least 6 characters long." };
+  // NIST 800-63B compliant: minimum 12 characters
+  if (newPassword.length < 12) {
+    return { success: false, error: "Password must be at least 12 characters long." };
   }
 
   const cleanEmail = email.toLowerCase().trim();
@@ -144,6 +196,31 @@ export async function resetPassword({ token, email, newPassword }) {
 
   if (!user) {
     return { success: false, error: "Reset link is invalid or has expired. Please request a new one." };
+  }
+
+  // Check password against HIBP (fail open on error)
+  try {
+    const sha1 = crypto.createHash("sha1").update(newPassword).digest("hex").toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      signal: AbortSignal.timeout(3000)
+    });
+    
+    if (res.ok) {
+      const data = await res.text();
+      const isBreached = data.split('\n').some(line => line.startsWith(suffix));
+      if (isBreached) {
+        return {
+          success: false,
+          error: "This password has been exposed in a data breach. Please choose a different password."
+        };
+      }
+    } else {
+      console.warn("[HIBP] API unavailable during password reset, proceeding");
+    }
+  } catch (err) {
+    console.warn("[HIBP] Check failed during password reset:", err.message);
   }
 
   user.passwordHash = await bcrypt.hash(newPassword, 12);

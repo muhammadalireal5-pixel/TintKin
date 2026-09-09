@@ -3,6 +3,12 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { connectDb, User } from "@/app/lib/mongoose";
+import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
+
+// Track failed attempts for progressive delay (stored in DB via rate limit collection)
+const PROGRESSIVE_DELAYS = [0, 0, 0, 1000, 2000, 4000, 8000]; // ms delays for attempts 1-6
+const HARD_LOCKOUT_THRESHOLD = 7;
+const HARD_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
@@ -20,25 +26,58 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, req) => {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing email or password");
+          throw new Error("Invalid credentials");
+        }
+
+        // Get client IP for rate limiting
+        const ip = req?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+                   req?.headers?.get("x-real-ip") || 
+                   "unknown";
+        const email = credentials.email.toString().toLowerCase().trim();
+        const compositeKey = getCompositeKey(ip, email);
+
+        // Check rate limit (5 per hour per IP+email)
+        const rateLimitResult = await checkRateLimit(
+          compositeKey,
+          "login",
+          RATE_LIMIT_CONFIGS.LOGIN.limit,
+          RATE_LIMIT_CONFIGS.LOGIN.windowMs
+        );
+
+        if (!rateLimitResult.allowed) {
+          // Check if this is a hard lockout scenario (7+ attempts)
+          if (rateLimitResult.retryAfter && rateLimitResult.retryAfter > 3600) {
+            throw new Error("Too many failed attempts. Account temporarily locked. Try again in 15 minutes.");
+          }
+          throw new Error(`Too many failed attempts. Please try again in ${Math.ceil(rateLimitResult.retryAfter / 60)} minutes.`);
         }
 
         await connectDb();
-        const cleanEmail = credentials.email.toString().toLowerCase().trim();
-        const user = await User.findOne({ email: cleanEmail }).select("+passwordHash");
+        const user = await User.findOne({ email }).select("+passwordHash");
 
         if (!user) {
           throw new Error("Invalid credentials");
         }
 
         if (!user.passwordHash) {
-          throw new Error("No password set for this account. Please sign in with Google or reset your password.");
+          throw new Error("Invalid credentials");
         }
 
         const isMatch = await bcrypt.compare(credentials.password.toString(), user.passwordHash);
         if (!isMatch) {
+          // Progressive delay based on attempt count
+          const attemptCount = RATE_LIMIT_CONFIGS.LOGIN.limit - rateLimitResult.remaining + 1;
+          if (attemptCount >= HARD_LOCKOUT_THRESHOLD) {
+            throw new Error("Too many failed attempts. Account temporarily locked. Try again in 15 minutes.");
+          }
+          
+          const delayMs = PROGRESSIVE_DELAYS[Math.min(attemptCount, PROGRESSIVE_DELAYS.length - 1)];
+          if (delayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+          
           throw new Error("Invalid credentials");
         }
 
