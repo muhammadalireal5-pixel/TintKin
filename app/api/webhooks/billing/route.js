@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
 import {
   TIERS,
@@ -17,15 +18,33 @@ import {
  * - Paddle / Custom payment systems
  * 
  * Security: Requires 'x-webhook-secret' header matching PAYMENT_WEBHOOK_SECRET.
+ * Uses timing-safe comparison to prevent timing attacks.
  */
 export async function POST(req) {
   try {
     const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET;
     
-    // Enforce secret validation
+    // Enforce secret validation with timing-safe comparison
     const incomingSecret = req.headers.get("x-webhook-secret") || req.headers.get("authorization")?.replace("Bearer ", "");
     
-    if (!webhookSecret || incomingSecret !== webhookSecret) {
+    if (!webhookSecret) {
+      console.error("[WEBHOOK] PAYMENT_WEBHOOK_SECRET not configured");
+      return NextResponse.json(
+        { success: false, error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // Convert both secrets to buffers for timing-safe comparison
+    const incomingBuffer = Buffer.from(incomingSecret || "");
+    const expectedBuffer = Buffer.from(webhookSecret);
+    
+    // Check length first to avoid timingSafeEqual throwing on mismatched lengths
+    // This is safe because we're not revealing exact length through timing
+    const isValid = incomingBuffer.length === expectedBuffer.length && 
+                    crypto.timingSafeEqual(incomingBuffer, expectedBuffer);
+    
+    if (!isValid) {
       return NextResponse.json(
         { success: false, error: "Unauthorized: Invalid or missing webhook secret" },
         { status: 401 }

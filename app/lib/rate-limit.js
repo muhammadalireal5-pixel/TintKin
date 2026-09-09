@@ -1,67 +1,96 @@
+import { connectDb, RateLimit } from "./mongoose";
+
+const RATE_LIMIT_COLLECTION = "ratelimits";
+
 /**
- * In-memory sliding window rate limiter.
- * Resets on process restart, suitable for burst protection on serverless/container runtimes.
+ * MongoDB-backed rate limiter with sliding window and atomic operations.
+ * Uses TTL index for automatic cleanup (created via setup script or manually).
+ * 
+ * Setup: Run this once to create TTL index:
+ * db.ratelimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
  */
+export async function checkRateLimit(identifier, action, limit, windowMs) {
+  try {
+    await connectDb();
 
-const rateLimitStore = new Map();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - windowMs);
 
-// Periodic sweep to prevent memory leak from abandoned keys
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, record] of rateLimitStore.entries()) {
-      if (now - record.windowStart > record.windowMs * 2) {
-        rateLimitStore.delete(key);
+    // Atomic upsert: increment count if exists in window, or create new record
+    const result = await RateLimit.findOneAndUpdate(
+      {
+        identifier,
+        action,
+        windowStart: { $gte: windowStart },
+      },
+      {
+        $inc: { count: 1 },
+        $set: {
+          windowStart: now,
+          expiresAt: new Date(now.getTime() + windowMs),
+        },
+        $setOnInsert: {
+          createdAt: now,
+        },
+      },
+      {
+        upsert: true,
+        returnDocument: "after",
       }
+    );
+
+    const currentCount = result.value?.count || 1;
+    const resetTime = new Date(now.getTime() + windowMs);
+
+    if (currentCount > limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime,
+        retryAfter: Math.ceil((resetTime - now) / 1000),
+      };
     }
-  }, 5 * 60 * 1000); // Sweep every 5 minutes
-}
 
-/**
- * Check if an action by a user should be rate-limited.
- *
- * @param {string} identifier - Unique user ID or IP
- * @param {string} action - Action name (e.g. "analyze", "simulate", "upload")
- * @param {Object} [options]
- * @param {number} [options.maxRequests=5] - Maximum requests allowed within the window
- * @param {number} [options.windowMs=60000] - Window duration in milliseconds (default: 1 min)
- * @returns {{ allowed: boolean, remaining: number, retryAfter: number }}
- */
-export function checkRateLimit(identifier, action, { maxRequests = 5, windowMs = 60000 } = {}) {
-  if (!identifier) {
-    return { allowed: true, remaining: maxRequests, retryAfter: 0 };
-  }
-
-  const key = `${identifier}:${action}`;
-  const now = Date.now();
-  const existing = rateLimitStore.get(key);
-
-  if (!existing || now - existing.windowStart >= windowMs) {
-    rateLimitStore.set(key, {
-      windowStart: now,
-      windowMs,
-      count: 1,
-    });
     return {
       allowed: true,
-      remaining: maxRequests - 1,
-      retryAfter: 0,
+      remaining: limit - currentCount,
+      resetTime,
+      retryAfter: null,
     };
-  }
-
-  if (existing.count >= maxRequests) {
-    const retryAfter = Math.max(1, Math.ceil((existing.windowStart + windowMs - now) / 1000));
+  } catch (error) {
+    console.error("Rate limit check failed (failing open):", error);
+    // Fail open: allow request if DB is unavailable to prevent DoS
+    // Log warning for monitoring
+    console.warn(`[RATE_LIMIT] DB unavailable, failing open for ${identifier}:${action}`);
     return {
-      allowed: false,
-      remaining: 0,
-      retryAfter,
+      allowed: true,
+      remaining: limit,
+      resetTime: new Date(Date.now() + windowMs),
+      retryAfter: null,
     };
   }
-
-  existing.count += 1;
-  return {
-    allowed: true,
-    remaining: maxRequests - existing.count,
-    retryAfter: 0,
-  };
 }
+
+/**
+ * Composite key generator for IP+Email combinations
+ * Hashes the combination to avoid storing raw emails in rate limit collection
+ */
+export function getCompositeKey(ip, email = null) {
+  const crypto = require("crypto");
+  if (!email) {
+    return `ip:${ip}`;
+  }
+  return crypto
+    .createHash("sha256")
+    .update(`${ip}:${email}`)
+    .digest("hex");
+}
+
+/**
+ * Rate limit configurations
+ */
+export const RATE_LIMIT_CONFIGS = {
+  LOGIN: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+  REGISTER: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
+  PASSWORD_RESET: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
+};

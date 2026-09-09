@@ -183,3 +183,22 @@ AdminOTPSchema.index({ email: 1, createdAt: -1 });
 
 export const AdminOTP = mongoose.models.AdminOTP || mongoose.model('AdminOTP', AdminOTPSchema);
 
+/**
+ * Rate Limit Schema with TTL index for automatic cleanup
+ * Setup: db.ratelimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+ */
+const RateLimitSchema = new mongoose.Schema({
+    identifier: { type: String, required: true },
+    action: { type: String, required: true, enum: ['login', 'register', 'password-reset'] },
+    windowStart: { type: Date, required: true },
+    count: { type: Number, required: true, default: 1 },
+    expiresAt: { type: Date, required: true },
+    createdAt: { type: Date, default: Date.now },
+}, { strict: true, timestamps: true });
+
+// TTL index for automatic cleanup - MUST be created in MongoDB
+RateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+RateLimitSchema.index({ identifier: 1, action: 1, windowStart: 1 });
+
+export const RateLimit = mongoose.models.RateLimit || mongoose.model('RateLimit', RateLimitSchema);
+
