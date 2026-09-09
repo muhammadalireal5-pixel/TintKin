@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getAuthenticatedUser } from "@/app/lib/firebase/admin";
+import { getAuthenticatedUser } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
 import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
@@ -12,8 +12,11 @@ import {
   validateTrustedImageUrl,
   getCloudinaryPublicId,
   applyFaceCropToCloudinary,
+  signCloudinaryUrl,
 } from "@/lib/utils/cloudinary";
+import { checkRateLimit } from "./rate-limit";
 import { validateImageFile } from "@/lib/validations/image";
+
 import { validateOnboarding } from "@/lib/validations/onboarding";
 import { validateUserSettings } from "@/lib/validations/settings";
 import {
@@ -92,6 +95,11 @@ export async function uploadSelfieServerAction(formData) {
   }
   if (!decoded) return { success: false, error: "Unauthorized" };
 
+  const rateCheck = checkRateLimit(decoded.uid, "upload", { maxRequests: 5, windowMs: 60000 });
+  if (!rateCheck.allowed) {
+    return { success: false, error: `Too many upload attempts. Please try again in ${rateCheck.retryAfter}s.` };
+  }
+
   try {
     const file = formData.get("file");
     if (!file) return { success: false, error: "No file provided" };
@@ -151,29 +159,22 @@ async function getDbUser() {
   }
   if (!decoded) redirect("/sign-in");
 
-  let user = await User.findOne({ firebaseUid: decoded.uid });
+  let user = null;
+  if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+    user = await User.findById(decoded.uid);
+  }
 
   if (!user && decoded.email) {
-    const candidates = await User.find({ email: decoded.email });
-    if (candidates.length === 1) {
-      const candidate = candidates[0];
-      if (candidate.firebaseUid && candidate.firebaseUid !== decoded.uid) {
-        throw new Error("Firebase identity does not match the existing user");
-      }
-      if (!candidate.firebaseUid) {
-        candidate.firebaseUid = decoded.uid;
-        candidate.displayName = decoded.name || candidate.displayName;
-        candidate.photoURL = decoded.picture || candidate.photoURL;
-        await candidate.save();
-        user = candidate;
-      }
-    }
+    user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
+  }
+
+  if (!user) {
+    user = await User.findOne({ firebaseUid: decoded.uid });
   }
 
   if (!user) {
     user = await User.create({
-      firebaseUid: decoded.uid,
-      email: decoded.email,
+      email: decoded.email ? decoded.email.toLowerCase().trim() : undefined,
       displayName: decoded.name || "",
       photoURL: decoded.picture || "",
     });
@@ -195,15 +196,30 @@ export async function checkOnboardingStatus() {
   }
   if (!decoded) return { complete: false };
   
-  let user = await User.findOne({ firebaseUid: decoded.uid });
+  let user = null;
+  if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+    user = await User.findById(decoded.uid);
+  }
   if (!user && decoded.email) {
-    user = await User.findOne({ email: decoded.email });
+    user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
+  }
+  if (!user) {
+    user = await User.findOne({ firebaseUid: decoded.uid });
   }
   return { complete: user?.onboardingComplete || false };
 }
 
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
+
+  const rateCheck = checkRateLimit(user._id.toString(), "analyze", { maxRequests: 3, windowMs: 60000 });
+  if (!rateCheck.allowed) {
+    return errorResult(
+      ERROR_CODES.RATE_LIMIT || "RATE_LIMIT",
+      `Too many scan requests. Please wait ${rateCheck.retryAfter}s before scanning again.`,
+      { error: "RATE_LIMIT" }
+    );
+  }
 
   let extraScanConsumed = false;
   try {
@@ -464,10 +480,14 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     if (imageUrl) {
       await deleteImageFromCloudinary(imageUrl).catch(() => {});
     }
+    const GENERIC_ANALYSIS_ERROR = "Analysis failed. Please try a clearer photo or try again later.";
+    const displayError = (err?.isUserFacing && typeof err.message === "string" && err.message.length > 0)
+      ? err.message
+      : GENERIC_ANALYSIS_ERROR;
     return errorResult(
       ERROR_CODES.ANALYSIS_FAILED,
-      "Analysis failed. Please try a clearer photo or try again later.",
-      { error: "Analysis failed. Please try a clearer photo or try again later." }
+      displayError,
+      { error: displayError }
     );
   }
 }
@@ -545,6 +565,18 @@ export async function getLatestData(timezone = "UTC") {
     });
   }
 
+  if (latestSelfie?.imageUrl) {
+    latestSelfie.imageUrl = signCloudinaryUrl(latestSelfie.imageUrl);
+  }
+  if (latestAnalyzedSelfie?.imageUrl) {
+    latestAnalyzedSelfie.imageUrl = signCloudinaryUrl(latestAnalyzedSelfie.imageUrl);
+  }
+  if (Array.isArray(allSelfies)) {
+    allSelfies.forEach(s => {
+      if (s.imageUrl) s.imageUrl = signCloudinaryUrl(s.imageUrl);
+    });
+  }
+
   const data = { 
     user, 
     latestSelfie, 
@@ -562,6 +594,16 @@ export async function getLatestData(timezone = "UTC") {
 
 export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+
+  const rateCheck = checkRateLimit(user._id.toString(), "simulate", { maxRequests: 5, windowMs: 60000 });
+  if (!rateCheck.allowed) {
+    return errorResult(
+      ERROR_CODES.RATE_LIMIT || "RATE_LIMIT",
+      `Too many simulation requests. Please wait ${rateCheck.retryAfter}s before running another simulation.`,
+      { error: "RATE_LIMIT" }
+    );
+  }
+
   const sourceImageUrl = customImageUrl || latestSelfie?.imageUrl;
   if (customImageUrl && !validateTrustedImageUrl(customImageUrl)) {
     return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
@@ -725,7 +767,11 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
     const decoded = await getAuthenticatedUser();
     if (!decoded) return { success: false, error: "Unauthorized" };
     
-    const user = await User.findOne({ firebaseUid: decoded.uid });
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+      user = await User.findById(decoded.uid);
+    }
+    if (!user) user = await User.findOne({ firebaseUid: decoded.uid });
     if (!user) return { success: false, error: "User not found" };
 
     if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
@@ -786,19 +832,32 @@ export async function completeOnboarding(data) {
 
     const { birthDate: parsedDate, sex: normalizedSex, skinType: normalizedSkinType, goals: validGoals, customGoal: cleanCustomGoal } = validation.sanitized;
     
-    await User.findOneAndUpdate(
-      { firebaseUid: decoded.uid },
-      {
-        email: decoded.email || undefined,
-        birthDate: parsedDate,
-        sex: normalizedSex, 
-        skinType: normalizedSkinType, 
-        goals: validGoals, 
-        customGoal: cleanCustomGoal,
-        onboardingComplete: true
-      },
-      { upsert: true }
-    );
+    let targetUser = null;
+    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+      targetUser = await User.findById(decoded.uid);
+    }
+    if (!targetUser && decoded.email) {
+      targetUser = await User.findOne({ email: decoded.email.toLowerCase().trim() });
+    }
+    if (!targetUser) {
+      targetUser = await User.findOne({ firebaseUid: decoded.uid });
+    }
+
+    const updateFields = {
+      email: decoded.email ? decoded.email.toLowerCase().trim() : undefined,
+      birthDate: parsedDate,
+      sex: normalizedSex, 
+      skinType: normalizedSkinType, 
+      goals: validGoals, 
+      customGoal: cleanCustomGoal,
+      onboardingComplete: true
+    };
+
+    if (targetUser) {
+      await User.findByIdAndUpdate(targetUser._id, updateFields);
+    } else {
+      await User.create(updateFields);
+    }
 
     return { success: true };
   } catch (err) {
@@ -816,7 +875,11 @@ export async function updatePrivacySettings(photoPrivacy) {
       return { success: false, error: "Invalid photo privacy option" };
     }
 
-    const user = await User.findOne({ firebaseUid: decoded.uid });
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+      user = await User.findById(decoded.uid);
+    }
+    if (!user) user = await User.findOne({ firebaseUid: decoded.uid });
     if (!user) return { success: false, error: "User not found" };
 
     user.photoPrivacy = photoPrivacy;
@@ -917,7 +980,11 @@ export async function getSavedSimulations() {
       simulations: sims.map(sim => ({
         ...sim,
         _id: sim._id.toString(),
-        userId: sim.userId.toString()
+        userId: sim.userId.toString(),
+        resultA: sim.resultA ? { ...sim.resultA, imageUrl: signCloudinaryUrl(sim.resultA.imageUrl) } : sim.resultA,
+        resultB: sim.resultB ? { ...sim.resultB, imageUrl: signCloudinaryUrl(sim.resultB.imageUrl) } : sim.resultB,
+        scenarioA: sim.scenarioA ? { ...sim.scenarioA, imageUrl: signCloudinaryUrl(sim.scenarioA.imageUrl) } : sim.scenarioA,
+        scenarioB: sim.scenarioB ? { ...sim.scenarioB, imageUrl: signCloudinaryUrl(sim.scenarioB.imageUrl) } : sim.scenarioB,
       }))
     };
   } catch (err) {
@@ -1015,11 +1082,20 @@ export async function analyzeProductImage(base64Image) {
     const authUser = await getAuthenticatedUser();
     if (!authUser) throw new Error("Unauthorized");
 
+    const rateCheck = checkRateLimit(authUser.uid, "product_ocr", { maxRequests: 3, windowMs: 60000 });
+    if (!rateCheck.allowed) {
+      return { success: false, error: `Too many scan attempts. Please wait ${rateCheck.retryAfter}s before scanning another product.` };
+    }
+
     const result = await analyzeProductIngredients(base64Image);
+
+    const targetQuery = mongoose.Types.ObjectId.isValid(authUser.uid)
+      ? { _id: authUser.uid }
+      : { firebaseUid: authUser.uid };
 
     await connectDb();
     await User.findOneAndUpdate(
-      { firebaseUid: authUser.uid },
+      targetQuery,
       { $addToSet: { badges: "ingredient_alchemist" } }
     ).catch(() => {});
 
@@ -1053,36 +1129,42 @@ export async function saveLocation(locationData) {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Unauthorized" };
     
-    let { lat, lng, city } = locationData;
+    let { lat, lng, city, country, countryCode } = locationData || {};
 
-    if (lat && lng && !city) {
+    if (lat && lng && (!city || !country)) {
       try {
         const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
         if (res.ok) {
           const data = await res.json();
-          city = data.city || data.locality || data.principalSubdivision || "Unknown Location";
+          if (!city) city = data.city || data.locality || data.principalSubdivision || "Unknown Location";
+          if (!country) country = data.countryName || null;
+          if (!countryCode) countryCode = data.countryCode || null;
         }
       } catch {
         // Reverse geocoding is best-effort
       }
-    } else if (city && (!lat || !lng)) {
+    } else if (city && (!lat || !lng || !country)) {
       try {
         const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
         if (res.ok) {
           const data = await res.json();
           if (data.results && data.results.length > 0) {
-            lat = data.results[0].latitude;
-            lng = data.results[0].longitude;
+            lat = lat || data.results[0].latitude;
+            lng = lng || data.results[0].longitude;
             city = data.results[0].name;
-          } else {
+            country = country || data.results[0].country || null;
+            countryCode = countryCode || data.results[0].country_code || null;
+          } else if (!lat || !lng) {
             return { success: false, error: "City not found. Please try another city." };
           }
-        } else {
+        } else if (!lat || !lng) {
           return { success: false, error: "Geocoding service unavailable." };
         }
       } catch {
         // Forward geocoding failed
-        return { success: false, error: "Error connecting to geocoding service." };
+        if (!lat || !lng) {
+          return { success: false, error: "Error connecting to geocoding service." };
+        }
       }
     }
 
@@ -1090,7 +1172,7 @@ export async function saveLocation(locationData) {
       return { success: false, error: "Could not determine location coordinates." };
     }
 
-    const updatedLocation = { lat, lng, city };
+    const updatedLocation = { lat, lng, city, country, countryCode };
     await User.findByIdAndUpdate(user._id, { location: updatedLocation });
     return { success: true, location: updatedLocation };
   } catch {
@@ -1108,6 +1190,8 @@ export async function getUserProfile() {
       photoURL: user.photoURL || "",
       location: user.location ? {
         city: user.location.city || null,
+        country: user.location.country || null,
+        countryCode: user.location.countryCode || null,
         lat: user.location.lat || null,
         lng: user.location.lng || null,
       } : null,
@@ -1299,3 +1383,170 @@ export async function optInComparison(optIn) {
     return { success: false };
   }
 }
+
+export async function getLeaderboard(scope = 'city') {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const rawCity = user.location?.city || "";
+    const rawCountry = user.location?.country || "";
+
+    // Extract clean primary city name (e.g. "Karachi, Sindh" -> "Karachi")
+    const cleanUserCity = rawCity ? rawCity.split(',')[0].trim() : "";
+    let cleanUserCountry = rawCountry ? rawCountry.trim() : "";
+
+    // If country is missing from location.country, see if city string contains a recognizable country
+    if (!cleanUserCountry && rawCity) {
+      const parts = rawCity.split(',').map(p => p.trim());
+      if (parts.length >= 2) {
+        cleanUserCountry = parts[parts.length - 1];
+      }
+    }
+
+    // Check if city/country scope requested but user has not set location
+    if (scope === 'city' && !cleanUserCity) {
+      return {
+        success: true,
+        scope: 'city',
+        needsLocation: true,
+        activeScopeLabel: 'Your City',
+        userCount: 0,
+        entries: [],
+        myRank: null
+      };
+    }
+
+    if (scope === 'country' && !cleanUserCountry && !cleanUserCity) {
+      return {
+        success: true,
+        scope: 'country',
+        needsLocation: true,
+        activeScopeLabel: 'Your Country',
+        userCount: 0,
+        entries: [],
+        myRank: null
+      };
+    }
+
+    // Build location match query
+    let userFilter = {};
+
+    if (scope === 'city') {
+      const escapedCity = cleanUserCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      userFilter = {
+        'location.city': { $regex: new RegExp(`^${escapedCity}(,|$)`, 'i') }
+      };
+    } else if (scope === 'country') {
+      const countryTarget = cleanUserCountry || cleanUserCity;
+      const escapedCountry = countryTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      userFilter = {
+        $or: [
+          { 'location.country': { $regex: new RegExp(`^${escapedCountry}$`, 'i') } },
+          { 'location.city': { $regex: new RegExp(`^${escapedCountry}$`, 'i') } }
+        ]
+      };
+    } else {
+      // International / Global: all users
+      userFilter = {};
+    }
+
+    // Find users who opted in to comparison (or self, so current user can see their own rank)
+    const matchingUsers = await User.find({
+      ...userFilter,
+      $or: [
+        { optInComparison: true },
+        { _id: user._id }
+      ]
+    })
+      .select('_id displayName photoURL location currentStreak optInComparison')
+      .limit(200)
+      .lean();
+
+    if (!matchingUsers || matchingUsers.length === 0) {
+      return {
+        success: true,
+        scope,
+        activeScopeLabel: scope === 'city' ? cleanUserCity : scope === 'country' ? (cleanUserCountry || cleanUserCity) : 'Worldwide',
+        userCount: 0,
+        entries: [],
+        myRank: null
+      };
+    }
+
+    const matchingUserIds = matchingUsers.map(u => u._id);
+
+    // Fetch latest analyzed selfie for each user
+    const latestSelfies = await Selfie.aggregate([
+      { $match: { userId: { $in: matchingUserIds }, isAnalyzed: true, overallScore: { $ne: null } } },
+      { $sort: { takenAt: -1 } },
+      {
+        $group: {
+          _id: "$userId",
+          overallScore: { $first: "$overallScore" },
+          skinAge: { $first: "$skinAge" },
+          takenAt: { $first: "$takenAt" }
+        }
+      }
+    ]);
+
+    const selfieMap = new Map();
+    latestSelfies.forEach(s => selfieMap.set(s._id.toString(), s));
+
+    // Combine user details with their score
+    const scoredUsers = [];
+    matchingUsers.forEach(u => {
+      const s = selfieMap.get(u._id.toString());
+      if (s && typeof s.overallScore === 'number') {
+        const isMe = u._id.toString() === user._id.toString();
+        // If it's self, only show if user has optInComparison enabled
+        if (!isMe && !u.optInComparison) return;
+
+        scoredUsers.push({
+          userId: u._id.toString(),
+          isMe,
+          displayName: u.displayName || "Wellness Seeker",
+          photoURL: u.photoURL || null,
+          city: u.location?.city ? u.location.city.split(',')[0].trim() : "",
+          country: u.location?.country || "",
+          streak: u.currentStreak || 0,
+          overallScore: s.overallScore,
+          skinAge: s.skinAge,
+          takenAt: s.takenAt
+        });
+      }
+    });
+
+    // Sort descending by overallScore, then by currentStreak, then by recent activity
+    scoredUsers.sort((a, b) => {
+      if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      return new Date(b.takenAt) - new Date(a.takenAt);
+    });
+
+    // Assign rank positions (1-indexed)
+    const rankedEntries = scoredUsers.map((item, index) => ({
+      ...item,
+      rank: index + 1
+    }));
+
+    const myEntry = user.optInComparison ? rankedEntries.find(e => e.isMe) : null;
+    const myRank = myEntry ? myEntry.rank : null;
+
+    let activeScopeLabel = 'Worldwide';
+    if (scope === 'city') activeScopeLabel = cleanUserCity || 'City';
+    else if (scope === 'country') activeScopeLabel = cleanUserCountry || cleanUserCity || 'Country';
+
+    return {
+      success: true,
+      scope,
+      activeScopeLabel,
+      userCount: rankedEntries.length,
+      entries: rankedEntries.slice(0, 50),
+      myRank
+    };
+  } catch {
+    return { success: false, error: "Failed to fetch leaderboard. Please try again later." };
+  }
+}
+

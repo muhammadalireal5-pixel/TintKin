@@ -7,6 +7,7 @@ const protectedUserPaths = [
   "/history",
   "/onboarding",
   "/share",
+  "/leaderboard",
 ];
 
 const authPaths = [
@@ -28,7 +29,19 @@ export async function proxy(request) {
 
   // Protect User routes
   const isProtectedUserPath = protectedUserPaths.some((p) => pathname.startsWith(p));
-  const session = request.cookies.get("__session")?.value;
+  const sessionCookieNames = [
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+  ];
+  const session = request.cookies
+    .getAll()
+    .find(
+      (c) =>
+        sessionCookieNames.some((n) => c.name === n || c.name.startsWith(`${n}.`)) &&
+        Boolean(c.value)
+    )?.value;
 
   if (isProtectedUserPath) {
     if (!session) {

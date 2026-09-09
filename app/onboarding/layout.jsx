@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getAuthenticatedUser } from "@/app/lib/firebase/admin";
+import mongoose from "mongoose";
+import { getAuthenticatedUser } from "@/app/lib/auth-server";
 import { connectDb, User } from "@/app/lib/mongoose";
 
 export const metadata = {
@@ -11,6 +12,8 @@ export const metadata = {
   },
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function OnboardingLayout({ children }) {
     let decoded;
     try {
@@ -21,17 +24,15 @@ export default async function OnboardingLayout({ children }) {
     if (!decoded) redirect("/sign-in");
 
     await connectDb();
-    let user = await User.findOne({ firebaseUid: decoded.uid });
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
+      user = await User.findById(decoded.uid);
+    }
     if (!user && decoded.email) {
-      const candidates = await User.find({ email: decoded.email });
-      if (candidates.length === 1) {
-        const candidate = candidates[0];
-        if (!candidate.firebaseUid) {
-          candidate.firebaseUid = decoded.uid;
-          await candidate.save();
-          user = candidate;
-        }
-      }
+      user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
+    }
+    if (!user) {
+      user = await User.findOne({ firebaseUid: decoded.uid });
     }
     if (user?.onboardingComplete) {
         redirect("/dashboard");

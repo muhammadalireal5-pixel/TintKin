@@ -14,9 +14,16 @@ import {
   Crown,
   Sparkles,
   SlidersHorizontal,
+  Trophy,
+  Download,
+  Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings } from "@/app/lib/actions";
+import { exportUserData } from "@/app/lib/export-data";
+import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
@@ -44,6 +51,10 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [optIn, setOptIn] = useState(false);
   const [photoPrivacy, setPhotoPrivacy] = useState(PHOTO_PRIVACY.STORE);
   const [standardPlanFrequency, setStandardPlanFrequency] = useState(STANDARD_PACING.FLEXIBLE);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const panelRef = useRef(null);
 
   // Fetch DB profile data when modal opens
@@ -216,6 +227,91 @@ export default function SettingsModal({ isOpen, onClose }) {
     setStandardPlanFrequency(newFrequency);
     await updateUserSettings({ standardPlanFrequency: newFrequency });
     setProfile((prev) => ({ ...prev, standardPlanFrequency: newFrequency }));
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const res = await exportUserData();
+      if (res?.success && res.base64Zip) {
+        const byteCharacters = atob(res.base64Zip);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/zip" });
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = res.filename || "tintkin-data-export.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        showToast({
+          type: "success",
+          title: "Export Complete",
+          message: "Your complete data and photos have been downloaded.",
+        });
+      } else {
+        showToast({
+          type: "error",
+          title: "Export Failed",
+          message: res?.error || "Could not generate data export.",
+        });
+      }
+    } catch (err) {
+      showToast({
+        type: "error",
+        title: "Export Failed",
+        message: err.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim() !== "DELETE") {
+      showToast({
+        type: "error",
+        title: "Confirmation Required",
+        message: 'Please type "DELETE" to confirm account erasure.',
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await deleteUserAccount();
+      if (res?.success) {
+        showToast({
+          type: "success",
+          title: "Account Deleted",
+          message: "Your account and personal data have been permanently erased.",
+        });
+        setShowDeleteConfirm(false);
+        await signOutUser();
+        onClose();
+      } else {
+        showToast({
+          type: "error",
+          title: "Deletion Failed",
+          message: res?.error || "Failed to delete account.",
+        });
+      }
+    } catch (err) {
+      showToast({
+        type: "error",
+        title: "Deletion Failed",
+        message: err.message || "Something went wrong.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (!mounted) return null;
@@ -518,6 +614,18 @@ export default function SettingsModal({ isOpen, onClose }) {
             </p>
             <div className="space-y-1">
               <Link
+                href="/leaderboard"
+                onClick={onClose}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <Trophy size={16} className="text-[#8A9A5B]" />
+                  <span className="text-sm font-medium text-[#2C3E50]">Community Board</span>
+                </div>
+                <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+              </Link>
+
+              <Link
                 href="/history"
                 onClick={onClose}
                 className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
@@ -552,7 +660,48 @@ export default function SettingsModal({ isOpen, onClose }) {
                 </div>
                 <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
               </Link>
+
+              <button
+                type="button"
+                onClick={handleExportData}
+                disabled={isExporting}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group text-left disabled:opacity-60"
+              >
+                <div className="flex items-center gap-3">
+                  <Download size={16} className="text-[#8A9A5B]" />
+                  <div>
+                    <span className="text-sm font-medium text-[#2C3E50]">Download My Data</span>
+                    <p className="text-[11px] text-[#8E9BAA]">GDPR / CCPA data & photos (.zip)</p>
+                  </div>
+                </div>
+                {isExporting ? (
+                  <Loader2 size={14} className="animate-spin text-[#8A9A5B]" />
+                ) : (
+                  <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                )}
+              </button>
             </div>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="px-6 py-5 border-b border-black/5">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-red-500 mb-1.5">
+              Danger Zone
+            </p>
+            <p className="text-xs text-[#5B6D7F] mb-3">
+              Permanently erase your account, all uploaded selfies, simulations, and journal history.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmText("");
+                setShowDeleteConfirm(true);
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50/70 transition-all flex items-center gap-1.5"
+            >
+              <Trash2 size={13} />
+              Delete Account
+            </button>
           </div>
         </div>
 
@@ -574,7 +723,70 @@ export default function SettingsModal({ isOpen, onClose }) {
           </button>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div
+            className="w-full max-w-md bg-[#FDFBF7] rounded-2xl p-6 shadow-2xl border border-red-100 text-[#2C3E50]"
+            role="alertdialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center gap-3 mb-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Permanently Delete Account?</h3>
+                <p className="text-xs text-[#5B6D7F]">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#5B6D7F] leading-relaxed mb-4">
+              All your skin analysis data, uploaded photos, simulations, routine streaks, and account credentials will be immediately and irreversibly wiped.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-[#2C3E50] mb-1.5">
+                Type <span className="font-bold text-red-600">DELETE</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 text-sm border border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText("");
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText.trim() !== "DELETE" || isDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-xs"
+              >
+                {isDeleting && <Loader2 size={13} className="animate-spin" />}
+                {isDeleting ? "Erasing Data..." : "Permanently Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>,
     document.body
   );
 }
+

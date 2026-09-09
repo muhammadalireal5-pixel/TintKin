@@ -11,13 +11,14 @@
     "type-check": "tsc -p jsconfig.json --noEmit"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.73.0",
+    "bcryptjs": "^3.0.2",
     "fflate": "^0.8.3",
-    "firebase": "^12.17.1",
-    "firebase-admin": "^14.2.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.27.0",
     "mongoose": "^8.5.2",
     "next": "16.2.12",
+    "next-auth": "5.0.0-beta.25",
     "next-cloudinary": "^6.17.5",
     "openai": "^6.49.0",
     "react": "19.2.4",

@@ -5,9 +5,6 @@ import { YOUCAM_DST_ACTIONS } from "@/lib/constants/metrics";
 const BASE = "https://yce-api-01.makeupar.com";
 const KEY = process.env.YOUCAM_API_KEY;
 
-function faceCroppedUrl(cloudinaryUrl) {
-  return applyFaceCropToCloudinary(cloudinaryUrl, 1.3);
-}
 
 function formatYouCamError(errStr) {
   if (typeof errStr !== "string") errStr = JSON.stringify(errStr);
@@ -15,15 +12,24 @@ function formatYouCamError(errStr) {
     return "Your face appears too small or far away in the photo. Please upload a closer, clear photo of your face.";
   }
   if (errStr.includes("error_src_face_not_found")) {
-    return "No face was detected. Please ensure your face is clearly visible and well-lit.";
+    return "No face was detected. If you are wearing a hijab or head covering, ensure your forehead, cheeks, and chin are clearly visible in good lighting.";
   }
   if (errStr.includes("error_src_face_out_of_bound")) {
-    return "The face in your photo is partially out of bounds or cropped too tightly. Please ensure your full face (forehead to chin) is visible in the frame.";
+    return "The face in your photo is cropped too tightly or partially out of bounds. Please step slightly back so your full face (forehead to chin) is visible.";
   }
   if (errStr.includes("error_lighting_dark")) {
-    return "The lighting in your photo is too dark for accurate simulation. Please use a clear, well-lit photo.";
+    return "The lighting in your photo is too dark for accurate analysis. Please use a clear, well-lit photo.";
   }
   return errStr;
+}
+
+function createYouCamError(rawErr) {
+  const rawStr = typeof rawErr === "string" ? rawErr : JSON.stringify(rawErr);
+  const formatted = formatYouCamError(rawStr);
+  const err = new Error(formatted);
+  err.rawCode = rawStr;
+  err.isUserFacing = formatted !== rawStr;
+  return err;
 }
 
 async function pollTask(taskType, taskId) {
@@ -40,7 +46,7 @@ async function pollTask(taskType, taskId) {
     }
     if (status === "error" || status === "failed") {
       const rawErr = data.error_code || data.error_message || data.error || JSON.stringify(res);
-      throw new Error(formatYouCamError(rawErr));
+      throw createYouCamError(rawErr);
     }
 
     await new Promise(r => setTimeout(r, 1000));
@@ -115,30 +121,72 @@ export async function extractScoreInfo(data) {
 }
 
 export async function analyzeSkin(imageUrl) {
-  const croppedUrl = faceCroppedUrl(imageUrl);
+  const candidates = [];
+  // Candidate 1: Original uncropped image so YouCam's native detector has full head & shoulder context
+  candidates.push(imageUrl);
 
-  const response = await fetch(`${BASE}/s2s/v2.0/task/skin-analysis`, {
-    method: "POST",
-    headers: { 
-      Authorization: `Bearer ${KEY}`, 
-      "Content-Type": "application/json" 
-    },
-    body: JSON.stringify({ 
-      src_file_url: croppedUrl, 
-      dst_actions: YOUCAM_DST_ACTIONS,
-      format: "json"
-    })
-  });
-
-  const res = await response.json();
-  const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
-
-  if (!taskId) {
-    const rawErr = res.error_message || res.error || JSON.stringify(res);
-    throw new Error(formatYouCamError(rawErr));
+  if (imageUrl.includes("/upload/")) {
+    // Candidate 2: Wide padding crop (0.9 zoom) giving plenty of margin around head coverings
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9));
+    // Candidate 3: Standard centered crop (1.05 zoom)
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 1.05));
+    // Candidate 4: Tighter zoom (1.3 zoom) as last resort if face was too far away
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 1.3));
   }
 
-  return pollTask("skin-analysis", taskId);
+  const startTime = Date.now();
+  let lastError;
+  for (let i = 0; i < candidates.length; i++) {
+    const candidateUrl = candidates[i];
+
+    try {
+      const response = await fetch(`${BASE}/s2s/v2.0/task/skin-analysis`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${KEY}`, 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          src_file_url: candidateUrl, 
+          dst_actions: YOUCAM_DST_ACTIONS,
+          format: "json"
+        })
+      });
+
+      const res = await response.json();
+      const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
+
+      if (!taskId) {
+        const rawErr = res.error_message || res.error || JSON.stringify(res);
+        throw createYouCamError(rawErr);
+      }
+
+      return await pollTask("skin-analysis", taskId);
+    } catch (err) {
+      lastError = err;
+      const rawCode = (err?.rawCode || "").toLowerCase();
+      const errMsg = (err?.message || String(err)).toLowerCase();
+      const isRetryable =
+        rawCode.includes("error_src_face") ||
+        rawCode.includes("face_not_found") ||
+        rawCode.includes("face_too_small") ||
+        rawCode.includes("face_out_of_bound") ||
+        rawCode.includes("error_lighting_dark") ||
+        errMsg.includes("out of bound") ||
+        errMsg.includes("too small") ||
+        errMsg.includes("not found") ||
+        errMsg.includes("error_src_face");
+
+      const elapsed = Date.now() - startTime;
+      if (isRetryable && i < candidates.length - 1 && elapsed < 45000) {
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw lastError || new Error("Failed to analyze skin photo.");
 }
 
 

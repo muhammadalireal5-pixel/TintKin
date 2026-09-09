@@ -11,7 +11,9 @@ import LocationPrompt from "./LocationPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import RoutineChecklist from "./RoutineChecklist";
 import TrophyCase from "./TrophyCase";
-import PercentileCard from "./PercentileCard";
+import LeaderboardCard from "./LeaderboardCard";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData();
@@ -92,11 +94,11 @@ export default async function DashboardPage() {
                     </div>
 
                     {/* Overall Harmony */}
-                    <div className="tk-glass p-8 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-3 relative">
+                    <div className="tk-glass p-6 sm:p-7 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-3 relative">
                         <div>
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex justify-between items-start mb-1.5">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2.5">
                                     <Link href="/share" className="text-xs font-semibold text-sage hover:text-primary transition-colors flex items-center gap-1.5 bg-sage/10 px-3 py-1 rounded-full border border-sage/20">
                                         <Share2 size={12} /> Share Card
                                     </Link>
@@ -105,47 +107,47 @@ export default async function DashboardPage() {
                                     </Link>
                                 </div>
                             </div>
-                            <p className="text-sm text-primary mb-6">Your skin&apos;s overall balance and vitality.</p>
+                            <p className="text-xs sm:text-sm text-primary mb-4">Your skin&apos;s overall balance and vitality.</p>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-10">
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8 my-2">
                             {/* Today */}
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
-                                <div className="flex items-end gap-2">
-                                    <h2 className="text-5xl sm:text-6xl font-display font-medium text-primary leading-none">
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
+                                <div className="flex items-end gap-1.5">
+                                    <h2 className="text-4xl sm:text-5xl font-display font-medium text-primary leading-none">
                                         {typeof overallScore === 'number' ? overallScore : "—"}
                                     </h2>
-                                    <span className="text-lg text-muted mb-1">/ 100</span>
+                                    <span className="text-base text-muted mb-0.5">/ 100</span>
                                 </div>
                             </div>
                             
-                            <div className="hidden sm:block w-px h-16 bg-black/10"></div>
+                            <div className="hidden sm:block w-px h-12 bg-black/10"></div>
                             <div className="sm:hidden h-px w-full bg-black/5"></div>
                             
                             {/* This Week */}
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
                                 {weeklyAverage?.overallScore != null ? (
                                     <>
-                                        <div className="flex items-end gap-2">
-                                            <h2 className="text-5xl sm:text-6xl font-display font-medium text-sage leading-none">
+                                        <div className="flex items-end gap-1.5">
+                                            <h2 className="text-4xl sm:text-5xl font-display font-medium text-sage leading-none">
                                                 {weeklyAverage.overallScore}
                                             </h2>
-                                            <span className="text-lg text-muted mb-1">/ 100</span>
+                                            <span className="text-base text-muted mb-0.5">/ 100</span>
                                         </div>
-                                        <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
+                                        <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
                                             ── {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'} ──
                                         </p>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="flex items-end gap-2">
-                                            <h2 className="text-4xl sm:text-5xl font-display font-medium text-muted/60 leading-none">
+                                        <div className="flex items-end gap-1.5">
+                                            <h2 className="text-3xl sm:text-4xl font-display font-medium text-muted/60 leading-none">
                                                 —
                                             </h2>
                                         </div>
-                                        <p className="text-[10px] text-muted mt-1 uppercase tracking-wider font-semibold">
+                                        <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
                                             First scan this week
                                         </p>
                                     </>
@@ -153,41 +155,45 @@ export default async function DashboardPage() {
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-6 border-t border-solid border-black/5">
-                            <p className="text-sm text-muted">
+                        <div className="mt-4 pt-3.5 border-t border-solid border-black/5">
+                            <p className="text-xs sm:text-sm text-muted leading-relaxed">
                                 {critique || (adviceStatus === 'error' ? 'AI personalized advice is temporarily updating and will refresh on your next scan.' : typeof overallScore === 'number' && overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : typeof overallScore === 'number' && overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
                             </p>
                         </div>
                     </div>
 
-                    {/* Age cards + Percentile */}
-                    <div className="flex flex-col gap-6 md:col-span-1 lg:col-span-1 tk-anim-3">
-                        <div className="tk-glass p-6 flex-1 flex flex-col justify-center">
-                            <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Real Age</p>
-                            <p className="text-4xl font-display text-primary">{hasRealAge ? realAge : "—"}</p>
-                        </div>
-                        
-                        <div className={`tk-glass p-6 flex-1 flex flex-col justify-center border ${skinOlder ? 'border-sage/30' : 'border-lavender/40'}`}>
-                            <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Skin Age</p>
-                            <div className="flex items-baseline gap-3">
-                                <p className="text-4xl font-display text-primary">{hasSkinAge ? skinAge : "—"}</p>
-                                {ageDelta != null && (
-                                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
-                                        {skinOlder ? `+${ageDelta}` : `-${ageDelta}`} yrs
-                                    </span>
-                                )}
+                    {/* Age cards + Leaderboard */}
+                    <div className="flex flex-col gap-2.5 md:col-span-1 lg:col-span-1 tk-anim-3">
+                        {/* Twin Age Cards Side-by-Side */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <div className="tk-glass p-3 rounded-2xl flex flex-col justify-center">
+                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Real Age</p>
+                                <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
+                            </div>
+                            
+                            <div className={`tk-glass p-3 rounded-2xl flex flex-col justify-center border ${skinOlder ? 'border-sage/30' : 'border-lavender/40'}`}>
+                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Skin Age</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
+                                    {ageDelta != null && (
+                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
+                                            {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         
-                        <div className="flex-1">
-                            <PercentileCard optedIn={user.optInComparison} />
+                        {/* Community Board Card */}
+                        <div className="flex-1 min-h-0 flex flex-col">
+                            <LeaderboardCard />
                         </div>
                     </div>
 
                     {/* Profile Radar */}
-                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-1 min-h-[300px] flex flex-col tk-anim-4">
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-6">Profile Radar</p>
-                        <div className="flex-1 w-full relative">
+                    <div className="tk-glass p-5 sm:p-6 md:col-span-3 lg:col-span-1 flex flex-col tk-anim-4">
+                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Profile Radar</p>
+                        <div className="flex-1 w-full relative min-h-[220px]">
                             <ComponentErrorFallback title="Radar Chart">
                                 <RadarChartClient scores={scores} />
                             </ComponentErrorFallback>

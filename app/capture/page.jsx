@@ -4,7 +4,8 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
-import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft } from "lucide-react";
+import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop } from "lucide-react";
+import ImageCropper from "@/app/components/ImageCropper";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import Link from "next/link";
 
@@ -20,6 +21,9 @@ export default function CapturePage() {
     const [loadingTextIndex, setLoadingTextIndex] = useState(0);
     const [preview, setPreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [rawImage, setRawImage] = useState(null);
+    const [rawFile, setRawFile] = useState(null);
+    const [isCropping, setIsCropping] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [quotas, setQuotas] = useState(null);
 
@@ -75,15 +79,42 @@ export default function CapturePage() {
         return res.url;
     };
 
+    const clearRawImage = () => {
+        if (rawImage) URL.revokeObjectURL(rawImage);
+        setRawImage(null);
+        setRawFile(null);
+    };
+
     const handleFile = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        setPreview(URL.createObjectURL(file));
-        setSelectedFile(file);
+        if (rawImage) URL.revokeObjectURL(rawImage);
+        const url = URL.createObjectURL(file);
+        setRawFile(file);
+        setRawImage(url);
+        setIsCropping(true);
         setIsFlipped(false);
         setStatus(null);
         e.target.value = "";
+    };
+
+    const handleCropComplete = (croppedFile, croppedUrl) => {
+        setSelectedFile(croppedFile);
+        setPreview(croppedUrl);
+        setIsCropping(false);
+    };
+
+    const handleCropCancel = () => {
+        if (preview && selectedFile) {
+            setIsCropping(false);
+        } else {
+            setRawImage(null);
+            setRawFile(null);
+            setPreview(null);
+            setSelectedFile(null);
+            setIsCropping(false);
+        }
     };
 
     const confirmUpload = async () => {
@@ -149,17 +180,26 @@ export default function CapturePage() {
 
             <div className="capture-card">
                 <ComponentErrorFallback title="Camera Access Error">
-                <div className="capture-header">
-                    <div className="camera-badge">
-                        <Camera size={26} strokeWidth={2} />
+                {!isCropping && (
+                    <div className="capture-header">
+                        <div className="camera-badge">
+                            <Camera size={26} strokeWidth={2} />
+                        </div>
+                        <h1 className="capture-title">Today&apos;s Entry</h1>
+                        <p className="capture-subtitle">
+                            A clear, front-facing photo in good lighting gives the best results.
+                        </p>
                     </div>
-                    <h1 className="capture-title">Today&apos;s Entry</h1>
-                    <p className="capture-subtitle">
-                        A clear, front-facing photo in good lighting gives the best results.
-                    </p>
-                </div>
+                )}
 
-                {preview ? (
+                {isCropping && rawImage ? (
+                    <ImageCropper
+                        imageSrc={rawImage}
+                        originalFile={rawFile}
+                        onCropComplete={handleCropComplete}
+                        onCancel={handleCropCancel}
+                    />
+                ) : preview ? (
                     <div>
                         <div className="preview-wrap">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -179,10 +219,18 @@ export default function CapturePage() {
                         {!loading && (
                             <div className="preview-actions flex flex-wrap sm:flex-nowrap gap-2 mt-4 w-full px-1">
                                 <button 
-                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[90px] text-xs sm:text-sm py-2 sm:py-3" 
+                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3" 
                                     onClick={() => setIsFlipped(!isFlipped)}
+                                    title="Mirror photo"
                                 >
-                                    Flip <FlipHorizontal size={18} className="ml-1" />
+                                    Flip <FlipHorizontal size={16} className="ml-1" />
+                                </button>
+                                <button 
+                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3" 
+                                    onClick={() => setIsCropping(true)}
+                                    title="Adjust face framing"
+                                >
+                                    Crop <Crop size={16} className="ml-1" />
                                 </button>
                                 <button 
                                     className="cta-btn cta-primary flex-[2] justify-center" 
@@ -192,7 +240,7 @@ export default function CapturePage() {
                                 </button>
                                 <button 
                                     className="cta-btn cta-secondary cta-cancel justify-center" 
-                                    onClick={() => { setPreview(null); setSelectedFile(null); }}
+                                    onClick={() => { setPreview(null); setSelectedFile(null); clearRawImage(); }}
                                     aria-label="Cancel"
                                 >
                                     <X size={20} />
@@ -265,10 +313,15 @@ export default function CapturePage() {
                     </div>
                 )}
 
-                {preview && !loading && (
+                {preview && !loading && !isCropping && (
                     <button
                         className="retake-btn flex items-center justify-center w-full mt-2"
-                        onClick={() => { setPreview(null); setStatus(null); }}
+                        onClick={() => {
+                            setPreview(null);
+                            setSelectedFile(null);
+                            clearRawImage();
+                            setStatus(null);
+                        }}
                     >
                         <ArrowLeft size={14} className="mr-1" /> Try a different photo
                     </button>

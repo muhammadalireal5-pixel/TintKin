@@ -1,4 +1,6 @@
 import os from "os";
+import { withSentryConfig } from "@sentry/nextjs/config";
+
 
 const getDevOrigins = () => {
   const origins = new Set(["localhost", "localhost:3000", "127.0.0.1", "127.0.0.1:3000"]);
@@ -43,8 +45,15 @@ const nextConfig = {
       allowedOrigins: devOrigins,
     },
   },
-  serverExternalPackages: ["firebase-admin"],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  hideSourceMaps: true,
+});
+
 

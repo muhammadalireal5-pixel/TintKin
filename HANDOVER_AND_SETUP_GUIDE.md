@@ -96,6 +96,24 @@ TintKin is built on a high-performance, serverless modern stack:
 PAYMENT_WEBHOOK_SECRET="generate-any-secure-random-token"
 ENABLE_DEMO_TIER_SWITCHING="true"
 ```
+> **Note for Production Launch:** Set `ENABLE_DEMO_TIER_SWITCHING="false"` to require genuine payments. Follow [`PAYMENT_INTEGRATION_GUIDE.md`](./PAYMENT_INTEGRATION_GUIDE.md) to route your Stripe, Polar.sh, or Lemon Squeezy webhooks directly to `/api/webhooks/billing`.
+
+### Step 8: Sentry Error Monitoring & PII Sanitization
+1. Create a project on [Sentry.io](https://sentry.io).
+2. Copy your client/server DSN:
+   ```env
+   NEXT_PUBLIC_SENTRY_DSN="https://xxxx@xxxx.ingest.sentry.io/xxxx"
+   SENTRY_DSN="https://xxxx@xxxx.ingest.sentry.io/xxxx"
+   SENTRY_ORG="your-org"
+   SENTRY_PROJECT="tintkin"
+   ```
+3. **Built-in PII Scrubbing:** All outgoing Sentry telemetry automatically filters out customer emails, names, user IP addresses, and selfie image URLs (`lib/utils/pii-scrubber.js`), preventing crash logs from retaining customer data.
+
+### Step 9: GDPR / CCPA Compliance & Privacy Architecture
+- **Right to Erasure (Account Deletion):** Users can permanently delete their account under Settings -> Danger Zone. This triggers a cascading wipe that immediately purges MongoDB documents and deletes all selfie images stored in Cloudinary via `deleteUserAccount()`.
+- **Right to Data Portability (GDPR Art. 20):** Users can download their complete personal data bundle under Settings -> Quick Access -> "Download My Data". An in-memory ZIP containing `user_data.json` and permanent image files (`photos/`) is generated via `exportUserData()`.
+- **Sliding-Window Rate Limiting:** Built-in in-memory rate limiting protects expensive AI diagnostic endpoints (`app/lib/rate-limit.js`) from burst attacks without external Redis dependencies.
+- **Signed Storage Delivery:** Cloudinary delivery URLs are signed using HMAC tokens (`lib/utils/cloudinary-sign.js`), safeguarding stored photos from public URL guessing.
 
 ---
 

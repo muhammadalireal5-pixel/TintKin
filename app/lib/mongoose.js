@@ -39,8 +39,23 @@ export const connectDb = async () => {
 };
 
 const UserSchema = new mongoose.Schema({
-    firebaseUid: { type: String, unique: true, sparse: true, index: true },
-    email: { type: String, index: true },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      index: { unique: true, partialFilterExpression: { email: { $type: "string" } } },
+    },
+    passwordHash: { type: String, select: false },
+    googleId: {
+      type: String,
+      index: { unique: true, partialFilterExpression: { googleId: { $type: "string" } } },
+    },
+    firebaseUid: {
+      type: String,
+      index: { unique: true, partialFilterExpression: { firebaseUid: { $type: "string" } } },
+    },
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
     displayName: { type: String },
     photoURL: { type: String },
     lastLoginAt: { type: Date },
@@ -74,7 +89,9 @@ const UserSchema = new mongoose.Schema({
     location: {
       lat: Number,
       lng: Number,
-      city: String
+      city: String,
+      country: String,
+      countryCode: String,
     },
     photoPrivacy: { type: String, enum: ['store', 'delete'], default: 'store' },
     baselineSelfie: { type: String, default: null },

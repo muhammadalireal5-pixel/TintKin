@@ -16,6 +16,7 @@ export function HeaderAuth() {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/capture", label: "Scan" },
     { href: "/what-if", label: "What-If" },
+    { href: "/leaderboard", label: "Board" },
   ];
 
   if (!user) {
