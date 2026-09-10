@@ -1,4 +1,5 @@
 import { getLatestData } from "@/app/lib/actions";
+import { SkeletonRoutine, SkeletonScoreCard, SkeletonRadar, SkeletonChart, SkeletonTrophy } from "./SkeletonLoader";
 import { redirect } from "next/navigation";
 import RadarChartClient from "./RadarChartClient";
 import ProgressChart from "./ProgressChart";
@@ -77,7 +78,7 @@ export default async function DashboardPage() {
                 </div>
 
                 {latestSelfie && latestSelfie.isAnalyzed === false && (
-                    <StreakPhotoBanner />
+                    <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                 )}
 
                 {/* Bento Grid */}
@@ -308,4 +309,30 @@ export default async function DashboardPage() {
             </div>
         </div>
     );
+}}
+
+export default async function DashboardPage() {
+    try {
+        return await DashboardContent();
+    } catch (error) {
+        // If data fails to load, show skeleton loaders
+        return (
+            <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
+                <div className="max-w-6xl mx-auto space-y-6">
+                    <SkeletonRoutine />
+                    <SkeletonScoreCard />
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                        <div className="md:col-span-2 lg:col-span-2"><SkeletonRadar /></div>
+                        <div className="md:col-span-1 lg:col-span-1 space-y-3">
+                            <div className="tk-glass p-3 rounded-2xl animate-pulse h-20 bg-lavender/30"></div>
+                            <div className="tk-glass p-3 rounded-2xl animate-pulse h-20 bg-lavender/30"></div>
+                            <div className="tk-glass p-3 rounded-2xl animate-pulse flex-1 min-h-[120px] bg-lavender/30"></div>
+                        </div>
+                    </div>
+                    <SkeletonTrophy />
+                    <SkeletonChart />
+                </div>
+            </div>
+        );
+    }
 }

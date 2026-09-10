@@ -245,7 +245,7 @@ export default function TrophyCase({
           <span>Click any badge to view the full certificate and export as a shareable PNG image.</span>
         </span>
         <span className="text-[10px] uppercase font-semibold tracking-wider text-sage">
-          TintKin Longevity Gamification
+          Your Badge for Your Skin
         </span>
       </div>
 

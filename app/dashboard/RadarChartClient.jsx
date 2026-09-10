@@ -49,21 +49,21 @@ export default function RadarChartClient({ scores }) {
         <RadarChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fontSize: 11, fill: '#8E9BAA', fontFamily: 'var(--font-outfit, inherit)' }}
+            tick={{ fontSize: 11, fill: '#8A9A5B', fontFamily: 'var(--font-outfit, inherit)', fontWeight: 600 }}
             tickLine={false}
           />
           <Tooltip content={<CustomTooltip />} />
           <Radar
             dataKey="value"
-            stroke="rgba(138, 154, 91, 0.6)"
+            stroke="#8A9A5B"
             fill="url(#radarGradient)"
-            fillOpacity={0.6}
-            strokeWidth={2}
+            fillOpacity={0.7}
+            strokeWidth={3}
           />
           <defs>
             <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#E6E6FA" />
-              <stop offset="100%" stopColor="#8A9A5B" stopOpacity={0.5} />
+              <stop offset="0%" stopColor="#8A9A5B" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#E6E6FA" stopOpacity={0.4} />
             </linearGradient>
           </defs>
         </RadarChart>

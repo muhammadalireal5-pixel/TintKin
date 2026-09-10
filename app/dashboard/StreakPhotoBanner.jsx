@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
 
-export default function StreakPhotoBanner() {
+export default function StreakPhotoBanner({ latestSelfie, user }) {
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed) return null;
+  // Check if today's photo is already logged (isAnalyzed === false means it's uploaded but not yet analyzed, or it's a streak photo)
+  const hasLoggedToday = latestSelfie && !latestSelfie.isAnalyzed;
+
+  if (dismissed || !hasLoggedToday) return null;
 
   return (
     <div className="mb-8 p-4 bg-sage/10 border border-sage/30 rounded-2xl flex items-start justify-between gap-3 tk-anim-2 relative">

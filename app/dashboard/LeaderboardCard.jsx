@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getLeaderboard } from "@/app/lib/actions";
 import Link from "next/link";
 import {
@@ -43,6 +43,30 @@ export default function LeaderboardCard() {
       isCurrent = false;
     };
   }, [activeScope]);
+
+  // Filter entries based on scope - Global users should only appear in Global tab
+  const displayEntries = useMemo(() => {
+    if (!data?.entries || data.entries.length === 0) return [];
+    
+    if (activeScope === "international") {
+      // Global scope shows everyone
+      return data.entries;
+    } else if (activeScope === "country") {
+      // Country scope: only show users from the same country, exclude global/international users
+      return data.entries.filter(entry => {
+        // Only include users who have a country set and match the active country
+        // Exclude users flagged as global/international (those without a specific country)
+        return entry.country && 
+               entry.country === data.activeCountry;
+      });
+    } else {
+      // City scope: only show users from the same city
+      return data.entries.filter(entry => {
+        return entry.city && 
+               entry.city === data.activeCity;
+      });
+    }
+  }, [data?.entries, activeScope, data?.activeCountry, data?.activeCity]);
 
   return (
     <div className="tk-glass p-4 sm:p-4.5 rounded-3xl h-full flex flex-col justify-between shadow-sm border border-black/5 overflow-hidden min-h-[250px]">
@@ -126,7 +150,7 @@ export default function LeaderboardCard() {
           </div>
         ) : (
           <div className="space-y-1.5 h-full overflow-y-auto pr-1 scrollbar-thin">
-            {data.entries.slice(0, 10).map((entry) => {
+            {displayEntries.slice(0, 10).map((entry) => {
               const isRank1 = entry.rank === 1;
               const isRank2 = entry.rank === 2;
               const isRank3 = entry.rank === 3;

@@ -49,6 +49,8 @@ export default function LocationPrompt({ user }) {
             const res = await saveLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
             if (res?.success) {
               setShow(false);
+              // Trigger a page reload to refresh all location-dependent components
+              window.location.reload();
               showToast({ type: "success", title: "Location Saved", message: "Weather-aware skincare tips enabled!" });
             } else {
               showToast({ type: "error", title: "Error", message: res?.error || "Failed to save location." });
@@ -78,6 +80,8 @@ export default function LocationPrompt({ user }) {
       const res = await saveLocation({ city });
       if (res?.success) {
         setShow(false);
+        // Trigger a page reload to refresh all location-dependent components
+        window.location.reload();
         showToast({ type: "success", title: "Location Saved", message: "Weather-aware skincare tips enabled!" });
       } else {
         showToast({ type: "error", title: "Error", message: res?.error || "City not found. Please try again." });

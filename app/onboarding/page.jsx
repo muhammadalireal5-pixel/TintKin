@@ -61,21 +61,22 @@ export default function OnboardingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-base tk-mesh-bg flex items-center justify-center p-4 sm:p-6">
-            <div className="max-w-md w-full tk-glass p-6 sm:p-8 relative tk-anim-1">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-display font-medium text-primary mb-2">Welcome to TintKin</h1>
-                    <p className="text-muted text-sm">Let's personalize your skin journey.</p>
+        <div className="min-h-screen bg-base tk-mesh-bg flex items-center justify-center p-4 sm:p-6 lg:p-8">
+            <div className="max-w-md w-full tk-glass p-5 sm:p-7 lg:p-9 relative tk-anim-1 shadow-lg rounded-3xl border border-white/60">
+                <div className="text-center mb-5 sm:mb-7">
+                    <h1 className="text-xl sm:text-2xl font-display font-medium text-primary mb-1.5 leading-tight">Welcome to TintKin</h1>
+                    <p className="text-xs sm:text-sm text-muted">Let's personalize your skin journey.</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm mb-6 border border-red-200">
-                        {error}
+                    <div className="bg-red-50 text-red-700 p-3 rounded-xl text-sm mb-6 border border-red-200 flex items-start gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span>{error}</span>
                     </div>
                 )}
 
                 {step === 1 && (
-                    <div className="space-y-6 tk-anim-2">
+                    <div className="space-y-4 tk-anim-2">
                         <div>
                             <label className="block text-sm font-medium text-primary mb-2">Date of Birth</label>
                             <input 
@@ -83,7 +84,7 @@ export default function OnboardingPage() {
                                 name="birthDate"
                                 value={formData.birthDate}
                                 onChange={handleChange}
-                                className="w-full bg-white/50 border border-lavender/50 rounded-xl p-3 text-primary focus:outline-none focus:border-sage focus:ring-1 focus:ring-sage"
+                                className="w-full bg-white/70 border border-lavender/60 rounded-xl p-3 text-primary focus:outline-none focus:border-sage focus:ring-2 focus:ring-sage/30 transition-all"
                             />
                         </div>
                         <div>
@@ -92,7 +93,7 @@ export default function OnboardingPage() {
                                 name="sex"
                                 value={formData.sex}
                                 onChange={handleChange}
-                                className="w-full bg-white/50 border border-lavender/50 rounded-xl p-3 text-primary focus:outline-none focus:border-sage focus:ring-1 focus:ring-sage"
+                                className="w-full bg-white/70 border border-lavender/60 rounded-xl p-3 text-primary focus:outline-none focus:border-sage focus:ring-2 focus:ring-sage/30 transition-all"
                             >
                                 <option value="">Select...</option>
                                 {SEX_OPTIONS.map(opt => (
@@ -111,7 +112,7 @@ export default function OnboardingPage() {
                                     setError("Please complete all fields to continue.");
                                 }
                             }}
-                            className="tk-pill-btn tk-btn-primary w-full"
+                            className="tk-pill-btn tk-btn-primary w-full shadow-md hover:shadow-lg transition-shadow"
                         >
                             Next
                         </button>
@@ -119,7 +120,7 @@ export default function OnboardingPage() {
                 )}
 
                 {step === 2 && (
-                    <div className="space-y-6 tk-anim-2">
+                    <div className="space-y-4 tk-anim-2">
                         <div>
                             <label className="block text-sm font-medium text-primary mb-3">What's your skin type?</label>
                             <div className="grid grid-cols-2 gap-3">
@@ -127,10 +128,10 @@ export default function OnboardingPage() {
                                     <button
                                         key={type}
                                         onClick={() => setFormData(prev => ({ ...prev, skinType: type }))}
-                                        className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all ${
+                                        className={`p-3 rounded-xl border text-sm font-medium capitalize transition-all shadow-sm hover:shadow-md ${
                                             formData.skinType === type 
                                             ? 'bg-sage/20 border-sage text-sage' 
-                                            : 'bg-white/50 border-lavender/50 text-muted hover:border-sage/50'
+                                            : 'bg-white/70 border-lavender/60 text-muted hover:border-sage/70'
                                         }`}
                                     >
                                         {type}
@@ -141,7 +142,7 @@ export default function OnboardingPage() {
                         <div className="flex gap-3">
                             <button 
                                 onClick={() => setStep(1)}
-                                className="tk-pill-btn bg-white/50 border border-lavender text-primary flex-1"
+                                className="tk-pill-btn bg-white/70 border border-lavender/60 text-primary flex-1 shadow-sm hover:shadow-md transition-shadow"
                             >
                                 Back
                             </button>
@@ -154,7 +155,7 @@ export default function OnboardingPage() {
                                         setError("Please select your skin type.");
                                     }
                                 }}
-                                className="tk-pill-btn tk-btn-primary flex-1"
+                                className="tk-pill-btn tk-btn-primary flex-1 shadow-md hover:shadow-lg transition-shadow"
                             >
                                 Next
                             </button>
@@ -163,7 +164,7 @@ export default function OnboardingPage() {
                 )}
 
                 {step === 3 && (
-                    <div className="space-y-6 tk-anim-2">
+                    <div className="space-y-4 tk-anim-2">
                         <div>
                             <label className="block text-sm font-medium text-primary mb-3">What are your main goals?</label>
                             <div className="space-y-2">
@@ -171,7 +172,7 @@ export default function OnboardingPage() {
                                     <div key={goal}>
                                         <button
                                             onClick={() => handleGoalToggle(goal)}
-                                            className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all ${
+                                            className={`w-full text-left p-3 rounded-xl border text-sm font-medium transition-all shadow-sm hover:shadow-md ${
                                                 formData.goals.includes(goal)
                                                 ? 'bg-sage/20 border-sage text-sage'
                                                 : 'bg-white/50 border-lavender/50 text-muted hover:border-sage/50'

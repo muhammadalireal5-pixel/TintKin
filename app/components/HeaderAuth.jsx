@@ -16,6 +16,7 @@ export function HeaderAuth() {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/capture", label: "Scan" },
     { href: "/what-if", label: "What-If" },
+    { href: "/reports", label: "Reports" },
     { href: "/leaderboard", label: "Board" },
   ];
 
@@ -43,12 +44,11 @@ export function HeaderAuth() {
               key={href}
               href={href}
               prefetch={false}
-              className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0
+              className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 border border-transparent
                 ${isActive
-                  ? "text-primary font-semibold bg-black/[0.06]"
-                  : "text-muted hover:text-primary hover:bg-black/5"
-                }`}
-            >
+                  ? "text-primary font-semibold bg-black/[0.08] shadow-sm border-black/[0.08]"
+                  : "text-gray-600 dark:text-gray-300 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10"
+                }`}>
               {label}
             </Link>
           );

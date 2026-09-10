@@ -217,16 +217,16 @@ export default function CapturePage() {
                         </div>
                         
                         {!loading && (
-                            <div className="preview-actions flex flex-wrap sm:flex-nowrap gap-2 mt-4 w-full px-1">
+                            <div className="preview-actions flex flex-wrap sm:flex-nowrap gap-2 mt-5 w-full">
                                 <button 
-                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3" 
+                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3 shadow-md hover:shadow-lg" 
                                     onClick={() => setIsFlipped(!isFlipped)}
                                     title="Mirror photo"
                                 >
                                     Flip <FlipHorizontal size={16} className="ml-1" />
                                 </button>
                                 <button 
-                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3" 
+                                    className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm py-2 sm:py-3 shadow-md hover:shadow-lg" 
                                     onClick={() => setIsCropping(true)}
                                     title="Adjust face framing"
                                 >
@@ -261,10 +261,10 @@ export default function CapturePage() {
                                     </p>
                                     <p className="mt-0.5 opacity-90">
                                         {quotas.scans.denialReason === 'monthly_limit' 
-                                            ? "You've used all your scans for this month. Upgrade your plan or wait for the next billing cycle." 
+                                            ? "You've used all your scans for this month. We will await your arrival next billing cycle." 
                                             : quotas.scans.denialReason === 'every_other_day'
-                                            ? "Your plan is set to every-other-day pacing. Come back tomorrow for your next scan!"
-                                            : "You've already logged a photo today. Come back tomorrow to keep your streak going!"}
+                                            ? "Your plan is set to every-other-day pacing. We will await your arrival tomorrow!"
+                                            : "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!"}
                                     </p>
                                 </div>
                             </div>
@@ -327,7 +327,7 @@ export default function CapturePage() {
                     </button>
                 )}
 
-                <p className="privacy-note mt-6">
+                <p className="privacy-note mt-4">
                     <Lock size={12} strokeWidth={2} />
                     Private &amp; securely processed · <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link> · <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
                 </p>
@@ -423,7 +423,8 @@ export default function CapturePage() {
                 .cta-group {
                     display: flex;
                     flex-direction: column;
-                    margin-bottom: 1.25rem;
+                    margin-bottom: 0.5rem;
+                    gap: 0.75rem;
                 }
 
                 .cta-btn {
@@ -431,8 +432,8 @@ export default function CapturePage() {
                     align-items: center;
                     gap: 0.875rem;
                     width: 100%;
-                    padding: 1.1rem 1.25rem;
-                    border-radius: 1.25rem;
+                    padding: 1rem 1.125rem;
+                    border-radius: 1.125rem;
                     border: none;
                     cursor: pointer;
                     transition: all 0.22s ease;
@@ -513,15 +514,15 @@ export default function CapturePage() {
                     display: flex;
                     align-items: center;
                     gap: 0.75rem;
-                    padding: 0.875rem 0;
+                    padding: 0.5rem 0;
                 }
                 .or-divider span {
                     flex: 1;
                     height: 1px;
-                    background: rgba(44,62,80,0.1);
+                    background: rgba(44,62,80,0.08);
                 }
                 .or-divider p {
-                    font-size: 0.7rem;
+                    font-size: 0.65rem;
                     color: var(--tk-text-faint);
                     font-weight: 600;
                     margin: 0;
@@ -532,19 +533,21 @@ export default function CapturePage() {
                 .preview-wrap {
                     position: relative;
                     width: 100%;
-                    max-width: 250px;
-                    height: 240px;
+                    max-width: 280px;
+                    height: 280px;
                     margin: 0 auto 1.25rem;
-                    border-radius: 1.25rem;
+                    border-radius: 1.5rem;
                     overflow: hidden;
                     background: var(--tk-accent-lavender);
-                    box-shadow: 0 4px 20px rgba(44,62,80,0.12);
+                    box-shadow: 0 10px 40px rgba(44,62,80,0.18);
+                    border: 3px solid rgba(255,255,255,0.7);
                 }
                 .preview-img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
                     display: block;
+                    transition: transform 0.3s ease;
                 }
                 .preview-overlay {
                     position: absolute;
