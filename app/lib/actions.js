@@ -1389,23 +1389,7 @@ export async function generateReport(formData) {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
-    // Check if manual report was generated in last 3 days
     const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    
-    const recentManualReports = await Selfie.find({
-      userId: user._id,
-      isAnalyzed: true,
-      reportType: { $in: ['manual', 'weekly', 'monthly'] },
-      takenAt: { $gte: threeDaysAgo }
-    }).countDocuments();
-
-    if (recentManualReports > 0) {
-      return { 
-        success: false, 
-        error: "You can only generate a manual report every 3 days. Weekly and monthly reports are generated automatically." 
-      };
-    }
 
     // Get user's scan history for analysis
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -1436,7 +1420,7 @@ export async function generateReport(formData) {
     };
 
     // Analyze individual metrics
-    const metricKeys = ['hydration', 'texture', 'tone', 'firmness', 'sensitivity'];
+    const metricKeys = ['wrinkles', 'firmness', 'spots', 'radiance'];
     const metricScores = {};
     
     selfies.forEach(selfie => {

@@ -16,7 +16,7 @@ import LeaderboardCard from "./LeaderboardCard";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+async function DashboardContent() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData();
     if (!latestSelfie) redirect("/capture");
 
@@ -309,7 +309,7 @@ export default async function DashboardPage() {
             </div>
         </div>
     );
-}}
+}
 
 export default async function DashboardPage() {
     try {
