@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="/public/icon.png" alt="TintKin Logo" width="400" />
   <h1>TintKin</h1>
   <p><strong>A daily AI-powered wellness journal unlocking the true potential of your skin.</strong></p>
   <p>
