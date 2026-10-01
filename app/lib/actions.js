@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getAuthenticatedUser } from "@/app/lib/auth-server";
+import { getAuthenticatedUser, findSessionUser } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
 import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
@@ -184,18 +184,7 @@ async function getDbUser() {
   const decoded = auth.decoded;
   if (!decoded) redirect("/sign-in");
 
-  let user = null;
-  if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-    user = await User.findById(decoded.uid);
-  }
-
-  if (!user && decoded.email) {
-    user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
-  }
-
-  if (!user) {
-    user = await User.findOne({ firebaseUid: decoded.uid });
-  }
+  let user = await findSessionUser(decoded);
 
   if (!user) {
     user = await User.create({
@@ -221,16 +210,7 @@ export async function checkOnboardingStatus() {
   }
   if (!decoded) return { complete: false };
   
-  let user = null;
-  if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-    user = await User.findById(decoded.uid);
-  }
-  if (!user && decoded.email) {
-    user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
-  }
-  if (!user) {
-    user = await User.findOne({ firebaseUid: decoded.uid });
-  }
+  const user = await findSessionUser(decoded);
   return { complete: user?.onboardingComplete || false };
 }
 
@@ -896,11 +876,7 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
     const decoded = await getAuthenticatedUser();
     if (!decoded) return { success: false, error: "Unauthorized" };
     
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-      user = await User.findById(decoded.uid);
-    }
-    if (!user) user = await User.findOne({ firebaseUid: decoded.uid });
+    const user = await findSessionUser(decoded);
     if (!user) return { success: false, error: "User not found" };
 
     if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
@@ -961,16 +937,7 @@ export async function completeOnboarding(data) {
 
     const { birthDate: parsedDate, sex: normalizedSex, skinType: normalizedSkinType, goals: validGoals, customGoal: cleanCustomGoal } = validation.sanitized;
     
-    let targetUser = null;
-    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-      targetUser = await User.findById(decoded.uid);
-    }
-    if (!targetUser && decoded.email) {
-      targetUser = await User.findOne({ email: decoded.email.toLowerCase().trim() });
-    }
-    if (!targetUser) {
-      targetUser = await User.findOne({ firebaseUid: decoded.uid });
-    }
+    const targetUser = await findSessionUser(decoded);
 
     const updateFields = {
       email: decoded.email ? decoded.email.toLowerCase().trim() : undefined,
@@ -1004,11 +971,7 @@ export async function updatePrivacySettings(photoPrivacy) {
       return { success: false, error: "Invalid photo privacy option" };
     }
 
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-      user = await User.findById(decoded.uid);
-    }
-    if (!user) user = await User.findOne({ firebaseUid: decoded.uid });
+    const user = await findSessionUser(decoded);
     if (!user) return { success: false, error: "User not found" };
 
     user.photoPrivacy = photoPrivacy;
@@ -1206,13 +1169,9 @@ export async function analyzeProductImage(base64Image) {
 
     const result = await analyzeProductIngredients(base64Image);
 
-    const targetQuery = mongoose.Types.ObjectId.isValid(authUser.uid)
-      ? { _id: authUser.uid }
-      : { firebaseUid: authUser.uid };
-
     await connectDb();
-    await User.findOneAndUpdate(
-      targetQuery,
+    await User.findByIdAndUpdate(
+      authUser.uid,
       { $addToSet: { badges: "ingredient_alchemist" } }
     ).catch(() => {});
 

@@ -29,7 +29,7 @@ function SignInForm() {
   const activeSuccessMessage =
     successMessage ||
     (noticeParam === "account_created"
-      ? "Account created successfully! Please sign in with your email and password."
+      ? "If this email already had an account, we've sent a link to set a new password. Otherwise your account is ready: please sign in."
       : "");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);

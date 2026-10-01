@@ -33,7 +33,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-display font-medium mb-3">2. Information We Collect</h2>
             <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Account Information:</strong> We use Firebase to manage authentication. We collect your email address, name, and profile picture provided during sign-up.</li>
+              <li><strong>Account Information:</strong> We collect your email address, name, and profile picture provided during sign-up (or from Google, if you sign in with Google). Passwords are stored only as salted bcrypt hashes.</li>
               <li><strong>Profile Data:</strong> We collect information you provide during onboarding, including birth date, biological sex, skin type, and skincare goals.</li>
               <li><strong>Facial Images:</strong> When you use our scanning feature, you upload a photo of your face.</li>
               <li><strong>Analysis Data:</strong> We store the numerical scores (e.g., wrinkles, firmness) and AI-generated advice derived from your scans.</li>
@@ -55,7 +55,8 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-display font-medium mb-3">4. Third-Party Services</h2>
             <p>We rely on trusted third-party services to operate TintKin. These services comply with strict data protection standards:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
-              <li><strong>Firebase:</strong> For secure user authentication and account management.</li>
+              <li><strong>MongoDB Atlas:</strong> For storing your account, profile and analysis data.</li>
+              <li><strong>Google (optional):</strong> For sign-in if you choose &ldquo;Sign in with Google&rdquo;.</li>
               <li><strong>Cloudinary:</strong> For secure, temporary image staging and processing.</li>
               <li><strong>PerfectCorp (YouCam):</strong> For analyzing skin metrics.</li>
               <li><strong>Alibaba Cloud (Qwen):</strong> For generating personalized, text-based skincare advice based on numerical scores (no images are sent to this service).</li>

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-min-32-chars!!");
+import { getResetSecret } from "@/app/lib/reset-secret";
 
 export async function POST() {
   try {
@@ -13,7 +12,7 @@ export async function POST() {
     }
 
     // Verify the JWT is still valid
-    await jwtVerify(sessionCookie.value, SECRET);
+    await jwtVerify(sessionCookie.value, getResetSecret());
     
     return Response.json({ valid: true });
   } catch {

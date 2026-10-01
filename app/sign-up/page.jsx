@@ -30,8 +30,8 @@ export default function SignUpPage() {
     setError("");
     setLoading(true);
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters long.");
       setLoading(false);
       return;
     }
@@ -193,7 +193,7 @@ export default function SignUpPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Must be at least 6 characters.</p>
+              <p className="mt-1 text-xs text-gray-500">Must be at least 12 characters.</p>
             </div>
 
             <button

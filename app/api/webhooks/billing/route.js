@@ -56,16 +56,15 @@ export async function POST(req) {
     const { 
       userId, 
       email, 
-      firebaseUid, 
       tier, 
       status = "active", 
       standardPlanFrequency = STANDARD_PACING.FLEXIBLE,
       currentPeriodEnd 
     } = body;
 
-    if (!userId && !email && !firebaseUid) {
+    if (!userId && !email) {
       return NextResponse.json(
-        { success: false, error: "Missing identifier: provide userId, email, or firebaseUid" },
+        { success: false, error: "Missing identifier: provide userId or email" },
         { status: 400 }
       );
     }
@@ -82,7 +81,6 @@ export async function POST(req) {
     // Find the user by any provided identifier
     const query = {};
     if (userId) query._id = userId;
-    else if (firebaseUid) query.firebaseUid = firebaseUid;
     else if (email) query.email = email.toLowerCase().trim();
 
     const user = await User.findOne(query);

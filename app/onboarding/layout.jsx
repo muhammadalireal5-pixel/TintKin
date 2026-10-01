@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import mongoose from "mongoose";
-import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User } from "@/app/lib/mongoose";
+import { getAuthenticatedUser, findSessionUser } from "@/app/lib/auth-server";
+import { connectDb } from "@/app/lib/mongoose";
 
 export const metadata = {
   title: "Get Started",
@@ -24,16 +23,7 @@ export default async function OnboardingLayout({ children }) {
     if (!decoded) redirect("/sign-in");
 
     await connectDb();
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-      user = await User.findById(decoded.uid);
-    }
-    if (!user && decoded.email) {
-      user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
-    }
-    if (!user) {
-      user = await User.findOne({ firebaseUid: decoded.uid });
-    }
+    const user = await findSessionUser(decoded);
     if (user?.onboardingComplete) {
         redirect("/dashboard");
     }

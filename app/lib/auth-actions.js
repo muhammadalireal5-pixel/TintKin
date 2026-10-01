@@ -66,12 +66,10 @@ export async function registerUser({ email, password, name }) {
       // Optionally send password reset email if this is a legitimate user
       return { success: true };
     }
-    // Account exists via Google or legacy without password: set password
-    existingUser.passwordHash = await bcrypt.hash(password, 12);
-    if (name && !existingUser.displayName) {
-      existingUser.displayName = name.trim();
-    }
-    await existingUser.save();
+    // Account exists without a password (Google or pre-migration account).
+    // Never let an unauthenticated caller attach a password to it: email a
+    // reset link instead so only the mailbox owner can claim the account.
+    await requestPasswordReset(cleanEmail);
     return { success: true };
   }
 

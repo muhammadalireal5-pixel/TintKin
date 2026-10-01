@@ -4,8 +4,7 @@ import { connectDb, User } from "@/app/lib/mongoose";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
-
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "fallback-secret-min-32-chars!!");
+import { getResetSecret } from "@/app/lib/reset-secret";
 
 /**
  * Exchanges a one-time reset token for a short-lived JWT session cookie.
@@ -42,7 +41,7 @@ export async function exchangeResetToken(token) {
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("5m")
-      .sign(SECRET);
+      .sign(getResetSecret());
 
     const cookieStore = await cookies();
     cookieStore.set("reset-session", jwt, {

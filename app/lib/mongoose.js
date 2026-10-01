@@ -86,10 +86,6 @@ const UserSchema = new mongoose.Schema({
       type: String,
       index: { unique: true, partialFilterExpression: { googleId: { $type: "string" } } },
     },
-    firebaseUid: {
-      type: String,
-      index: { unique: true, partialFilterExpression: { firebaseUid: { $type: "string" } } },
-    },
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
     displayName: { type: String },
