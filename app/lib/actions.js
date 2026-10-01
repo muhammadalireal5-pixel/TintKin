@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
+import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
 import { projectTrajectory } from "./predict";
@@ -15,6 +16,7 @@ import {
   signCloudinaryUrl,
 } from "@/lib/utils/cloudinary";
 import { checkRateLimit } from "./rate-limit";
+import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
 
 import { validateOnboarding } from "@/lib/validations/onboarding";
@@ -27,8 +29,8 @@ import {
 } from "@/lib/constants/tiers";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
-import { DEFAULT_RECOMMENDED_PRODUCTS } from "@/lib/constants/products";
-import { DENIAL_REASONS } from "@/lib/constants/quotas";
+import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
+import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
 import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
 import {
   getLocalDayStart,
@@ -86,6 +88,29 @@ async function deleteImageFromCloudinary(imageUrl) {
   }
 }
 
+// The Selfie schema requires recommendedProducts to be empty or exactly 3 valid
+// items. The AI advice call doesn't always honor that shape (missing fields,
+// wrong count, an off-enum type string), which previously threw a Mongoose
+// ValidationError and silently discarded the entire scan. Sanitize to the
+// schema's contract, falling back to the curated defaults when the AI output
+// doesn't qualify.
+function sanitizeRecommendedProducts(products) {
+  if (!Array.isArray(products)) return DEFAULT_RECOMMENDED_PRODUCTS;
+
+  const valid = products.filter(
+    (p) =>
+      p &&
+      typeof p === "object" &&
+      PRODUCT_TYPES.includes(p.type) &&
+      typeof p.formula === "string" &&
+      p.formula.trim().length > 0 &&
+      typeof p.description === "string" &&
+      p.description.trim().length > 0
+  );
+
+  return valid.length === 3 ? valid : DEFAULT_RECOMMENDED_PRODUCTS;
+}
+
 export async function uploadSelfieServerAction(formData) {
   let decoded;
   try {
@@ -95,7 +120,7 @@ export async function uploadSelfieServerAction(formData) {
   }
   if (!decoded) return { success: false, error: "Unauthorized" };
 
-  const rateCheck = checkRateLimit(decoded.uid, "upload", { maxRequests: 5, windowMs: 60000 });
+  const rateCheck = await checkRateLimit(decoded.uid, "upload", 5, 60000);
   if (!rateCheck.allowed) {
     return { success: false, error: `Too many upload attempts. Please try again in ${rateCheck.retryAfter}s.` };
   }
@@ -149,14 +174,14 @@ export async function uploadSelfieServerAction(formData) {
 }
 
 async function getDbUser() {
-  await connectDb();
-
-  let decoded;
-  try {
-    decoded = await getAuthenticatedUser();
-  } catch (err) {
-    redirect("/sign-in");
-  }
+  const [, auth] = await Promise.all([
+    connectDb(),
+    getAuthenticatedUser().then(
+      (decoded) => ({ decoded }),
+      () => ({ decoded: null })
+    ),
+  ]);
+  const decoded = auth.decoded;
   if (!decoded) redirect("/sign-in");
 
   let user = null;
@@ -212,7 +237,7 @@ export async function checkOnboardingStatus() {
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
 
-  const rateCheck = checkRateLimit(user._id.toString(), "analyze", { maxRequests: 3, windowMs: 60000 });
+  const rateCheck = await checkRateLimit(user._id.toString(), "analyze", 3, 60000);
   if (!rateCheck.allowed) {
     return errorResult(
       ERROR_CODES.RATE_LIMIT || "RATE_LIMIT",
@@ -222,18 +247,53 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   }
 
   let extraScanConsumed = false;
+  let reservedScanSlot = null;
   try {
-    const quotas = await getUsageQuotas(timezone);
-    if (!quotas.scans.canScanToday) {
-       let msg = "You've reached your scan limit.";
-       if (quotas.scans.denialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
-       if (quotas.scans.denialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
-       if (quotas.scans.denialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
-       return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
-    }
-
     if (!imageUrl || !validateTrustedImageUrl(imageUrl)) {
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
+    }
+
+    const { daysInMonth } = getLocalMonthStart(timezone);
+    const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier, daysInMonth);
+
+    // "Every-other-day" is a soft pacing nudge for Standard plans, not a hard
+    // cost boundary (the daily cap below already limits scans to 1/day), so
+    // an eventually-consistent read here is fine.
+    const pacingTodayStart = getLocalDayStart(timezone);
+    const pacingYesterdayStart = new Date(pacingTodayStart);
+    pacingYesterdayStart.setDate(pacingYesterdayStart.getDate() - 1);
+    const pacingBlocked =
+      user.tier === TIERS.STANDARD &&
+      user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY &&
+      (await Selfie.countDocuments({ userId: user._id, takenAt: { $gte: pacingYesterdayStart, $lt: pacingTodayStart } })) > 0;
+
+    let scanDenialReason = "";
+    if (pacingBlocked) {
+      scanDenialReason = DENIAL_REASONS.EVERY_OTHER_DAY;
+    } else {
+      // Atomically reserves the slot before the expensive AI calls below so
+      // concurrent requests can't both pass a stale check (see app/lib/quota.js).
+      const reservation = await reserveScanSlot(user._id, timezone, scanDailyLimit, scanMonthlyLimit);
+      if (reservation.granted) {
+        reservedScanSlot = { dayKey: reservation.dayKey, monthKey: reservation.monthKey };
+      } else {
+        scanDenialReason = reservation.reason === "daily_limit" ? DENIAL_REASONS.DAILY_LIMIT : DENIAL_REASONS.MONTHLY_LIMIT;
+      }
+    }
+
+    if (!reservedScanSlot) {
+      const consumed = await User.findOneAndUpdate(
+        { _id: user._id, extraScans: { $gt: 0 } },
+        { $inc: { extraScans: -1 } }
+      );
+      if (!consumed) {
+        let msg = "You've reached your scan limit.";
+        if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
+        if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
+        if (scanDenialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
+        return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
+      }
+      extraScanConsumed = true;
     }
 
     const todayStart = getLocalDayStart(timezone);
@@ -271,17 +331,6 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       lastUploadDate: now,
       badges: updatedBadges
     };
-
-    if (quotas.scans.wouldBeDenied) {
-      const consumed = await User.findOneAndUpdate(
-        { _id: user._id, extraScans: { $gt: 0 } },
-        { $inc: { extraScans: -1 } }
-      );
-      if (!consumed) {
-        return errorResult(ERROR_CODES.SCAN_LIMIT, "You've reached your scan limit.", { error: "SCAN_LIMIT" });
-      }
-      extraScanConsumed = true;
-    }
 
     const youCamResult = await analyzeSkin(imageUrl);
 
@@ -360,7 +409,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     const adviceSucceeded = Boolean(advice && advice.status !== STATUS.ERROR && advice.success !== false);
     const adviceStatus = adviceSucceeded ? STATUS.OK : STATUS.ERROR;
 
-    let recommendedProducts = adviceSucceeded && Array.isArray(advice.products) ? advice.products : [];
+    let recommendedProducts = adviceSucceeded && Array.isArray(advice.products) ? sanitizeRecommendedProducts(advice.products) : [];
     let habits = adviceSucceeded && Array.isArray(advice.habits) ? advice.habits : [];
     let facialWorkout = adviceSucceeded && typeof advice.facialWorkout === "string" ? advice.facialWorkout : "";
     let critique = adviceSucceeded && typeof advice.critique === "string" ? advice.critique : "";
@@ -477,6 +526,9 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     if (extraScanConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
     }
+    if (reservedScanSlot) {
+      await releaseScanSlot(user._id, reservedScanSlot.dayKey, reservedScanSlot.monthKey);
+    }
     if (imageUrl) {
       await deleteImageFromCloudinary(imageUrl).catch(() => {});
     }
@@ -493,12 +545,61 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 }
 
 
-export async function getLatestData(timezone = "UTC") {
+const SELFIE_LIST_FIELDS = "takenAt isAnalyzed overallScore skinAge scores";
+const MAX_SELFIE_PAGE_SIZE = 100;
+
+const clampPageSize = (value) =>
+  Number.isInteger(value) ? Math.min(Math.max(value, 1), MAX_SELFIE_PAGE_SIZE) : null;
+
+// With `options.selfieLimit` only the newest N selfies (list fields only) are
+// loaded for `allSelfies`, still oldest-first, and `lifestyleLogs` is skipped;
+// the weekly average, scan count and first-scan values that depend on the full
+// history are computed separately so results match the unlimited call.
+export async function getLatestData(timezone = "UTC", options = {}) {
   const user = await getDbUser();
-  const latestSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 });
-  const latestAnalyzedSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 });
-  const allSelfies = await Selfie.find({ userId: user._id }).sort({ takenAt: 1 });
-  const lifestyleLogs = await Lifestyle.find({ userId: user._id }).sort({ date: -1 });
+  const selfieLimit = clampPageSize(options?.selfieLimit);
+
+  const now = new Date();
+  const currentWeekStart = getISOWeekStart(now).getTime();
+  const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
+  const todayStart = getLocalDayStart(timezone);
+
+  const [
+    latestSelfie,
+    latestAnalyzedSelfie,
+    selfieRows,
+    lifestyleLogs,
+    todayRoutineLog,
+    simCount,
+    limitedExtras,
+  ] = await Promise.all([
+    Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 }),
+    Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }),
+    selfieLimit
+      ? Selfie.find({ userId: user._id }).select(SELFIE_LIST_FIELDS).sort({ takenAt: -1 }).limit(selfieLimit).lean()
+      : Selfie.find({ userId: user._id }).sort({ takenAt: 1 }),
+    selfieLimit
+      ? Promise.resolve([])
+      : Lifestyle.find({ userId: user._id }).sort({ date: -1 }),
+    RoutineLog.findOne({
+      userId: user._id,
+      date: { $gte: todayStart }
+    }),
+    Simulation.countDocuments({ userId: user._id }),
+    selfieLimit
+      ? Promise.all([
+          Selfie.countDocuments({ userId: user._id }),
+          Selfie.findOne({ userId: user._id }).select("skinAge").sort({ takenAt: 1 }).lean(),
+          Selfie.find({
+            userId: user._id,
+            takenAt: { $gte: new Date(currentWeekStart), $lt: new Date(currentWeekEnd) },
+          }).select(SELFIE_LIST_FIELDS).lean(),
+        ])
+      : null,
+  ]);
+
+  const allSelfies = selfieLimit ? selfieRows.reverse() : selfieRows;
+  const [totalSelfieCount, firstSelfie, weekRows] = limitedExtras || [];
 
   let realAge = null;
   if (user.birthDate) {
@@ -508,11 +609,8 @@ export async function getLatestData(timezone = "UTC") {
   }
 
   let weeklyAverage = null;
-  const now = new Date();
-  const currentWeekStart = getISOWeekStart(now).getTime();
-  const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
 
-  const thisWeekSelfies = allSelfies.filter(s => {
+  const thisWeekSelfies = (limitedExtras ? weekRows : allSelfies).filter(s => {
     if (s.isAnalyzed === false) return false;
     const t = new Date(s.takenAt).getTime();
     return t >= currentWeekStart && t < currentWeekEnd;
@@ -540,19 +638,14 @@ export async function getLatestData(timezone = "UTC") {
     };
   }
 
-  const todayStart = getLocalDayStart(timezone);
-  const todayRoutineLog = await RoutineLog.findOne({
-    userId: user._id,
-    date: { $gte: todayStart }
-  });
-
-  const simCount = await Simulation.countDocuments({ userId: user._id });
   const { evaluatedAchievements, unlockedCount, totalCount, newlyUnlockedIds } = evaluateUserAchievements({
     user,
     allSelfies,
     simulationCount: simCount,
     todayRoutineLog,
     realAge,
+    selfieCount: totalSelfieCount,
+    firstSelfie,
   });
 
   if (newlyUnlockedIds && newlyUnlockedIds.length > 0) {
@@ -587,15 +680,37 @@ export async function getLatestData(timezone = "UTC") {
     weeklyAverage, 
     todayRoutineLog,
     achievements: evaluatedAchievements,
-    achievementStats: { unlockedCount, totalCount }
+    achievementStats: { unlockedCount, totalCount },
+    ...(selfieLimit ? { hasMoreSelfies: totalSelfieCount > allSelfies.length } : {}),
   };
   return JSON.parse(JSON.stringify(data));
+}
+
+export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
+  const user = await getDbUser();
+  const before = new Date(beforeTakenAt);
+  const limit = clampPageSize(pageSize) || 20;
+  if (Number.isNaN(before.getTime())) {
+    return { success: false, selfies: [], hasMore: false };
+  }
+
+  const rows = await Selfie.find({ userId: user._id, takenAt: { $lt: before } })
+    .select(SELFIE_LIST_FIELDS)
+    .sort({ takenAt: -1 })
+    .limit(limit + 1)
+    .lean();
+
+  return JSON.parse(JSON.stringify({
+    success: true,
+    selfies: rows.slice(0, limit).reverse(),
+    hasMore: rows.length > limit,
+  }));
 }
 
 export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
-  const rateCheck = checkRateLimit(user._id.toString(), "simulate", { maxRequests: 5, windowMs: 60000 });
+  const rateCheck = await checkRateLimit(user._id.toString(), "simulate", 5, 60000);
   if (!rateCheck.allowed) {
     return errorResult(
       ERROR_CODES.RATE_LIMIT || "RATE_LIMIT",
@@ -610,9 +725,15 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   }
 
   let extraSimConsumed = false;
+  let reservedSimSlot = null;
   try {
-    const quotas = await getUsageQuotas(timezone);
-    if (quotas.simulations.used >= quotas.simulations.limit) {
+    const simLimit = getTierSimLimit(user.tier);
+    // Atomically reserves the slot before the expensive AI calls below so
+    // concurrent requests can't both pass a stale check (see app/lib/quota.js).
+    const reservation = await reserveSimulationSlot(user._id, timezone, simLimit);
+    if (reservation.granted) {
+      reservedSimSlot = { monthKey: reservation.monthKey };
+    } else {
       const consumed = await User.findOneAndUpdate(
         { _id: user._id, extraSimulations: { $gt: 0 } },
         { $inc: { extraSimulations: -1 } }
@@ -620,19 +741,26 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       if (!consumed) {
         return errorResult(
           ERROR_CODES.SIM_LIMIT,
-          quotas.simulations.limit === 1 && user.tier === 'free'
+          simLimit === 1 && user.tier === 'free'
             ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro for more!"
-            : `You've used all ${quotas.simulations.limit} simulations for this month.`,
+            : `You've used all ${simLimit} simulations for this month.`,
           { error: "SIM_LIMIT" }
         );
       }
       extraSimConsumed = true;
     }
-    
-    if (!latestSelfie?.scores || typeof latestSelfie.scores.wrinkles !== "number") {
+
+    const rollbackSimQuota = async () => {
       if (extraSimConsumed) {
         await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
       }
+      if (reservedSimSlot) {
+        await releaseSimulationSlot(user._id, reservedSimSlot.monthKey);
+      }
+    };
+
+    if (!latestSelfie?.scores || typeof latestSelfie.scores.wrinkles !== "number") {
+      await rollbackSimQuota();
       return errorResult(
         ERROR_CODES.NO_BASELINE,
         "Please complete a baseline skin analysis scan before running What-If simulations.",
@@ -641,9 +769,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     }
 
     if (!sourceImageUrl) {
-      if (extraSimConsumed) {
-        await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
-      }
+      await rollbackSimQuota();
       return errorResult(
         ERROR_CODES.NO_BASELINE,
         "No photo available to run the AI simulation on!",
@@ -749,6 +875,9 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   } catch (err) {
     if (extraSimConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
+    }
+    if (reservedSimSlot) {
+      await releaseSimulationSlot(user._id, reservedSimSlot.monthKey).catch(() => {});
     }
     const isImageFailure = err && err.message === "SIMULATION_IMAGE_FAILED";
     return errorResult(
@@ -907,20 +1036,8 @@ export async function getUsageQuotas(timezone = "UTC") {
     userId: user._id, createdAt: { $gte: monthStart }
   });
 
-  let scanDailyLimit = 1; 
-  let scanMonthlyLimit = 2;
-  let simLimit = 1;
-
-  if (user.tier === TIERS.PREMIUM) {
-     scanMonthlyLimit = daysInMonth; 
-     simLimit = 4;
-  } else if (user.tier === TIERS.STANDARD) {
-     scanMonthlyLimit = 15;
-     simLimit = 3;
-  } else {
-     scanMonthlyLimit = 2; 
-     simLimit = 1;
-  }
+  const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier, daysInMonth);
+  const simLimit = getTierSimLimit(user.tier);
 
   const extraScans = user.extraScans || 0;
 
@@ -1082,7 +1199,7 @@ export async function analyzeProductImage(base64Image) {
     const authUser = await getAuthenticatedUser();
     if (!authUser) throw new Error("Unauthorized");
 
-    const rateCheck = checkRateLimit(authUser.uid, "product_ocr", { maxRequests: 3, windowMs: 60000 });
+    const rateCheck = await checkRateLimit(authUser.uid, "product_ocr", 3, 60000);
     if (!rateCheck.allowed) {
       return { success: false, error: `Too many scan attempts. Please wait ${rateCheck.retryAfter}s before scanning another product.` };
     }
@@ -1384,12 +1501,23 @@ export async function optInComparison(optIn) {
   }
 }
 
-export async function generateReport(formData) {
+const REPORT_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days, matches the UI copy
+
+export async function generateReport(prevState, formData) {
   try {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
     const now = new Date();
+
+    const lastReport = await Report.findOne({ userId: user._id }).sort({ createdAt: -1 });
+    if (lastReport && now - lastReport.createdAt < REPORT_COOLDOWN_MS) {
+      const nextAvailable = new Date(lastReport.createdAt.getTime() + REPORT_COOLDOWN_MS);
+      return {
+        success: false,
+        error: `You can generate a new report every 3 days. Next report available ${nextAvailable.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`,
+      };
+    }
 
     // Get user's scan history for analysis
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -1468,30 +1596,55 @@ export async function generateReport(formData) {
       reportData.compliments.push("Your skin has unique beauty. Let's work together to enhance it.");
     }
 
-    // Create the report document
-    const report = {
+    const reportDoc = await Report.create({
+      userId: user._id,
       type: 'manual',
       title: `Personalized Skin Analysis - ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
-      date: now,
       summary: `Over the past ${Math.min(30, selfies.length)} days, your skin has shown ${reportData.trend} trends with an average harmony score of ${avgScore}/100.`,
       highlights: reportData.topMetrics.map(m => `${m.name.charAt(0).toUpperCase() + m.name.slice(1)}: ${m.score}/100`),
       compliments: reportData.compliments,
+      scanCount: reportData.scanCount,
+      averageScore: avgScore,
+      trend: reportData.trend,
+      trendValue: reportData.trendValue,
       aiGenerated: true,
-      shareable: true
-    };
+    });
 
-    // In a real implementation, you would save this to database
-    // For now, we'll redirect with the report data in session/cookie
-    
-    return { 
-      success: true, 
+    revalidatePath("/reports");
+
+    return {
+      success: true,
       message: "Report generated successfully!",
-      report 
+      report: {
+        id: reportDoc._id.toString(),
+        type: reportDoc.type,
+        title: reportDoc.title,
+        date: reportDoc.createdAt,
+        summary: reportDoc.summary,
+        highlights: reportDoc.highlights,
+        compliments: reportDoc.compliments,
+        aiGenerated: reportDoc.aiGenerated,
+      },
     };
   } catch (err) {
     console.error('Error generating report:', err);
     return { success: false, error: "Failed to generate report. Please try again." };
   }
+}
+
+export async function getUserReports() {
+  const user = await getDbUser();
+  const reports = await Report.find({ userId: user._id }).sort({ createdAt: -1 }).limit(20).lean();
+  return reports.map((r) => ({
+    id: r._id.toString(),
+    type: r.type,
+    title: r.title,
+    date: r.createdAt,
+    summary: r.summary,
+    highlights: r.highlights || [],
+    compliments: r.compliments || [],
+    aiGenerated: r.aiGenerated,
+  }));
 }
 
 export async function getLeaderboard(scope = 'city') {

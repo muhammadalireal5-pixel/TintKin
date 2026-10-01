@@ -27,17 +27,26 @@ export default function LeaderboardCard() {
   const [activeScope, setActiveScope] = useState("city");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
     setLoading(true);
+    setError(false);
 
-    getLeaderboard(activeScope).then((res) => {
-      if (isCurrent) {
-        setData(res);
-        setLoading(false);
-      }
-    });
+    getLeaderboard(activeScope)
+      .then((res) => {
+        if (isCurrent) {
+          setData(res);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setError(true);
+          setLoading(false);
+        }
+      });
 
     return () => {
       isCurrent = false;
@@ -123,6 +132,18 @@ export default function LeaderboardCard() {
           <div className="flex flex-col items-center justify-center py-6 gap-2">
             <Loader2 size={20} className="animate-spin text-sage" />
             <p className="text-xs text-muted">Loading rankings…</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-4 px-3">
+            <div className="w-9 h-9 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-2">
+              <AlertCircle size={16} />
+            </div>
+            <p className="text-xs font-medium text-primary mb-1">
+              Couldn&apos;t load rankings
+            </p>
+            <p className="text-xs text-muted leading-relaxed">
+              Please try again in a moment.
+            </p>
           </div>
         ) : data?.needsLocation ? (
           <div className="text-center py-4 px-3">

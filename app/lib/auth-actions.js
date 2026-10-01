@@ -5,6 +5,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
+import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./rate-limit";
 
 let resendClient = null;
 function getResendClient() {
@@ -166,67 +167,6 @@ export async function requestPasswordReset(email) {
   } catch (err) {
     console.error("Failed to send reset email:", err);
   }
-
-  return { success: true };
-}
-
-/**
- * Resets user password using token verification.
- */
-export async function resetPassword({ token, email, newPassword }) {
-  if (!token || !email || !newPassword) {
-    return { success: false, error: "Invalid request parameters." };
-  }
-
-  // NIST 800-63B compliant: minimum 12 characters
-  if (newPassword.length < 12) {
-    return { success: false, error: "Password must be at least 12 characters long." };
-  }
-
-  const cleanEmail = email.toLowerCase().trim();
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
-  await connectDb();
-
-  const user = await User.findOne({
-    email: cleanEmail,
-    passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: new Date() },
-  }).select("+passwordResetToken +passwordResetExpires");
-
-  if (!user) {
-    return { success: false, error: "Reset link is invalid or has expired. Please request a new one." };
-  }
-
-  // Check password against HIBP (fail open on error)
-  try {
-    const sha1 = crypto.createHash("sha1").update(newPassword).digest("hex").toUpperCase();
-    const prefix = sha1.slice(0, 5);
-    const suffix = sha1.slice(5);
-    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
-      signal: AbortSignal.timeout(3000)
-    });
-    
-    if (res.ok) {
-      const data = await res.text();
-      const isBreached = data.split('\n').some(line => line.startsWith(suffix));
-      if (isBreached) {
-        return {
-          success: false,
-          error: "This password has been exposed in a data breach. Please choose a different password."
-        };
-      }
-    } else {
-      console.warn("[HIBP] API unavailable during password reset, proceeding");
-    }
-  } catch (err) {
-    console.warn("[HIBP] Check failed during password reset:", err.message);
-  }
-
-  user.passwordHash = await bcrypt.hash(newPassword, 12);
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
-  await user.save();
 
   return { success: true };
 }

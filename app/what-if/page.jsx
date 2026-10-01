@@ -789,10 +789,10 @@ export default function WhatIfPage() {
                         </span>
                       </td>
                     </tr>
-                    {Object.entries(result.scenarioA.projectedScores).map(([metricKey], idx) => {
-                      const scoreA = result.scenarioA.projectedScores[metricKey];
-                      const scoreB = result.scenarioB.projectedScores[metricKey];
-                      const deltaVal = result.deltas[metricKey];
+                    {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey], idx) => {
+                      const scoreA = result.scenarioA?.projectedScores?.[metricKey];
+                      const scoreB = result.scenarioB?.projectedScores?.[metricKey];
+                      const deltaVal = result.deltas?.[metricKey];
                       
                       const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
                       const humanLabel = labels[metricKey] || metricKey;
@@ -843,10 +843,10 @@ export default function WhatIfPage() {
                   </div>
                 </div>
 
-                {Object.entries(result.scenarioA.projectedScores).map(([metricKey]) => {
-                  const scoreA = result.scenarioA.projectedScores[metricKey];
-                  const scoreB = result.scenarioB.projectedScores[metricKey];
-                  const deltaVal = result.deltas[metricKey];
+                {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey]) => {
+                  const scoreA = result.scenarioA?.projectedScores?.[metricKey];
+                  const scoreB = result.scenarioB?.projectedScores?.[metricKey];
+                  const deltaVal = result.deltas?.[metricKey];
                   const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
                   const humanLabel = labels[metricKey] || metricKey;
 

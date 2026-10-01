@@ -1,8 +1,8 @@
+
 import { getLatestData } from "@/app/lib/actions";
 import { SkeletonRoutine, SkeletonScoreCard, SkeletonRadar, SkeletonChart, SkeletonTrophy } from "./SkeletonLoader";
 import { redirect } from "next/navigation";
-import RadarChartClient from "./RadarChartClient";
-import ProgressChart from "./ProgressChart";
+import { RadarChartClient, ProgressChart } from "./LazyCharts";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
 import ProductImage from "./ProductImage";
@@ -16,8 +16,10 @@ import LeaderboardCard from "./LeaderboardCard";
 
 export const dynamic = "force-dynamic";
 
+const DASHBOARD_SELFIE_LIMIT = 20;
+
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData();
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData("UTC", { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
@@ -221,7 +223,7 @@ async function DashboardContent() {
                         </div>
                         <div className="flex-1 w-full relative">
                             <ComponentErrorFallback title="Progress Chart">
-                                <ProgressChart allSelfies={allSelfies} />
+                                <ProgressChart allSelfies={allSelfies} hasMore={Boolean(hasMoreSelfies)} />
                             </ComponentErrorFallback>
                         </div>
                     </div>
@@ -315,6 +317,12 @@ export default async function DashboardPage() {
     try {
         return await DashboardContent();
     } catch (error) {
+        // Next.js implements redirect() by throwing; let it propagate instead of
+        // treating it as a data-load failure (which would trap the user on this
+        // skeleton screen forever instead of sending them to /capture).
+        if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+            throw error;
+        }
         // If data fails to load, show skeleton loaders
         return (
             <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">

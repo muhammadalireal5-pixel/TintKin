@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { connectDb, RateLimit } from "./mongoose";
 
 const RATE_LIMIT_COLLECTION = "ratelimits";
@@ -35,11 +36,12 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
       },
       {
         upsert: true,
+        new: true,
         returnDocument: "after",
       }
     );
 
-    const currentCount = result.value?.count || 1;
+    const currentCount = result?.count || 1;
     const resetTime = new Date(now.getTime() + windowMs);
 
     if (currentCount > limit) {
@@ -59,8 +61,12 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
     };
   } catch (error) {
     console.error("Rate limit check failed (failing open):", error);
-    // Fail open: allow request if DB is unavailable to prevent DoS
-    // Log warning for monitoring
+    // Fail open: allow request if DB is unavailable to prevent DoS.
+    // Report to Sentry since a silent fail-open here means rate limiting
+    // is effectively disabled until the DB is reachable again.
+    Sentry.captureException(error, {
+      tags: { scope: "rate-limit-fail-open", action },
+    });
     console.warn(`[RATE_LIMIT] DB unavailable, failing open for ${identifier}:${action}`);
     return {
       allowed: true,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import * as htmlToImage from "html-to-image";
 import { Download, Sparkles, Check } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_METRICS } from "@/lib/constants/metrics";
@@ -59,6 +58,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
     if (!cardRef.current || !hasValidScore) return;
     setLoading(true);
     try {
+      const htmlToImage = await import("html-to-image");
       // Ensure all images within the card are loaded before capture
       const dataUrl = await htmlToImage.toPng(cardRef.current, {
         cacheBust: true,

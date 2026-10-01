@@ -14,7 +14,8 @@ import {
   User,
   Sparkles,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 
 const SCOPES = [
@@ -27,13 +28,20 @@ export default function LeaderboardPage() {
   const [activeScope, setActiveScope] = useState("city");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchBoard = (scope) => {
     setLoading(true);
-    getLeaderboard(scope).then((res) => {
-      setData(res);
-      setLoading(false);
-    });
+    setError(false);
+    getLeaderboard(scope)
+      .then((res) => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -152,6 +160,26 @@ export default function LeaderboardPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 size={32} className="animate-spin text-sage" />
             <p className="text-sm text-muted">Updating community rankings…</p>
+          </div>
+        ) : error ? (
+          /* Error state */
+          <div className="tk-glass p-8 sm:p-12 rounded-3xl text-center max-w-md mx-auto my-8 shadow-sm border border-black/5">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
+              <AlertCircle size={24} />
+            </div>
+            <h2 className="text-lg font-medium text-primary mb-1.5">
+              Couldn&apos;t Load Rankings
+            </h2>
+            <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
+              Something went wrong fetching the leaderboard. Please try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchBoard(activeScope)}
+              className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary/90 shadow-sm transition-all"
+            >
+              Try Again
+            </button>
           </div>
         ) : data?.needsLocation ? (
           /* Location required card */

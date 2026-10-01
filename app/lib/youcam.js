@@ -34,10 +34,15 @@ function createYouCamError(rawErr) {
 
 async function pollTask(taskType, taskId) {
   for (let i = 0; i < 30; i++) {
-    const res = await fetch(`${BASE}/s2s/v2.0/task/${taskType}/${taskId}`, {
+    const response = await fetch(`${BASE}/s2s/v2.0/task/${taskType}/${taskId}`, {
       headers: { Authorization: `Bearer ${KEY}` }
-    }).then(r => r.json());
+    });
 
+    if (!response.ok) {
+      throw createYouCamError(`YouCam task status check failed (HTTP ${response.status})`);
+    }
+
+    const res = await response.json();
     const data = res.data || res.result || res;
     const status = data.task_status || data.status || res.task_status;
 
@@ -252,7 +257,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         continue;
       }
 
-      throw "Something went wrong, try again later!";
+      throw new Error("Something went wrong, try again later!");
     }
   }
 

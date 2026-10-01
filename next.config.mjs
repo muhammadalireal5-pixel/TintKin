@@ -22,11 +22,14 @@ const getDevOrigins = () => {
 };
 
 const devOrigins = getDevOrigins();
+const isProd = process.env.NODE_ENV === "production";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: devOrigins,
-  reactCompiler: true,
+  // Both reactCompiler and the Sentry build wrapper slow dev compiles a lot;
+  // they only matter for production builds.
+  reactCompiler: isProd,
   images: {
     remotePatterns: [
       {
@@ -47,13 +50,15 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  tunnelRoute: "/monitoring",
-  hideSourceMaps: true,
-});
+export default isProd
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      tunnelRoute: "/monitoring",
+      hideSourceMaps: true,
+    })
+  : nextConfig;
 
 

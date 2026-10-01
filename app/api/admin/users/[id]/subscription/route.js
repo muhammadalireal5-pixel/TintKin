@@ -1,6 +1,6 @@
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { connectDb, User } from "@/app/lib/mongoose";
-import { TIERS, ALLOWED_ADMIN_TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
+import { ALLOWED_ADMIN_TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
 import mongoose from "mongoose";
 
 export async function PATCH(request, { params }) {
@@ -24,7 +24,7 @@ export async function PATCH(request, { params }) {
     await connectDb();
 
     const update = {
-      tier: tier || TIERS.FREE,
+      tier,
     };
 
     if (ACTIVE_SUBSCRIPTION_TIERS.includes(tier)) {

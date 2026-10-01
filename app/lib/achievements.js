@@ -116,15 +116,19 @@ export function evaluateUserAchievements({
   simulationCount = 0,
   todayRoutineLog = null,
   realAge = null,
+  selfieCount = null,
+  firstSelfie = null,
 }) {
   const existingBadges = Array.isArray(user.badges) ? user.badges : [];
   const streak = user.currentStreak || 0;
   const longestStreak = user.longestStreak || 0;
-  const scanCount = Math.max(user.scanCount || 0, allSelfies.length);
+  // selfieCount/firstSelfie let callers that pass only a window of allSelfies
+  // supply the full-history values this function would otherwise read from it.
+  const scanCount = Math.max(user.scanCount || 0, selfieCount ?? allSelfies.length);
   const bestStreak = Math.max(streak, longestStreak);
 
   // Check latest selfie for biological youth catalyst
-  const latestSelfie = allSelfies?.[0];
+  const latestSelfie = firstSelfie ?? allSelfies?.[0];
   const hasBeatenAge = (
     latestSelfie &&
     typeof latestSelfie.skinAge === "number" &&

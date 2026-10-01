@@ -1,42 +1,17 @@
-import { getLatestData, generateReport } from "@/app/lib/actions";
+import { getLatestData, getUserReports } from "@/app/lib/actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download, Share2, Calendar, FileText, Sparkles, Clock } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
+import GenerateReportForm from "./GenerateReportForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-    const { user, allSelfies } = await getLatestData();
+    const { user } = await getLatestData();
     if (!user?.onboardingComplete) redirect("/onboarding");
 
-    // Get available reports (auto-generated weekly/monthly + manual)
-    const reports = [];
-    
-    // Generate sample reports for demonstration
-    const now = new Date();
-    const weeklyDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthlyDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
-    reports.push({
-        id: "weekly-" + weeklyDate.toISOString().split('T')[0],
-        type: "weekly",
-        title: "Weekly Skin Analysis",
-        date: weeklyDate,
-        summary: "Your skin showed remarkable improvement this week! Hydration levels increased by 12%, and texture smoothness improved significantly.",
-        highlights: ["Increased hydration", "Reduced redness", "Better texture"],
-        aiGenerated: true
-    });
-    
-    reports.push({
-        id: "monthly-" + monthlyDate.toISOString().split('T')[0],
-        type: "monthly", 
-        title: "Monthly Skin Journey",
-        date: monthlyDate,
-        summary: "This month has been transformative for your skin. Consistent routine adherence resulted in visible improvements across all metrics.",
-        highlights: ["15% overall score improvement", "Consistent routine", "Age reversal detected"],
-        aiGenerated: true
-    });
+    const reports = await getUserReports();
 
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
@@ -73,15 +48,7 @@ export default async function ReportsPage() {
                                 Create a personalized AI-powered analysis of your skin journey. 
                                 Available every 3 days with complimentary praise and actionable insights.
                             </p>
-                            <form action={generateReport}>
-                                <button 
-                                    type="submit"
-                                    className="tk-pill-btn tk-btn-primary flex items-center gap-2"
-                                >
-                                    <FileText size={16} />
-                                    Generate Report Now
-                                </button>
-                            </form>
+                            <GenerateReportForm />
                         </div>
                     </div>
                 </div>
@@ -102,8 +69,7 @@ export default async function ReportsPage() {
                                 No Reports Yet
                             </h3>
                             <p className="text-muted text-sm max-w-md mx-auto">
-                                Weekly and monthly reports are automatically generated based on your scan history. 
-                                Generate your first manual report above!
+                                Reports are generated from your real scan history. Complete at least one scan, then generate your first report above!
                             </p>
                         </div>
                     ) : (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { connectDb, User } from "@/app/lib/mongoose";
 import {
   TIERS,
@@ -65,6 +66,13 @@ export async function POST(req) {
     if (!userId && !email && !firebaseUid) {
       return NextResponse.json(
         { success: false, error: "Missing identifier: provide userId, email, or firebaseUid" },
+        { status: 400 }
+      );
+    }
+
+    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid userId" },
         { status: 400 }
       );
     }

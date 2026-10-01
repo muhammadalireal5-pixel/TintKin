@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import * as htmlToImage from "html-to-image";
 import {
   Sparkles,
   Flame,
@@ -80,12 +79,13 @@ export default function TrophyCase({
   const unlockedCount =
     achievementStats?.unlockedCount ?? badgeList.filter((b) => b.isUnlocked).length;
   const totalCount = achievementStats?.totalCount ?? ACHIEVEMENTS.length;
-  const completionPercent = Math.round((unlockedCount / totalCount) * 100);
+  const completionPercent = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   const handleDownloadBadge = async () => {
     if (!badgeCardRef.current || !selectedBadge) return;
     setDownloading(true);
     try {
+      const htmlToImage = await import("html-to-image");
       const dataUrl = await htmlToImage.toPng(badgeCardRef.current, {
         cacheBust: true,
         pixelRatio: 2.5,
