@@ -6,7 +6,8 @@ import { signIn } from "next-auth/react";
 import { registerUser } from "@/app/lib/auth-actions";
 import { useAuthContext } from "@/app/context/AuthContext";
 import Link from "next/link";
-import { Eye, EyeOff, Sparkles } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -75,12 +76,7 @@ export default function SignUpPage() {
 
   if (user && !authLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-        <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
-          <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
-          <p className="text-sm font-medium text-primary">Opening your skin journal...</p>
-        </div>
-      </div>
+      <BrandLoader message="Opening your skin journal…" />
     );
   }
 

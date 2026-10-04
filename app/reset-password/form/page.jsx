@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
 import { submitNewPassword } from "./actions";
 
 export default function ResetPasswordFormPage() {
@@ -68,12 +69,7 @@ export default function ResetPasswordFormPage() {
 
   if (!verified) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-        <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
-          <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
-          <p className="text-sm font-medium text-primary">Verifying session...</p>
-        </div>
-      </div>
+      <BrandLoader message="Verifying session…" />
     );
   }
 
@@ -90,7 +86,7 @@ export default function ResetPasswordFormPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex min-h-[calc(100vh-80px)] items-start sm:items-center justify-center bg-base px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-6 tk-glass p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         <div className="text-center">
           <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-lavender text-primary shadow-sm mb-4">✦</span>

@@ -113,7 +113,7 @@ export async function exportUserData() {
       if (!selfie.imageUrl || !selfie.imageUrl.startsWith("http")) return;
 
       try {
-        const response = await fetch(selfie.imageUrl);
+        const response = await fetch(selfie.imageUrl, { signal: AbortSignal.timeout(15000) });
         if (!response.ok) return;
 
         const arrayBuf = await response.arrayBuffer();
@@ -130,7 +130,7 @@ export async function exportUserData() {
       photoFetchPromises.push(
         (async () => {
           try {
-            const resp = await fetch(user.photoURL);
+            const resp = await fetch(user.photoURL, { signal: AbortSignal.timeout(15000) });
             if (resp.ok) {
               const buf = await resp.arrayBuffer();
               zipEntries["photos/profile_photo.jpg"] = new Uint8Array(buf);

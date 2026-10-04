@@ -19,21 +19,32 @@ export async function getAuthenticatedUser() {
     email: session.user.email,
     name: session.user.name || "",
     picture: session.user.image || null,
+    sv: session.user.sv || 0,
   };
 }
 
 /**
- * Resolves the session's database user: by Mongo id first, then by email.
- * Caller must have awaited connectDb(). Returns null when no user matches.
- * @param {{ uid: string, email?: string }} decoded
+ * Resolves the session's database user by its Mongo id. Returns null when the
+ * user no longer exists or the session was revoked (its sessionVersion no
+ * longer matches), so callers treat it as signed out.
+ * Caller must have awaited connectDb().
+ * @param {{ uid: string, email?: string, sv?: number }} decoded
  */
 export async function findSessionUser(decoded) {
-  let user = null;
   if (mongoose.Types.ObjectId.isValid(decoded.uid)) {
-    user = await User.findById(decoded.uid);
+    const user = await User.findById(decoded.uid);
+    if (!user || (user.sessionVersion || 0) !== (decoded.sv || 0)) return null;
+    return user;
   }
-  if (!user && decoded.email) {
-    user = await User.findOne({ email: decoded.email.toLowerCase().trim() });
+  // Legacy sessions whose id predates Mongo ids: fall back to email only for
+  // those, never for a stale Mongo id (that could attach an old token to a
+  // newer account registered under the same address).
+  if (decoded.email) {
+    return User.findOne({ email: decoded.email.toLowerCase().trim() });
   }
-  return user;
+  return null;
 }
+
+// Signs out a session that is present but no longer valid. Redirecting
+// straight to /sign-in would loop: proxy.js bounces cookie holders to /dashboard.
+export const SESSION_EXPIRED_PATH = "/api/session/expired";

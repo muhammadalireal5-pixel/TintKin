@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
 import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
 
@@ -9,6 +10,12 @@ import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/r
 const PROGRESSIVE_DELAYS = [0, 0, 0, 1000, 2000, 4000, 8000]; // ms delays for attempts 1-6
 const HARD_LOCKOUT_THRESHOLD = 7;
 const HARD_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+let dummyHashPromise = null;
+function getDummyHash() {
+  dummyHashPromise ??= bcrypt.hash(crypto.randomUUID(), 12);
+  return dummyHashPromise;
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
@@ -57,11 +64,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         await connectDb();
         const user = await User.findOne({ email }).select("+passwordHash");
 
-        if (!user) {
-          throw new Error("Invalid credentials");
-        }
-
-        if (!user.passwordHash) {
+        if (!user?.passwordHash) {
+          // Spend the same bcrypt time as a real check so response timing
+          // doesn't reveal which emails have accounts.
+          await bcrypt.compare(credentials.password.toString(), await getDummyHash());
           throw new Error("Invalid credentials");
         }
 
@@ -89,6 +95,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.displayName || "",
           image: user.photoURL || null,
+          sessionVersion: user.sessionVersion || 0,
         };
       },
     }),
@@ -102,15 +109,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       : []),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        // Only trust Google for an address Google itself has verified.
+        if (profile?.email_verified !== true) return false;
+
         await connectDb();
         const cleanEmail = user.email?.toLowerCase().trim();
         if (!cleanEmail) return false;
 
         let dbUser = await User.findOne({
           $or: [{ googleId: account.providerAccountId }, { email: cleanEmail }],
-        });
+        }).select("+passwordHash");
+
+        // Same email but already bound to a different Google account: refuse
+        // rather than silently signing into someone else's record.
+        if (dbUser?.googleId && dbUser.googleId !== account.providerAccountId) {
+          return false;
+        }
 
         if (!dbUser) {
           dbUser = await User.create({
@@ -124,6 +140,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           let changed = false;
           if (!dbUser.googleId) {
             dbUser.googleId = account.providerAccountId;
+            // Sign-up never verifies email ownership, so a password on this
+            // record may have been set by someone else who pre-registered the
+            // address. Google has now proven ownership: drop that password and
+            // revoke any sessions created with it. The owner can set a new
+            // password via "forgot password" if they want one.
+            if (dbUser.passwordHash) {
+              dbUser.passwordHash = undefined;
+              dbUser.sessionVersion = (dbUser.sessionVersion || 0) + 1;
+            }
             changed = true;
           }
           if (!dbUser.photoURL && user.image) {
@@ -140,18 +165,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         user.id = dbUser._id.toString();
+        user.sessionVersion = dbUser.sessionVersion || 0;
       }
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.sv = user.sessionVersion || 0;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id || token.sub;
+        session.user.sv = token.sv || 0;
       }
       return session;
     },

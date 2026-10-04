@@ -5,7 +5,8 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
-import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./rate-limit";
+import { headers } from "next/headers";
+import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
 
 let resendClient = null;
 function getResendClient() {
@@ -18,16 +19,38 @@ function getResendClient() {
 /**
  * Registers a new user with email, password, and name.
  */
-export async function registerUser({ email, password, name }) {
-  if (!email || !password) {
+export async function registerUser({ email, password, name } = {}) {
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return { success: false, error: "Email and password are required." };
+  }
+  if (name != null && typeof name !== "string") {
+    return { success: false, error: "Invalid name." };
   }
 
   const cleanEmail = email.toLowerCase().trim();
-  
+  if (cleanEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   // NIST 800-63B compliant: minimum 12 characters, no composition rules
   if (password.length < 12) {
     return { success: false, error: "Password must be at least 12 characters long." };
+  }
+  // bcrypt silently ignores bytes past 72, so longer passwords would be truncated.
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    return { success: false, error: "Password must be at most 72 bytes long." };
+  }
+
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
+  const rateCheck = await checkRateLimit(
+    getCompositeKey(ip),
+    "register",
+    RATE_LIMIT_CONFIGS.REGISTER.limit,
+    RATE_LIMIT_CONFIGS.REGISTER.windowMs
+  );
+  if (!rateCheck.allowed) {
+    return { success: false, error: `Too many sign-up attempts. Please try again in ${Math.ceil(rateCheck.retryAfter / 60)} minutes.` };
   }
 
   // Check against breached passwords via HIBP API (fail open on error)
@@ -76,7 +99,7 @@ export async function registerUser({ email, password, name }) {
   const passwordHash = await bcrypt.hash(password, 12);
   await User.create({
     email: cleanEmail,
-    displayName: (name || "").trim(),
+    displayName: (name || "").trim().slice(0, 50),
     passwordHash,
     createdAt: new Date(),
     lastLoginAt: new Date(),

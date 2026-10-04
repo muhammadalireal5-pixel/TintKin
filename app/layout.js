@@ -3,6 +3,7 @@ import { HeaderAuth } from "./components/HeaderAuth";
 import { Outfit, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import { ToastProvider } from "./components/ToastProvider";
+import PageTransition from "./components/PageTransition";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -117,9 +118,7 @@ export default function RootLayout({ children }) {
               </div>
             </header>
 
-            <main className="flex-1 flex flex-col w-full">
-              {children}
-            </main>
+            <PageTransition>{children}</PageTransition>
 
             <footer className="mt-auto border-t border-black/5 bg-base/80 backdrop-blur-md shrink-0">
               <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">

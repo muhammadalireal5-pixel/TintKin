@@ -123,36 +123,40 @@ export async function verifyAdminOTP(email, code) {
 
   await connectDb();
 
-  const otpRecord = await AdminOTP.findOne({
-    email: adminEmail,
-    used: false,
-    expiresAt: { $gt: new Date() }
-  }).sort({ createdAt: -1 });
+  const activeFilter = { email: adminEmail, used: false, expiresAt: { $gt: new Date() } };
+
+  // Count the attempt atomically *before* comparing, so parallel guesses can't
+  // all read the same attempt count and exceed MAX_OTP_VERIFY_ATTEMPTS.
+  const otpRecord = await AdminOTP.findOneAndUpdate(
+    { ...activeFilter, attempts: { $lt: MAX_OTP_VERIFY_ATTEMPTS } },
+    { $inc: { attempts: 1 } },
+    { sort: { createdAt: -1 }, new: true }
+  );
 
   if (!otpRecord) {
-    return { success: false, error: "No active OTP found. Please request a new code." };
+    const exhausted = await AdminOTP.findOneAndUpdate(
+      activeFilter,
+      { $set: { used: true } },
+      { sort: { createdAt: -1 } }
+    );
+    return exhausted
+      ? { success: false, error: "Too many incorrect attempts. Please request a new code." }
+      : { success: false, error: "No active OTP found. Please request a new code." };
   }
-
-  if (otpRecord.attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
-    otpRecord.used = true;
-    await otpRecord.save();
-    return { success: false, error: "Too many incorrect attempts. Please request a new code." };
-  }
-
-  otpRecord.attempts += 1;
 
   const expectedBuffer = Buffer.from(otpRecord.code);
   const inputBuffer = Buffer.from(code.trim());
 
   const matches = expectedBuffer.length === inputBuffer.length && crypto.timingSafeEqual(expectedBuffer, inputBuffer);
   if (!matches) {
-    await otpRecord.save();
     return { success: false, error: "Invalid code. Please try again." };
   }
 
-  // Mark as used (single-use)
-  otpRecord.used = true;
-  await otpRecord.save();
+  // Single-use: only the request that flips `used` gets a session.
+  const consumed = await AdminOTP.updateOne({ _id: otpRecord._id, used: false }, { $set: { used: true } });
+  if (consumed.modifiedCount !== 1) {
+    return { success: false, error: "No active OTP found. Please request a new code." };
+  }
 
   // Create session
   const token = signAdminToken({

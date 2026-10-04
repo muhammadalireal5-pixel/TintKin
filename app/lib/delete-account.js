@@ -3,7 +3,7 @@
 import "server-only";
 import crypto from "crypto";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, RateLimit } from "./mongoose";
 import { getCloudinaryPublicId } from "@/lib/utils/cloudinary";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -15,11 +15,13 @@ async function deleteCloudinaryAsset(imageUrl) {
 
   try {
     const timestamp = Math.floor(Date.now() / 1000);
-    const signatureString = `public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
+    // invalidate=true also purges CDN-cached copies of the deleted image.
+    const signatureString = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
     const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
 
     const form = new FormData();
     form.append("public_id", publicId);
+    form.append("invalidate", "true");
     form.append("api_key", process.env.CLOUDINARY_API_KEY);
     form.append("timestamp", timestamp.toString());
     form.append("signature", signature);
@@ -27,6 +29,7 @@ async function deleteCloudinaryAsset(imageUrl) {
     await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(20000),
     });
   } catch (e) {
     // Non-blocking image deletion failure
@@ -84,6 +87,8 @@ export async function deleteUserAccount() {
       Lifestyle.deleteMany({ userId }),
       Simulation.deleteMany({ userId }),
       RoutineLog.deleteMany({ userId }),
+      Report.deleteMany({ userId }),
+      RateLimit.deleteMany({ identifier: String(userId) }),
       User.findByIdAndDelete(userId),
     ]);
 

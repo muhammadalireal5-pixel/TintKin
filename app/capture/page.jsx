@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop } from "lucide-react";
@@ -211,7 +212,13 @@ export default function CapturePage() {
                             />
                             {loading && (
                                 <div className="preview-overlay">
-                                    <div className="spinner-ring" />
+                                    <motion.div
+                                        className="scan-line"
+                                        initial={{ top: "-10%" }}
+                                        animate={{ top: "110%" }}
+                                        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                                    />
+                                    <div className="scan-grid" />
                                 </div>
                             )}
                         </div>
@@ -309,7 +316,21 @@ export default function CapturePage() {
                         {status.type === "success" && <CheckCircle2 size={16} />}
                         {status.type === "error" && <AlertCircle size={16} />}
                         {status.type === "info" && <Loader2 size={16} className="spin" />}
-                        {loading && status.type === "info" ? loadingTexts[loadingTextIndex] : status.msg}
+                        {loading && status.type === "info" ? (
+                            <AnimatePresence mode="wait">
+                                <motion.span
+                                    key={loadingTextIndex}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -6 }}
+                                    transition={{ duration: 0.25 }}
+                                >
+                                    {loadingTexts[loadingTextIndex]}
+                                </motion.span>
+                            </AnimatePresence>
+                        ) : (
+                            status.msg
+                        )}
                     </div>
                 )}
 
@@ -552,18 +573,23 @@ export default function CapturePage() {
                 .preview-overlay {
                     position: absolute;
                     inset: 0;
-                    background: rgba(253,251,247,0.7);
-                    backdrop-filter: blur(4px);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    background: rgba(44,62,80,0.18);
+                    overflow: hidden;
                 }
-                .spinner-ring {
-                    width: 48px; height: 48px;
-                    border-radius: 50%;
-                    border: 3px solid rgba(138,154,91,0.2);
-                    border-top-color: var(--tk-accent-sage);
-                    animation: spin 0.85s linear infinite;
+                .scan-grid {
+                    position: absolute;
+                    inset: 0;
+                    background-image:
+                        repeating-linear-gradient(0deg, rgba(138,154,91,0.12) 0px, transparent 1px, transparent 24px, rgba(138,154,91,0.12) 25px),
+                        repeating-linear-gradient(90deg, rgba(138,154,91,0.12) 0px, transparent 1px, transparent 24px, rgba(138,154,91,0.12) 25px);
+                    opacity: 0.5;
+                }
+                .scan-line {
+                    position: absolute;
+                    left: 0; right: 0;
+                    height: 3px;
+                    background: linear-gradient(90deg, transparent, rgba(138,154,91,0.9), transparent);
+                    box-shadow: 0 0 16px 2px rgba(138,154,91,0.7);
                 }
 
                 .status-pill {

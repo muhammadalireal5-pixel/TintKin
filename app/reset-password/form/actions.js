@@ -71,12 +71,14 @@ export async function submitNewPassword(newPassword) {
     const cleanEmail = userEmail.toLowerCase().trim();
     const passwordHash = await bcrypt.hash(newPassword, 12);
     
+    // Bumping sessionVersion signs out every existing session, including any
+    // held by whoever knew the old password.
     await User.updateOne(
       { email: cleanEmail },
-      { 
-        passwordHash,
-        passwordResetToken: undefined,
-        passwordResetExpires: undefined 
+      {
+        $set: { passwordHash },
+        $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
+        $inc: { sessionVersion: 1 },
       }
     );
 

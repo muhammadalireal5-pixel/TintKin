@@ -7,19 +7,15 @@ import { checkOnboardingStatus } from "@/app/lib/actions";
 import { requestPasswordReset } from "@/app/lib/auth-actions";
 import { useAuthContext } from "@/app/context/AuthContext";
 import Link from "next/link";
-import { Eye, EyeOff, Sparkles } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import BrandLoader from "@/app/components/BrandLoader";
+import { getSafeRedirect } from "@/lib/utils/redirect";
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuthContext();
-  const requestedRedirect = searchParams.get("redirect");
-  const redirectTarget =
-    requestedRedirect?.startsWith("/") &&
-    !requestedRedirect.startsWith("//") &&
-    !requestedRedirect.includes("\\")
-      ? requestedRedirect
-      : "/dashboard";
+  const redirectTarget = getSafeRedirect(searchParams.get("redirect"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +26,8 @@ function SignInForm() {
     successMessage ||
     (noticeParam === "account_created"
       ? "If this email already had an account, we've sent a link to set a new password. Otherwise your account is ready: please sign in."
+      : noticeParam === "session_expired"
+      ? "Your session has ended. Please sign in again."
       : "");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -114,17 +112,12 @@ function SignInForm() {
 
   if (user && !authLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-        <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
-          <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
-          <p className="text-sm font-medium text-primary">Opening your skin journal...</p>
-        </div>
-      </div>
+      <BrandLoader message="Opening your skin journal…" />
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex min-h-[calc(100vh-80px)] items-start sm:items-center justify-center bg-base px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-6 tk-glass p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         
         <div className="text-center">
@@ -306,12 +299,7 @@ export default function SignInPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-          <div className="flex flex-col items-center gap-3 tk-glass p-8 rounded-2xl shadow-sm text-center">
-            <Sparkles className="w-8 h-8 text-sage animate-spin stroke-[1.5]" />
-            <p className="text-sm font-medium text-primary">Loading sign in...</p>
-          </div>
-        </div>
+        <BrandLoader message="Loading sign in…" />
       }
     >
       <SignInForm />

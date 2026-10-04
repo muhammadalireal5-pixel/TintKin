@@ -9,12 +9,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "type-check": "tsc -p jsconfig.json --noEmit"
+    "type-check": "tsc -p jsconfig.json --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup/register.mjs --test \"tests/**/*.test.mjs\""
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",
     "bcryptjs": "^3.0.2",
     "fflate": "^0.8.3",
+    "framer-motion": "^14.0.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.27.0",
     "mongoose": "^8.5.2",
@@ -26,7 +28,8 @@
     "react-compare-slider": "^4.0.0",
     "react-dom": "19.2.4",
     "recharts": "^3.10.1",
-    "resend": "^6.19.0"
+    "resend": "^6.19.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

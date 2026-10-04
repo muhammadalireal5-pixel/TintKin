@@ -34,5 +34,6 @@ Thumbs.db
 *.md
 !README.md
 !readme.md
+!AUDIT.md
 !**/README.md
 !**/readme.md

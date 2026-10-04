@@ -4,9 +4,22 @@ import { connectDb, RateLimit } from "./mongoose";
 const RATE_LIMIT_COLLECTION = "ratelimits";
 
 /**
- * MongoDB-backed rate limiter with sliding window and atomic operations.
+ * Returns the start of the fixed window containing `nowMs`.
+ * @param {number} nowMs
+ * @param {number} windowMs
+ */
+export function getWindowStart(nowMs, windowMs) {
+  return Math.floor(nowMs / windowMs) * windowMs;
+}
+
+/**
+ * MongoDB-backed fixed-window rate limiter with atomic operations.
  * Uses TTL index for automatic cleanup (created via setup script or manually).
- * 
+ *
+ * Each (identifier, action) gets one counter per fixed window. Previously every
+ * request moved `windowStart` to "now", so a steady requester's window never
+ * expired and the count only ever grew (eventually locking out normal use).
+ *
  * Setup: Run this once to create TTL index:
  * db.ratelimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
  */
@@ -15,34 +28,30 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
     await connectDb();
 
     const now = new Date();
-    const windowStart = new Date(now.getTime() - windowMs);
+    const bucketStart = getWindowStart(now.getTime(), windowMs);
+    const resetTime = new Date(bucketStart + windowMs);
 
-    // Atomic upsert: increment count if exists in window, or create new record
+    // Atomic upsert: increment this window's counter, creating it on first hit.
     const result = await RateLimit.findOneAndUpdate(
       {
         identifier,
         action,
-        windowStart: { $gte: windowStart },
+        windowStart: new Date(bucketStart),
       },
       {
         $inc: { count: 1 },
-        $set: {
-          windowStart: now,
-          expiresAt: new Date(now.getTime() + windowMs),
-        },
         $setOnInsert: {
           createdAt: now,
+          expiresAt: resetTime,
         },
       },
       {
         upsert: true,
         new: true,
-        returnDocument: "after",
       }
     );
 
     const currentCount = result?.count || 1;
-    const resetTime = new Date(now.getTime() + windowMs);
 
     if (currentCount > limit) {
       return {

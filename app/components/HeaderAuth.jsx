@@ -35,8 +35,8 @@ export function HeaderAuth() {
 
   return (
     <>
-      {/* Nav links */}
-      <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1 shrink">
+      {/* Nav links — mobile uses the fixed bottom tab bar instead (see MobileBottomNav) */}
+      <nav className="hidden md:flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-none flex-1 justify-center min-w-0 px-1 shrink">
         {navLinks.map(({ href, label }) => {
           const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (

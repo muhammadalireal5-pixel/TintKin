@@ -7,7 +7,13 @@ import { okResult, errorResult } from "@/lib/utils/result";
 
 const openai = new OpenAI({
   apiKey: process.env.QWEN_API_KEY || process.env.OPENAI_API_KEY,
-  baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  // International region: the account key isn't served by the mainland-China
+  // endpoint (dashscope.aliyuncs.com) and requests there hang until timeout.
+  baseURL: process.env.QWEN_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  // SDK defaults are a 10-minute timeout with 2 retries, which outlives a
+  // serverless invocation; callers already fall back when advice fails.
+  timeout: 45000,
+  maxRetries: 1,
 });
 
 export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null) {
@@ -75,7 +81,10 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     - Avoid generic, one-size-fits-all products. Each recommendation must be justified by the user's data.`;
     
     const response = await openai.chat.completions.create({
-      model: process.env.QWEN_MODEL_NAME || "qwen-plus",
+      model: process.env.QWEN_MODEL_NAME || "deepseek-v4-pro-0813",
+      // Thinking mode spends ~4k reasoning tokens (~50s) and blows the timeout;
+      // without it the same JSON comes back in ~8s.
+      enable_thinking: false,
       messages: [
         { role: "system", content: "You are an expert AI dermatologist. Always respond with valid JSON only, without markdown formatting like ```json." },
         { role: "user", content: prompt }
@@ -94,7 +103,8 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
       facialWorkout: typeof result.facialWorkout === "string" ? result.facialWorkout : "",
       products: Array.isArray(result.products) ? result.products : []
     });
-  } catch {
+  } catch (err) {
+    console.error("[ai-advice] generation failed:", err?.status ?? "", err?.message ?? err);
     return errorResult(
       ERROR_CODES.AI_ADVICE_UNAVAILABLE,
       "Personalized AI advice is temporarily unavailable."

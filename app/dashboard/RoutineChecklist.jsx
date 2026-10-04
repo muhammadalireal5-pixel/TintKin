@@ -2,7 +2,30 @@
 
 import { useState } from "react";
 import { Check, Sun, Moon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { saveRoutineCompletion } from "@/app/lib/actions";
+
+function RoutineCheckbox({ checked, activeClasses, idleClasses }) {
+  return (
+    <motion.div
+      whileTap={{ scale: 0.82 }}
+      className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${checked ? activeClasses : idleClasses}`}
+    >
+      <AnimatePresence>
+        {checked && (
+          <motion.span
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
+          >
+            <Check size={12} strokeWidth={3} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
 export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [], completedPm = [] }) {
   const [amChecks, setAmChecks] = useState(completedAm);
@@ -62,9 +85,11 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
                 const checked = amChecks.includes(step);
                 return (
                   <li key={idx} className="flex items-start gap-3 cursor-pointer group" onClick={() => toggleCheck("am", step)}>
-                    <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${checked ? 'bg-sage border-sage text-[#2C3E50]' : 'border-gray-300 group-hover:border-sage/50'}`}>
-                      {checked && <Check size={12} strokeWidth={3} />}
-                    </div>
+                    <RoutineCheckbox
+                      checked={checked}
+                      activeClasses="bg-sage border-sage text-[#2C3E50]"
+                      idleClasses="border-gray-300 group-hover:border-sage/50"
+                    />
                     <span className={`text-sm leading-snug transition-colors ${checked ? 'text-muted line-through' : 'text-primary group-hover:text-sage'}`}>{step}</span>
                   </li>
                 );
@@ -95,9 +120,11 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
                 const checked = pmChecks.includes(step);
                 return (
                   <li key={idx} className="flex items-start gap-3 cursor-pointer group" onClick={() => toggleCheck("pm", step)}>
-                    <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${checked ? 'bg-lavender border-lavender text-[#792CA2]' : 'border-gray-300 group-hover:border-lavender'}`}>
-                      {checked && <Check size={12} strokeWidth={3} />}
-                    </div>
+                    <RoutineCheckbox
+                      checked={checked}
+                      activeClasses="bg-lavender border-lavender text-[#792CA2]"
+                      idleClasses="border-gray-300 group-hover:border-lavender"
+                    />
                     <span className={`text-sm leading-snug transition-colors ${checked ? 'text-muted line-through' : 'text-primary group-hover:text-[#792CA2]'}`}>{step}</span>
                   </li>
                 );

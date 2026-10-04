@@ -1,7 +1,8 @@
 import "server-only";
 import mongoose from "mongoose";
 import { connectDb, User } from "./mongoose";
-import { getLocalDayKey, getLocalMonthKey } from "@/lib/utils/date";
+import { getLocalDayKey, getLocalMonthKey, normalizeTimezone } from "@/lib/utils/date";
+import { resolvePeriod } from "@/lib/utils/quota-period";
 
 /**
  * Atomically reserves one usage slot against a daily/monthly cap.
@@ -27,6 +28,8 @@ async function reserveSlot({ userId, field, dayKey, monthKey, dailyLimit, monthl
   const session = await mongoose.startSession();
   let granted = false;
   let reason = null;
+  let effectiveDayKey = dayKey;
+  let effectiveMonthKey = monthKey;
 
   try {
     await session.withTransaction(async () => {
@@ -37,38 +40,41 @@ async function reserveSlot({ userId, field, dayKey, monthKey, dailyLimit, monthl
       }
 
       const usage = user[field] || {};
-      const dayCount = dayKey && usage.dayKey === dayKey ? usage.dayCount || 0 : 0;
-      const monthCount = usage.monthKey === monthKey ? usage.monthCount || 0 : 0;
+      const day = dayKey ? resolvePeriod(usage.dayKey, usage.dayCount, dayKey) : null;
+      const month = resolvePeriod(usage.monthKey, usage.monthCount, monthKey);
+      effectiveDayKey = day ? day.key : null;
+      effectiveMonthKey = month.key;
 
-      if (dayKey && dailyLimit != null && dayCount + 1 > dailyLimit) {
+      if (day && dailyLimit != null && day.count + 1 > dailyLimit) {
         reason = "daily_limit";
         return;
       }
-      if (monthlyLimit != null && monthCount + 1 > monthlyLimit) {
+      if (monthlyLimit != null && month.count + 1 > monthlyLimit) {
         reason = "monthly_limit";
         return;
       }
 
       const update = {
-        [`${field}.monthKey`]: monthKey,
-        [`${field}.monthCount`]: monthCount + 1,
+        [`${field}.monthKey`]: month.key,
+        [`${field}.monthCount`]: month.count + 1,
       };
-      if (dayKey) {
-        update[`${field}.dayKey`] = dayKey;
-        update[`${field}.dayCount`] = dayCount + 1;
+      if (day) {
+        update[`${field}.dayKey`] = day.key;
+        update[`${field}.dayCount`] = day.count + 1;
       }
 
       await User.updateOne({ _id: userId }, { $set: update }).session(session);
       granted = true;
     });
   } catch (error) {
-    console.error("[QUOTA] Reservation transaction failed, failing closed:", error);
-    return { granted: false, reason: "error" };
+    console.error("[QUOTA] Reservation transaction failed, failing closed:", error?.message || error);
+    return { granted: false, reason: "error", dayKey, monthKey };
   } finally {
     await session.endSession();
   }
 
-  return { granted, reason };
+  // Callers release against the keys actually written, not the requested ones.
+  return { granted, reason, dayKey: effectiveDayKey, monthKey: effectiveMonthKey };
 }
 
 /** Best-effort compensating release for a slot reserved but not consumed (the analysis/simulation failed after the reservation succeeded). Only decrements if the period hasn't rolled over since reservation. */
@@ -88,10 +94,10 @@ async function releaseSlot({ userId, field, dayKey, monthKey }) {
 }
 
 export async function reserveScanSlot(userId, timezone, dailyLimit, monthlyLimit) {
-  const dayKey = getLocalDayKey(timezone);
-  const monthKey = getLocalMonthKey(timezone);
-  const result = await reserveSlot({ userId, field: "scanUsage", dayKey, monthKey, dailyLimit, monthlyLimit });
-  return { ...result, dayKey, monthKey };
+  const tz = normalizeTimezone(timezone);
+  const dayKey = getLocalDayKey(tz);
+  const monthKey = getLocalMonthKey(tz);
+  return reserveSlot({ userId, field: "scanUsage", dayKey, monthKey, dailyLimit, monthlyLimit });
 }
 
 export async function releaseScanSlot(userId, dayKey, monthKey) {
@@ -99,9 +105,8 @@ export async function releaseScanSlot(userId, dayKey, monthKey) {
 }
 
 export async function reserveSimulationSlot(userId, timezone, monthlyLimit) {
-  const monthKey = getLocalMonthKey(timezone);
-  const result = await reserveSlot({ userId, field: "simUsage", dayKey: null, monthKey, dailyLimit: null, monthlyLimit });
-  return { ...result, monthKey };
+  const monthKey = getLocalMonthKey(normalizeTimezone(timezone));
+  return reserveSlot({ userId, field: "simUsage", dayKey: null, monthKey, dailyLimit: null, monthlyLimit });
 }
 
 export async function releaseSimulationSlot(userId, monthKey) {

@@ -6,13 +6,15 @@ import { RadarChartClient, ProgressChart } from "./LazyCharts";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
 import ProductImage from "./ProductImage";
-import { Sparkles, ArrowRight, Dumbbell, Flame, Camera, Share2 } from "lucide-react";
+import { Sparkles, ArrowRight, Dumbbell, Flame, Share2, Trophy as TrophyIcon, LineChart } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import RoutineChecklist from "./RoutineChecklist";
 import TrophyCase from "./TrophyCase";
 import LeaderboardCard from "./LeaderboardCard";
+import DashboardSection from "./DashboardSection";
+import { StaggerContainer, StaggerItem } from "./StaggerReveal";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,7 @@ async function DashboardContent() {
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
     const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout, adviceStatus } = sourceData;
-    
+
     const hasSkinAge = typeof skinAge === "number";
     const hasRealAge = typeof realAge === "number";
     const skinOlder = hasSkinAge && hasRealAge && skinAge > realAge;
@@ -58,9 +60,9 @@ async function DashboardContent() {
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
             <div className="max-w-6xl mx-auto">
                 <LocationPrompt user={user} />
-                
+
                 {/* Page Title */}
-                <div className="mb-8 tk-anim-1 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+                <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
                     <div>
                         <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
                             Your Skin Journal
@@ -83,22 +85,21 @@ async function DashboardContent() {
                     <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                 )}
 
-                {/* Bento Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 overflow-hidden">
+                <StaggerContainer className="flex flex-col gap-5 sm:gap-6">
 
-                    {/* ✅ Daily Routine — first item, full width */}
-                    <div className="md:col-span-3 lg:col-span-4 flex flex-col tk-anim-2">
-                        <RoutineChecklist 
-                            amRoutine={amRoutine} 
-                            pmRoutine={pmRoutine} 
-                            completedAm={todayRoutineLog?.amCompleted || []} 
-                            completedPm={todayRoutineLog?.pmCompleted || []} 
+                    {/* Today's action, first */}
+                    <StaggerItem>
+                        <RoutineChecklist
+                            amRoutine={amRoutine}
+                            pmRoutine={pmRoutine}
+                            completedAm={todayRoutineLog?.amCompleted || []}
+                            completedPm={todayRoutineLog?.pmCompleted || []}
                         />
-                    </div>
+                    </StaggerItem>
 
-                    {/* Overall Harmony */}
-                    <div className="tk-glass p-6 sm:p-7 md:col-span-2 lg:col-span-2 flex flex-col justify-between tk-anim-3 relative">
-                        <div>
+                    {/* Overall Harmony — hero score */}
+                    <StaggerItem>
+                        <div className="tk-glass p-6 sm:p-7 flex flex-col relative">
                             <div className="flex justify-between items-start mb-1.5">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
                                 <div className="flex items-center gap-2.5">
@@ -111,167 +112,177 @@ async function DashboardContent() {
                                 </div>
                             </div>
                             <p className="text-xs sm:text-sm text-primary mb-4">Your skin&apos;s overall balance and vitality.</p>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8 my-2">
-                            {/* Today */}
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
-                                <div className="flex items-end gap-1.5">
-                                    <h2 className="text-4xl sm:text-5xl font-display font-medium text-primary leading-none">
-                                        {typeof overallScore === 'number' ? overallScore : "—"}
-                                    </h2>
-                                    <span className="text-base text-muted mb-0.5">/ 100</span>
+
+                            <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8 my-2">
+                                {/* Today */}
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
+                                    <div className="flex items-end gap-1.5">
+                                        <h2 className="text-4xl sm:text-5xl font-display font-medium text-primary leading-none">
+                                            {typeof overallScore === 'number' ? overallScore : "—"}
+                                        </h2>
+                                        <span className="text-base text-muted mb-0.5">/ 100</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div className="hidden sm:block w-px h-12 bg-black/10"></div>
-                            <div className="sm:hidden h-px w-full bg-black/5"></div>
-                            
-                            {/* This Week */}
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
-                                {weeklyAverage?.overallScore != null ? (
-                                    <>
-                                        <div className="flex items-end gap-1.5">
-                                            <h2 className="text-4xl sm:text-5xl font-display font-medium text-sage leading-none">
-                                                {weeklyAverage.overallScore}
-                                            </h2>
-                                            <span className="text-base text-muted mb-0.5">/ 100</span>
-                                        </div>
-                                        <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                            ── {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'} ──
-                                        </p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex items-end gap-1.5">
-                                            <h2 className="text-3xl sm:text-4xl font-display font-medium text-muted/60 leading-none">
-                                                —
-                                            </h2>
-                                        </div>
-                                        <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                            First scan this week
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
 
-                        <div className="mt-4 pt-3.5 border-t border-solid border-black/5">
-                            <p className="text-xs sm:text-sm text-muted leading-relaxed">
-                                {critique || (adviceStatus === 'error' ? 'AI personalized advice is temporarily updating and will refresh on your next scan.' : typeof overallScore === 'number' && overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : typeof overallScore === 'number' && overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
-                            </p>
-                        </div>
-                    </div>
+                                <div className="hidden sm:block w-px h-12 bg-black/10"></div>
+                                <div className="sm:hidden h-px w-full bg-black/5"></div>
 
-                    {/* Age cards + Leaderboard */}
-                    <div className="flex flex-col gap-2.5 md:col-span-1 lg:col-span-1 tk-anim-3">
-                        {/* Twin Age Cards Side-by-Side */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                            <div className="tk-glass p-3 rounded-2xl flex flex-col justify-center">
-                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Real Age</p>
-                                <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
-                            </div>
-                            
-                            <div className={`tk-glass p-3 rounded-2xl flex flex-col justify-center border ${skinOlder ? 'border-sage/30' : 'border-lavender/40'}`}>
-                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Skin Age</p>
-                                <div className="flex items-baseline gap-1.5">
-                                    <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
-                                    {ageDelta != null && (
-                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
-                                            {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
-                                        </span>
+                                {/* This Week */}
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
+                                    {weeklyAverage?.overallScore != null ? (
+                                        <>
+                                            <div className="flex items-end gap-1.5">
+                                                <h2 className="text-4xl sm:text-5xl font-display font-medium text-sage leading-none">
+                                                    {weeklyAverage.overallScore}
+                                                </h2>
+                                                <span className="text-base text-muted mb-0.5">/ 100</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
+                                                ── {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'} ──
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-end gap-1.5">
+                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-muted/60 leading-none">
+                                                    —
+                                                </h2>
+                                            </div>
+                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
+                                                First scan this week
+                                            </p>
+                                        </>
                                     )}
                                 </div>
                             </div>
-                        </div>
-                        
-                        {/* Community Board Card */}
-                        <div className="flex-1 min-h-0 flex flex-col">
-                            <LeaderboardCard />
-                        </div>
-                    </div>
 
-                    {/* Profile Radar */}
-                    <div className="tk-glass p-5 sm:p-6 md:col-span-3 lg:col-span-1 flex flex-col tk-anim-4">
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Profile Radar</p>
-                        <div className="flex-1 w-full relative min-h-[220px]">
-                            <ComponentErrorFallback title="Radar Chart">
-                                <RadarChartClient scores={scores} />
-                            </ComponentErrorFallback>
-                        </div>
-                    </div>
-
-                    {/* Trophy Case (Full Width Landscape Banner) */}
-                    <div className="col-span-1 md:col-span-3 lg:col-span-4 tk-anim-4 flex flex-col" style={{ animationDelay: '0.1s' }}>
-                        <TrophyCase 
-                            badges={user?.badges} 
-                            achievements={achievements} 
-                            achievementStats={achievementStats} 
-                            userName={user?.displayName || "Wellness Seeker"} 
-                        />
-                    </div>
-
-                    {/* Journey Chart */}
-                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 min-h-[400px] flex flex-col tk-anim-5">
-                        <div className="flex justify-between items-end mb-6">
-                            <div>
-                                <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Journey</p>
-                                <p className="text-sm text-primary">Your progress over time.</p>
+                            <div className="mt-4 pt-3.5 border-t border-solid border-black/5">
+                                <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                                    {critique || (adviceStatus === 'error' ? 'AI personalized advice is temporarily updating and will refresh on your next scan.' : typeof overallScore === 'number' && overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : typeof overallScore === 'number' && overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex-1 w-full relative">
-                            <ComponentErrorFallback title="Progress Chart">
-                                <ProgressChart allSelfies={allSelfies} hasMore={Boolean(hasMoreSelfies)} />
-                            </ComponentErrorFallback>
-                        </div>
-                    </div>
+                    </StaggerItem>
 
-                    {/* 💪 Facial Workout — full width, polished */}
-                    <div className="tk-glass p-8 md:col-span-3 lg:col-span-4 flex flex-col tk-anim-5" style={{ animationDelay: '0.1s' }}>
-                        <div className="flex items-center gap-2.5 mb-5">
-                            <div className="w-8 h-8 rounded-xl bg-sage/15 flex items-center justify-center shrink-0">
-                                <Dumbbell size={16} className="text-sage" />
+                    {/* Insights strip — swipeable on mobile, grid on desktop */}
+                    <StaggerItem>
+                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2.5 px-0.5">Insights</p>
+                        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:mx-0 md:px-0">
+                            {/* Age comparison */}
+                            <div className="tk-glass shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none p-4 rounded-2xl flex flex-col">
+                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-2.5">Age Comparison</p>
+                                <div className="grid grid-cols-2 gap-2.5 flex-1">
+                                    <div className="rounded-xl bg-white/40 p-3 flex flex-col justify-center">
+                                        <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Real Age</p>
+                                        <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
+                                    </div>
+                                    <div className={`rounded-xl p-3 flex flex-col justify-center border ${skinOlder ? 'border-sage/30 bg-sage/5' : 'border-lavender/40 bg-lavender/10'}`}>
+                                        <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Skin Age</p>
+                                        <div className="flex items-baseline gap-1.5">
+                                            <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
+                                            {ageDelta != null && (
+                                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
+                                                    {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-xs font-semibold tracking-widest uppercase text-muted">Targeted Facial Workout</p>
+
+                            {/* Community board */}
+                            <div className="shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none flex flex-col">
+                                <LeaderboardCard />
+                            </div>
+
+                            {/* Profile radar */}
+                            <div className="tk-glass shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none p-5 flex flex-col">
+                                <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Profile Radar</p>
+                                <div className="flex-1 w-full relative min-h-[220px]">
+                                    <ComponentErrorFallback title="Radar Chart">
+                                        <RadarChartClient scores={scores} />
+                                    </ComponentErrorFallback>
+                                </div>
+                            </div>
                         </div>
-                        {facialWorkout ? (
-                            <div className="bg-sage/10 p-5 rounded-2xl border border-sage/20">
-                                {facialWorkout.includes(':') ? (
-                                    <>
-                                        <p className="font-display text-base font-medium text-primary mb-2">
-                                            {facialWorkout.split(':')[0].trim()}
-                                        </p>
-                                        <p className="text-sm text-muted leading-relaxed">
-                                            {facialWorkout.split(':').slice(1).join(':').trim()}
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
-                                )}
+                    </StaggerItem>
+
+                    {/* Trophy Case — collapsible, collapsed by default on mobile */}
+                    <StaggerItem>
+                        <DashboardSection title="Your Trophies" icon={<TrophyIcon size={14} className="text-sage" />}>
+                            <TrophyCase
+                                badges={user?.badges}
+                                achievements={achievements}
+                                achievementStats={achievementStats}
+                                userName={user?.displayName || "Wellness Seeker"}
+                            />
+                        </DashboardSection>
+                    </StaggerItem>
+
+                    {/* Journey Chart — collapsible, collapsed by default on mobile */}
+                    <StaggerItem>
+                        <DashboardSection title="Journey" icon={<LineChart size={14} className="text-sage" />}>
+                            <div className="tk-glass p-6 sm:p-8 min-h-[360px] flex flex-col">
+                                <p className="text-sm text-primary mb-4">Your progress over time.</p>
+                                <div className="flex-1 w-full relative">
+                                    <ComponentErrorFallback title="Progress Chart">
+                                        <ProgressChart allSelfies={allSelfies} hasMore={Boolean(hasMoreSelfies)} />
+                                    </ComponentErrorFallback>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="bg-white/50 p-5 rounded-2xl border border-lavender/50 text-center text-muted text-sm italic">
-                                Analyze a new selfie to get a personalized facial workout.
+                        </DashboardSection>
+                    </StaggerItem>
+
+                    {/* Facial Workout */}
+                    <StaggerItem>
+                        <div className="tk-glass p-6 sm:p-7 flex flex-col">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-8 h-8 rounded-xl bg-sage/15 flex items-center justify-center shrink-0">
+                                    <Dumbbell size={16} className="text-sage" />
+                                </div>
+                                <p className="text-xs font-semibold tracking-widest uppercase text-muted">Targeted Facial Workout</p>
                             </div>
-                        )}
-                    </div>
+                            {facialWorkout ? (
+                                <div className="bg-sage/10 p-5 rounded-2xl border border-sage/20">
+                                    {facialWorkout.includes(':') ? (
+                                        <>
+                                            <p className="font-display text-base font-medium text-primary mb-2">
+                                                {facialWorkout.split(':')[0].trim()}
+                                            </p>
+                                            <p className="text-sm text-muted leading-relaxed">
+                                                {facialWorkout.split(':').slice(1).join(':').trim()}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="bg-white/50 p-5 rounded-2xl border border-lavender/50 text-center text-muted text-sm italic">
+                                    Analyze a new selfie to get a personalized facial workout.
+                                </div>
+                            )}
+                        </div>
+                    </StaggerItem>
 
                     {/* Core Metrics Carousel */}
-                    <ComponentErrorFallback title="Score Carousel">
-                        <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
-                    </ComponentErrorFallback>
-                    
+                    <StaggerItem>
+                        <ComponentErrorFallback title="Score Carousel">
+                            <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
+                        </ComponentErrorFallback>
+                    </StaggerItem>
+
                     {/* Recommended Products + What-If CTA */}
-                    <div className="col-span-1 md:col-span-3 lg:col-span-4 mt-4 space-y-6 animate-fade-in">
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-4">Recommended Products</p>
-                        <div className="mb-4 text-sm text-muted">
+                    <StaggerItem className="space-y-6">
+                        <p className="text-xs font-semibold tracking-widest uppercase text-muted">Recommended Products</p>
+                        <div className="text-sm text-muted">
                             <p>Your routine for 30 days (consider a 1-month supply).</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {products.map((prod, idx) => (
-                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center tk-anim-5 relative overflow-hidden" style={{ animationDelay: `${0.1 * idx}s` }}>
+                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center relative overflow-hidden">
                                     <div className="relative w-32 h-32 rounded-full overflow-hidden mb-6 shadow-md border-2 border-white/50">
                                         <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
                                     </div>
@@ -282,8 +293,8 @@ async function DashboardContent() {
                             ))}
                         </div>
 
-                        <Link href="/what-if" className="block mt-10">
-                            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer tk-anim-6">
+                        <Link href="/what-if" className="block mt-4">
+                            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer">
                                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
                                 <div className="relative z-10 flex flex-col items-center justify-center">
                                     <Sparkles size={32} strokeWidth={2} className="text-sage mb-4" />
@@ -295,19 +306,8 @@ async function DashboardContent() {
                                 </div>
                             </div>
                         </Link>
-                    </div>
-                </div>
-            </div>
-
-            {/* Sticky Mobile Capture CTA */}
-            <div className="md:hidden fixed bottom-6 right-6 z-40">
-                <Link
-                    href="/capture"
-                    className="flex items-center gap-2 bg-primary text-white text-xs font-semibold px-5 py-3 rounded-full shadow-2xl hover:bg-primary/90 transition-transform active:scale-95 border border-white/20"
-                >
-                    <Camera size={16} />
-                    <span>Log Today&apos;s Skin</span>
-                </Link>
+                    </StaggerItem>
+                </StaggerContainer>
             </div>
         </div>
     );

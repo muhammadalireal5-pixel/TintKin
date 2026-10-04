@@ -28,7 +28,10 @@ function InnerAuthProvider({ children }) {
   }, [session]);
 
   const signOutUser = async () => {
-    await signOut({ callbackUrl: "/" });
+    // Navigate ourselves with a relative path: Auth.js builds its redirect URL
+    // from NEXTAUTH_URL (localhost), which is unreachable from a phone on the LAN.
+    await signOut({ redirect: false });
+    window.location.assign("/");
   };
 
   return (

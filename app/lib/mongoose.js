@@ -88,6 +88,9 @@ const UserSchema = new mongoose.Schema({
     },
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
+    // Copied into the session JWT at sign-in; bumping it revokes every
+    // existing session (password reset, Google taking over a password account).
+    sessionVersion: { type: Number, default: 0 },
     displayName: { type: String },
     photoURL: { type: String },
     lastLoginAt: { type: Date },

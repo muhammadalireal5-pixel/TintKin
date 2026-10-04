@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect } from "react";
+import AnimatedModal from "./AnimatedModal";
 import {
   X,
   MapPin,
@@ -30,19 +30,9 @@ import { SKIN_TYPES } from "@/lib/constants/profile";
 import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 import { PHOTO_PRIVACY } from "@/lib/constants/privacy";
 
-const emptySubscribe = () => () => {};
-function useMounted() {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
-}
-
 export default function SettingsModal({ isOpen, onClose }) {
   const { user, signOutUser } = useAuthContext();
   const { showToast } = useToast();
-  const mounted = useMounted();
   const [profile, setProfile] = useState(null);
   const [locationMode, setLocationMode] = useState("idle"); // idle | editing | loading | saved
   const [city, setCity] = useState("");
@@ -55,8 +45,6 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const panelRef = useRef(null);
-
   // Fetch DB profile data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -79,27 +67,6 @@ export default function SettingsModal({ isOpen, onClose }) {
         }
       });
     }
-  }, [isOpen]);
-
-  // Close on Escape key
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
-
-  // Prevent body scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
   }, [isOpen]);
 
   const handleUseGeolocation = () => {
@@ -314,29 +281,16 @@ export default function SettingsModal({ isOpen, onClose }) {
     }
   };
 
-  if (!mounted) return null;
-
-  return createPortal(
+  return (
     <>
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Slide-in panel */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Settings"
-        className={`fixed right-0 top-0 h-full w-full max-w-sm z-[210] flex flex-col bg-[#FDFBF7] shadow-2xl border-l border-black/5 transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
-        }`}
-      >
+    <AnimatedModal
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="sheet"
+      zIndex={200}
+      ariaLabel="Settings"
+      panelClassName="h-full w-full max-w-sm flex flex-col bg-[#FDFBF7] shadow-2xl border-l border-black/5"
+    >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#5B6D7F]">Settings</p>
@@ -722,16 +676,21 @@ export default function SettingsModal({ isOpen, onClose }) {
             Sign Out
           </button>
         </div>
-      </div>
+    </AnimatedModal>
 
       {/* Delete Account Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div
-            className="w-full max-w-md bg-[#FDFBF7] rounded-2xl p-6 shadow-2xl border border-red-100 text-[#2C3E50]"
-            role="alertdialog"
-            aria-modal="true"
-          >
+      <AnimatedModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeleteConfirmText("");
+        }}
+        variant="center"
+        zIndex={250}
+        role="alertdialog"
+        ariaLabel="Permanently Delete Account?"
+        panelClassName="w-full max-w-md bg-[#FDFBF7] rounded-2xl p-6 shadow-2xl border border-red-100 text-[#2C3E50]"
+      >
             <div className="flex items-center gap-3 mb-3 text-red-600">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <AlertTriangle size={20} />
@@ -782,11 +741,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {isDeleting ? "Erasing Data..." : "Permanently Delete"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-    </>,
-    document.body
+      </AnimatedModal>
+    </>
   );
 }
 

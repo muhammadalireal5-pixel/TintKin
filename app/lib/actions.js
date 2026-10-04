@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getAuthenticatedUser, findSessionUser } from "@/app/lib/auth-server";
+import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
 import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
@@ -10,11 +10,14 @@ import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
 import { evaluateUserAchievements } from "./achievements";
 import {
-  validateTrustedImageUrl,
+  isOwnedUserUpload,
+  getUserUploadPrefix,
   getCloudinaryPublicId,
   applyFaceCropToCloudinary,
   signCloudinaryUrl,
+  stripCloudinarySignature,
 } from "@/lib/utils/cloudinary";
+import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
@@ -37,29 +40,115 @@ import {
   getLocalISOWeekStart,
   getLocalMonthStart,
   getISOWeekStart,
+  normalizeTimezone,
 } from "@/lib/utils/date";
 import crypto from "crypto";
 import mongoose from "mongoose";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = "ml_default";
+const CLOUDINARY_TIMEOUT_MS = 20000;
+// Reservation outcomes that mean "over the limit"; anything else is a failed check.
+const QUOTA_LIMIT_REASONS = new Set(["daily_limit", "monthly_limit"]);
 
-async function uploadUrlToCloudinary(imageUrl) {
+const MAX_SIM_INTERVENTIONS = 10;
+const MAX_SIM_LABEL_LENGTH = 200;
+// Range the product-scan prompt asks Qwen for (app/lib/qwen.js); enforced here
+// because interventions arrive from the client.
+const MIN_CUSTOM_MULTIPLIER = 0.65;
+const MAX_CUSTOM_MULTIPLIER = 0.95;
+
+function clampString(value, maxLength) {
+  return typeof value === "string" ? value.slice(0, maxLength) : undefined;
+}
+
+// Simulation interventions come from the client and are stored verbatim, so
+// keep only known product fields with bounded sizes (valid inputs unchanged).
+function sanitizeInterventions(list) {
+  const items = Array.isArray(list) ? list : list ? [list] : [];
+  return items.slice(0, MAX_SIM_INTERVENTIONS).flatMap((item) => {
+    if (typeof item === "string") return item.length <= 40 ? [item] : [];
+    if (!item || typeof item !== "object") return [];
+    const clean = {
+      type: clampString(item.type, 40),
+      formula: clampString(item.formula, 200),
+      description: clampString(item.description, 500),
+    };
+    if (item._id != null) clean._id = String(item._id).slice(0, 64);
+    if (item.isCustom === true) clean.isCustom = true;
+    if (item.isStarter === true) clean.isStarter = true;
+    if (Number.isFinite(item.customMultiplier)) {
+      clean.customMultiplier = Math.min(MAX_CUSTOM_MULTIPLIER, Math.max(MIN_CUSTOM_MULTIPLIER, item.customMultiplier));
+    }
+    return [clean];
+  });
+}
+
+function signCloudinaryParams(params) {
+  return crypto.createHash("sha1").update(`${params}${process.env.CLOUDINARY_API_SECRET}`).digest("hex");
+}
+
+// Copies a remote (YouCam) result image into our Cloudinary under the user's
+// prefix. Uses a server-signed upload rather than the unsigned "ml_default"
+// preset, so the app no longer depends on an unsigned preset existing.
+async function uploadUrlToCloudinary(imageUrl, userId) {
   if (!imageUrl || !imageUrl.startsWith('http')) return imageUrl;
-  
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const publicId = `${getUserUploadPrefix(userId)}sim-${crypto.randomBytes(12).toString("hex")}`;
   const form = new FormData();
   form.append("file", imageUrl);
-  form.append("upload_preset", UPLOAD_PRESET);
-  
+  form.append("api_key", process.env.CLOUDINARY_API_KEY);
+  form.append("public_id", publicId);
+  form.append("timestamp", timestamp);
+  form.append("signature", signCloudinaryParams(`public_id=${publicId}&timestamp=${timestamp}`));
+
   try {
     const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.secure_url;
   } catch (e) {
+    // Keep the simulation usable, but the YouCam URL may expire later.
+    console.warn(`uploadUrlToCloudinary failed, storing provider URL: ${e?.message || e}`);
+    return imageUrl;
+  }
+}
+
+// Uploads a denoised copy of the selfie for the skin simulation to run on, so
+// its changes aren't lost in camera grain. Scans keep using the original, so
+// scores stay comparable with earlier scans. Falls back to the original on
+// any failure.
+async function prepareSimulationSource(imageUrl, userId) {
+  if (!imageUrl || !imageUrl.includes("cloudinary.com")) return imageUrl;
+  try {
+    const original = await fetch(stripCloudinarySignature(imageUrl), {
+      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
+    });
+    if (!original.ok) throw new Error(`fetch HTTP ${original.status}`);
+    const cleaned = await denoiseSelfie(Buffer.from(await original.arrayBuffer()));
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const publicId = `${getUserUploadPrefix(userId)}simsrc-${crypto.randomBytes(12).toString("hex")}`;
+    const form = new FormData();
+    form.append("file", new Blob([cleaned], { type: "image/jpeg" }), "simsrc.jpg");
+    form.append("api_key", process.env.CLOUDINARY_API_KEY);
+    form.append("public_id", publicId);
+    form.append("timestamp", timestamp);
+    form.append("signature", signCloudinaryParams(`public_id=${publicId}&timestamp=${timestamp}`));
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`upload HTTP ${res.status}`);
+    return (await res.json()).secure_url;
+  } catch (e) {
+    console.warn(`prepareSimulationSource failed, using original photo: ${e?.message || e}`);
     return imageUrl;
   }
 }
@@ -70,21 +159,25 @@ async function deleteImageFromCloudinary(imageUrl) {
 
   try {
     const timestamp = Math.floor(Date.now() / 1000);
-    const signatureString = `public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
+    // invalidate=true also purges CDN-cached copies of the deleted image.
+    const signature = signCloudinaryParams(`invalidate=true&public_id=${publicId}&timestamp=${timestamp}`);
 
     const form = new FormData();
     form.append("public_id", publicId);
+    form.append("invalidate", "true");
     form.append("api_key", process.env.CLOUDINARY_API_KEY);
     form.append("timestamp", timestamp);
     form.append("signature", signature);
 
-    await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
     });
-  } catch {
+    if (!res.ok) console.warn(`Cloudinary destroy failed (HTTP ${res.status})`);
+  } catch (e) {
     // Non-blocking cleanup
+    console.warn(`Cloudinary destroy failed: ${e?.message || e}`);
   }
 }
 
@@ -136,20 +229,18 @@ export async function uploadSelfieServerAction(formData) {
 
     const timestamp = Math.floor(Date.now() / 1000);
     const isFlipped = formData.get("flip") === "true";
-    
+    // Explicit public_id (not `folder`) so the owner prefix ends up in the URL
+    // under both fixed- and dynamic-folder Cloudinary modes.
+    const publicId = `${getUserUploadPrefix(decoded.uid)}${crypto.randomBytes(12).toString("hex")}`;
+
     // Cloudinary requires signature parameters to be sorted alphabetically
-    let signatureString = "";
-    if (isFlipped) {
-      signatureString = `timestamp=${timestamp}&transformation=a_hflip${process.env.CLOUDINARY_API_SECRET}`;
-    } else {
-      signatureString = `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    }
-    
-    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
+    const signedParams = `public_id=${publicId}&timestamp=${timestamp}${isFlipped ? "&transformation=a_hflip" : ""}`;
+    const signature = crypto.createHash("sha1").update(`${signedParams}${process.env.CLOUDINARY_API_SECRET}`).digest("hex");
 
     const cloudinaryForm = new FormData();
     cloudinaryForm.append("file", file);
     cloudinaryForm.append("api_key", process.env.CLOUDINARY_API_KEY);
+    cloudinaryForm.append("public_id", publicId);
     cloudinaryForm.append("timestamp", timestamp);
     cloudinaryForm.append("signature", signature);
     
@@ -160,6 +251,7 @@ export async function uploadSelfieServerAction(formData) {
     const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
       method: "POST",
       body: cloudinaryForm,
+      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -184,15 +276,12 @@ async function getDbUser() {
   const decoded = auth.decoded;
   if (!decoded) redirect("/sign-in");
 
-  let user = await findSessionUser(decoded);
+  const user = await findSessionUser(decoded);
 
-  if (!user) {
-    user = await User.create({
-      email: decoded.email ? decoded.email.toLowerCase().trim() : undefined,
-      displayName: decoded.name || "",
-      photoURL: decoded.picture || "",
-    });
-  }
+  // Both sign-in providers create the DB user before issuing a session, so a
+  // missing user means the account was deleted or the session revoked. Never
+  // recreate it from the token (that resurrected deleted accounts).
+  if (!user) redirect(SESSION_EXPIRED_PATH);
 
   if (!user.onboardingComplete) {
     redirect("/onboarding");
@@ -215,6 +304,7 @@ export async function checkOnboardingStatus() {
 }
 
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
 
   const rateCheck = await checkRateLimit(user._id.toString(), "analyze", 3, 60000);
@@ -229,7 +319,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   let extraScanConsumed = false;
   let reservedScanSlot = null;
   try {
-    if (!imageUrl || !validateTrustedImageUrl(imageUrl)) {
+    if (!imageUrl || !isOwnedUserUpload(imageUrl, user._id.toString())) {
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
     }
 
@@ -256,6 +346,10 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       const reservation = await reserveScanSlot(user._id, timezone, scanDailyLimit, scanMonthlyLimit);
       if (reservation.granted) {
         reservedScanSlot = { dayKey: reservation.dayKey, monthKey: reservation.monthKey };
+      } else if (!QUOTA_LIMIT_REASONS.has(reservation.reason)) {
+        // The check itself failed (DB/transaction error), not the user's limit:
+        // don't silently spend their purchased extra scans on it.
+        return errorResult(ERROR_CODES.SCAN_LIMIT, "We couldn't verify your scan allowance right now. Please try again in a moment.", { error: "QUOTA_CHECK_FAILED" });
       } else {
         scanDenialReason = reservation.reason === "daily_limit" ? DENIAL_REASONS.DAILY_LIMIT : DENIAL_REASONS.MONTHLY_LIMIT;
       }
@@ -536,6 +630,7 @@ const clampPageSize = (value) =>
 // the weekly average, scan count and first-scan values that depend on the full
 // history are computed separately so results match the unlimited call.
 export async function getLatestData(timezone = "UTC", options = {}) {
+  timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
   const selfieLimit = clampPageSize(options?.selfieLimit);
 
@@ -688,6 +783,7 @@ export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
 }
 
 export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
+  timezone = normalizeTimezone(timezone);
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
 
   const rateCheck = await checkRateLimit(user._id.toString(), "simulate", 5, 60000);
@@ -700,12 +796,13 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   }
 
   const sourceImageUrl = customImageUrl || latestSelfie?.imageUrl;
-  if (customImageUrl && !validateTrustedImageUrl(customImageUrl)) {
+  if (customImageUrl && !isOwnedUserUpload(customImageUrl, user._id.toString())) {
     return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
   }
 
   let extraSimConsumed = false;
   let reservedSimSlot = null;
+  let simSourceUrl = null;
   try {
     const simLimit = getTierSimLimit(user.tier);
     // Atomically reserves the slot before the expensive AI calls below so
@@ -713,6 +810,9 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     const reservation = await reserveSimulationSlot(user._id, timezone, simLimit);
     if (reservation.granted) {
       reservedSimSlot = { monthKey: reservation.monthKey };
+    } else if (!QUOTA_LIMIT_REASONS.has(reservation.reason)) {
+      // The check itself failed, not the user's limit: keep their extras.
+      return errorResult(ERROR_CODES.SIM_LIMIT, "We couldn't verify your simulation allowance right now. Please try again in a moment.", { error: "QUOTA_CHECK_FAILED" });
     } else {
       const consumed = await User.findOneAndUpdate(
         { _id: user._id, extraSimulations: { $gt: 0 } },
@@ -757,11 +857,15 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       );
     }
 
+    simSourceUrl = await prepareSimulationSource(sourceImageUrl, user._id.toString());
+
     const TARGET_YEARS = 1;
     const baseline = latestSelfie.scores;
 
-    const listA = Array.isArray(interventionsA) ? interventionsA : (interventionsA ? [interventionsA] : []);
-    const listB = Array.isArray(interventionsB) ? interventionsB : (interventionsB ? [interventionsB] : []);
+    const listA = sanitizeInterventions(interventionsA);
+    const listB = sanitizeInterventions(interventionsB);
+    labelA = typeof labelA === "string" ? labelA.slice(0, MAX_SIM_LABEL_LENGTH) : "";
+    labelB = typeof labelB === "string" ? labelB.slice(0, MAX_SIM_LABEL_LENGTH) : "";
 
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
@@ -777,7 +881,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         radiance: getIntensity(baseline.radiance, proj.scores.radiance),
       };
       
-      let finalUrl = sourceImageUrl;
+      let finalUrl = simSourceUrl;
       if (interventions.length === 0 && finalUrl) {
         // Apply the same crop that simulateSkin uses to ensure Slider alignment
         finalUrl = applyFaceCropToCloudinary(finalUrl);
@@ -789,7 +893,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           intensities.radiance = 0.05;
         }
 
-        const sim = await simulateSkin(sourceImageUrl, intensities);
+        const sim = await simulateSkin(simSourceUrl, intensities);
 
         const extractSimUrl = (sim) => {
           if (sim.results?.url) return sim.results.url;
@@ -812,8 +916,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
           throw new Error("SIMULATION_IMAGE_FAILED");
         }
 
-        if (finalUrl && finalUrl !== sourceImageUrl) {
-          finalUrl = await uploadUrlToCloudinary(finalUrl);
+        if (finalUrl && finalUrl !== simSourceUrl) {
+          finalUrl = await uploadUrlToCloudinary(finalUrl, user._id.toString());
         }
       }
 
@@ -831,6 +935,14 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
 
     const scenarioA = await buildScenario(listA, nameA);
     const scenarioB = await buildScenario(listB, nameB);
+
+    // The cleaned copy is kept only while a scenario shows it (a no-routine
+    // baseline); account and privacy deletion find it through that URL.
+    if (simSourceUrl !== sourceImageUrl) {
+      const cleanId = getCloudinaryPublicId(simSourceUrl);
+      const referenced = [scenarioA, scenarioB].some((s) => getCloudinaryPublicId(s.imageUrl) === cleanId);
+      if (!referenced) await deleteImageFromCloudinary(simSourceUrl).catch(() => {});
+    }
 
     const deltas = computeDeltas(scenarioA, scenarioB);
 
@@ -853,6 +965,10 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS 
     });
   } catch (err) {
+    console.error(`runWhatIfSim failed for user ${user._id}: ${err?.message || err}`);
+    if (simSourceUrl && simSourceUrl !== sourceImageUrl) {
+      await deleteImageFromCloudinary(simSourceUrl).catch(() => {});
+    }
     if (extraSimConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
     }
@@ -908,8 +1024,10 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
       
       await sim.save();
     }
-    
-    return { success: true, sim };
+
+    // Server actions can only return plain data: a live Mongoose document
+    // made the call reject on the client after the write had already happened.
+    return { success: true, sim: JSON.parse(JSON.stringify({ ...sim.toObject(), id: sim._id.toString() })) };
   } catch (err) {
     return { success: false, error: "Failed to update simulation" };
   }
@@ -949,11 +1067,10 @@ export async function completeOnboarding(data) {
       onboardingComplete: true
     };
 
-    if (targetUser) {
-      await User.findByIdAndUpdate(targetUser._id, updateFields);
-    } else {
-      await User.create(updateFields);
+    if (!targetUser) {
+      return { success: false, error: "Your session has ended. Please sign in again." };
     }
+    await User.findByIdAndUpdate(targetUser._id, updateFields);
 
     return { success: true };
   } catch (err) {
@@ -983,6 +1100,7 @@ export async function updatePrivacySettings(photoPrivacy) {
 }
 
 export async function getUsageQuotas(timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
   const todayStart = getLocalDayStart(timezone);
   const { monthStart, daysInMonth } = getLocalMonthStart(timezone);
@@ -1209,7 +1327,10 @@ export async function saveLocation(locationData) {
 
     if (lat && lng && (!city || !country)) {
       try {
-        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+        const res = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&localityLanguage=en`,
+          { signal: AbortSignal.timeout(5000) }
+        );
         if (res.ok) {
           const data = await res.json();
           if (!city) city = data.city || data.locality || data.principalSubdivision || "Unknown Location";
@@ -1221,7 +1342,9 @@ export async function saveLocation(locationData) {
       }
     } else if (city && (!lat || !lng || !country)) {
       try {
-        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`, {
+          signal: AbortSignal.timeout(5000),
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.results && data.results.length > 0) {
@@ -1351,6 +1474,7 @@ export async function adminAddExtraScans(userId, amount = 1) {
 }
 
 export async function saveRoutineCompletion(time, step, isCompleted, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
   try {
     const user = await getDbUser();
     if (!user) return { success: false };
@@ -1674,12 +1798,13 @@ export async function getLeaderboard(scope = 'city') {
     }
 
     // Find users who opted in to comparison (or self, so current user can see their own rank)
+    // $and, not a spread: the country scope's filter is itself an $or, and a
+    // second $or key would silently replace it (returning every country).
     const matchingUsers = await User.find({
-      ...userFilter,
-      $or: [
-        { optInComparison: true },
-        { _id: user._id }
-      ]
+      $and: [
+        userFilter,
+        { $or: [{ optInComparison: true }, { _id: user._id }] },
+      ],
     })
       .select('_id displayName photoURL location currentStreak optInComparison')
       .limit(200)

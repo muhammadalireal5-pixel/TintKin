@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAuthenticatedUser, findSessionUser } from "@/app/lib/auth-server";
+import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb } from "@/app/lib/mongoose";
 
 export const metadata = {
@@ -24,7 +24,8 @@ export default async function OnboardingLayout({ children }) {
 
     await connectDb();
     const user = await findSessionUser(decoded);
-    if (user?.onboardingComplete) {
+    if (!user) redirect(SESSION_EXPIRED_PATH);
+    if (user.onboardingComplete) {
         redirect("/dashboard");
     }
     

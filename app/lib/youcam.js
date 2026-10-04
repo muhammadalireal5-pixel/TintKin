@@ -32,17 +32,48 @@ function createYouCamError(rawErr) {
   return err;
 }
 
+// YouCam couldn't fetch the source URL (bad/expired/unresolvable Cloudinary
+// variant). Another candidate URL for the same photo may still work.
+function isDownloadError(err) {
+  const code = `${err?.rawCode || ""} ${err?.message || ""}`.toLowerCase();
+  return code.includes("error_download_image") || code.includes("download");
+}
+
+// Short, log-safe description: the YouCam error code only, never the raw
+// response body (which can contain source image URLs).
+function describeYouCamError(err) {
+  const code = err?.rawCode && err.rawCode.length <= 80 ? err.rawCode : null;
+  return code || (err?.message || "unknown error").slice(0, 120);
+}
+
+// Per-request cap so one hung connection can't consume the whole serverless
+// invocation; the poll loop below bounds the total task wait separately.
+const REQUEST_TIMEOUT_MS = 15000;
+const MAX_SCORE_ZIP_BYTES = 5 * 1024 * 1024;
+const MAX_SCORE_JSON_BYTES = 1024 * 1024;
+
+// Parses a YouCam response body, turning an HTML/empty error page (e.g. a 502
+// from a proxy) into a YouCam error instead of an opaque SyntaxError.
+async function readJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    throw createYouCamError(`YouCam returned a non-JSON response (HTTP ${response.status})`);
+  }
+}
+
 async function pollTask(taskType, taskId) {
   for (let i = 0; i < 30; i++) {
     const response = await fetch(`${BASE}/s2s/v2.0/task/${taskType}/${taskId}`, {
-      headers: { Authorization: `Bearer ${KEY}` }
+      headers: { Authorization: `Bearer ${KEY}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
       throw createYouCamError(`YouCam task status check failed (HTTP ${response.status})`);
     }
 
-    const res = await response.json();
+    const res = await readJson(response);
     const data = res.data || res.result || res;
     const status = data.task_status || data.status || res.task_status;
 
@@ -99,12 +130,28 @@ export async function extractScoreInfo(data) {
 
   const zipUrl = data.url || data.results?.url;
   if (zipUrl && typeof zipUrl === "string") {
-    const zipResponse = await fetch(zipUrl);
+    // The URL comes from a third-party response: require https, cap the
+    // download, and inflate just the one file we need so a malicious or
+    // corrupt archive can't exhaust memory. (No host allow-list: YouCam's
+    // result host isn't documented, and guessing wrong would break scans.)
+    if (!zipUrl.startsWith("https://")) {
+      throw new Error("Unable to extract results");
+    }
+    const zipResponse = await fetch(zipUrl, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (!zipResponse.ok) {
       throw new Error(`Unable to extract results`);
     }
+    const declaredSize = Number(zipResponse.headers?.get?.("content-length") || 0);
+    if (declaredSize > MAX_SCORE_ZIP_BYTES) {
+      throw new Error("Unable to extract results");
+    }
     const zipBuffer = new Uint8Array(await zipResponse.arrayBuffer());
-    const unzipped = unzipSync(zipBuffer);
+    if (zipBuffer.byteLength > MAX_SCORE_ZIP_BYTES) {
+      throw new Error("Unable to extract results");
+    }
+    const unzipped = unzipSync(zipBuffer, {
+      filter: (file) => file.name.endsWith("score_info.json") && file.originalSize <= MAX_SCORE_JSON_BYTES,
+    });
 
     const scoreEntryName = Object.keys(unzipped).find(
       (name) => name.endsWith("score_info.json")
@@ -151,14 +198,15 @@ export async function analyzeSkin(imageUrl) {
           Authorization: `Bearer ${KEY}`, 
           "Content-Type": "application/json" 
         },
-        body: JSON.stringify({ 
-          src_file_url: candidateUrl, 
+        body: JSON.stringify({
+          src_file_url: candidateUrl,
           dst_actions: YOUCAM_DST_ACTIONS,
           format: "json"
-        })
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
-      const res = await response.json();
+      const res = await readJson(response);
       const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
 
       if (!taskId) {
@@ -180,7 +228,8 @@ export async function analyzeSkin(imageUrl) {
         errMsg.includes("out of bound") ||
         errMsg.includes("too small") ||
         errMsg.includes("not found") ||
-        errMsg.includes("error_src_face");
+        errMsg.includes("error_src_face") ||
+        isDownloadError(err);
 
       const elapsed = Date.now() - startTime;
       if (isRetryable && i < candidates.length - 1 && elapsed < 45000) {
@@ -231,15 +280,16 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         body: JSON.stringify({
           src_file_url: candidateUrl,
           ...payloadIntensities
-        })
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
-      const res = await response.json();
+      const res = await readJson(response);
       const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
 
       if (!taskId) {
         const rawErr = res.error_message || res.error || JSON.stringify(res);
-        throw new Error(formatYouCamError(rawErr));
+        throw createYouCamError(rawErr);
       }
 
       const taskResult = await pollTask("skin-simulation", taskId);
@@ -251,12 +301,15 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         errMsg.includes("error_src_face_too_small") ||
         errMsg.includes("too small") ||
         errMsg.includes("error_src_face_out_of_bound") ||
-        errMsg.includes("out of bound");
+        errMsg.includes("out of bound") ||
+        isDownloadError(err);
 
       if (isRetryable && i < candidates.length - 1) {
+        console.warn(`simulateSkin: candidate ${i + 1}/${candidates.length} failed (${describeYouCamError(err)}), trying next`);
         continue;
       }
 
+      console.error(`simulateSkin failed after ${i + 1}/${candidates.length} candidate(s): ${describeYouCamError(err)}`);
       throw new Error("Something went wrong, try again later!");
     }
   }

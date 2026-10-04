@@ -35,7 +35,7 @@ TintKin is built on a modern, highly performant full-stack architecture:
 
 * **Frontend:** Next.js (App Router), React, Tailwind CSS, TypeScript.
 * **Backend & Storage:** Vercel for serverless execution, Cloudinary for secure and dynamic image processing, and MongoDB Atlas for structured user and historical data storage.
-* **Authentication:** Firebase Auth for secure, seamless user onboarding and session management.
+* **Authentication:** Auth.js (NextAuth v5) with email/password and Google sign-in, JWT sessions, and server-side session checks on every action. (The original hackathon build used Firebase Auth.)
 * **AI & LLMs:** Qwen API for generating personalized, context-aware skincare advice and routines based on the metrics.
 
 ## 🌟 YouCam API Integration (The Core Engine)
@@ -55,6 +55,29 @@ Another challenge was adhering to the strict facial positioning requirements of 
 * **Seamless Full-Stack Architecture:** We successfully bridged Firebase Auth, MongoDB, Next.js, and multiple AI APIs into a single, cohesive user experience on Vercel.
 * **Robust Data Pipelines:** Engineering a resilient, multi-step image processing pipeline that seamlessly uploads to Cloudinary, dynamically crops, queries YouCam, and securely caches the results.
 * **Clinical Accuracy Meets UI/UX:** Taking highly clinical JSON data from the YouCam API and transforming it into an empathetic, gorgeously designed, and easy-to-understand wellness journal.
+
+## 🛠️ Development
+
+**Prerequisites:** Node.js 22+, [Bun](https://bun.sh) 1.3 (the lockfile is `bun.lock`), a MongoDB Atlas cluster (a replica set — quota reservation uses transactions), and Cloudinary, YouCam, Qwen (DashScope) and Resend accounts.
+
+```bash
+bun install
+cp .env.example .env.local   # then fill in the values; every variable is documented there
+bun run dev                  # http://localhost:3000
+```
+
+| Command | What it does |
+|---|---|
+| `bun run dev` | Start the dev server |
+| `bun run build` | Production build |
+| `bun run start` | Serve the production build |
+| `bun run lint` | ESLint |
+| `bun run test` | Unit/regression tests (Node's built-in test runner, no extra dependencies) |
+| `bun run type-check` | `tsc` over `lib/` (needs `@types/node`, not currently installed) |
+
+Tests live in `tests/`. `tests/setup/register.mjs` maps the `@/` import alias so tests load the real source files; external services (YouCam, Cloudinary) are mocked with a stubbed `fetch`.
+
+**Deployment (Vercel):** set every variable from `.env.example` in the project settings. `NEXTAUTH_URL` must be the public URL (it builds password-reset links), and Google OAuth needs `<url>/api/auth/callback/google` as an authorized redirect URI. See `AUDIT.md` for open production risks and required manual actions.
 
 ## 🔮 What's next for TintKin
 * **Community Challenges:** Allowing users to opt into anonymous, 30-day "Hydration" or "SPF" challenges, comparing their YouCam AI improvements against a global cohort.
