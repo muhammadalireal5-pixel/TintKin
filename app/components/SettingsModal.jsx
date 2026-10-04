@@ -289,7 +289,7 @@ export default function SettingsModal({ isOpen, onClose }) {
       variant="sheet"
       zIndex={200}
       ariaLabel="Settings"
-      panelClassName="h-full w-full max-w-sm flex flex-col bg-[#FDFBF7] shadow-2xl border-l border-black/5"
+      panelClassName="flex flex-col max-h-[calc(92dvh-env(safe-area-inset-bottom))] sm:max-h-none sm:h-full"
     >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
@@ -304,7 +304,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {/* Account */}
           <div className="px-6 py-5 border-b border-black/5">
             <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA] mb-3">
@@ -689,7 +689,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         zIndex={250}
         role="alertdialog"
         ariaLabel="Permanently Delete Account?"
-        panelClassName="w-full max-w-md bg-[#FDFBF7] rounded-2xl p-6 shadow-2xl border border-red-100 text-[#2C3E50]"
+        panelClassName="p-6 pt-7 sm:pt-6 text-[#2C3E50]"
       >
             <div className="flex items-center gap-3 mb-3 text-red-600">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
@@ -714,12 +714,12 @@ export default function SettingsModal({ isOpen, onClose }) {
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="w-full px-3 py-2 text-sm border border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
                 autoFocus
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2.5">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -727,7 +727,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   setDeleteConfirmText("");
                 }}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
               >
                 Cancel
               </button>
@@ -735,7 +735,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirmText.trim() !== "DELETE" || isDeleting}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-xs"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
               >
                 {isDeleting && <Loader2 size={13} className="animate-spin" />}
                 {isDeleting ? "Erasing Data..." : "Permanently Delete"}

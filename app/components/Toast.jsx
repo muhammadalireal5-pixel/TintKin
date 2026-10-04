@@ -29,7 +29,7 @@ export default function Toast({ id, type = "success", title, message, duration =
 
   return (
     <div 
-      className={`pointer-events-auto w-full max-w-sm overflow-hidden tk-glass shadow-lg transition-all duration-300 border border-white/40
+      className={`pointer-events-auto w-full max-w-sm overflow-hidden rounded-2xl bg-[#FDFBF7] border border-[rgba(44,62,80,0.08)] shadow-[0_12px_32px_-8px_rgba(44,62,80,0.25)] transition-all duration-300
       ${isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'}`}
       style={{
         animation: !isClosing ? 'slideInUp 0.3s ease-out forwards' : 'none'

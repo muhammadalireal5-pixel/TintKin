@@ -6,6 +6,7 @@ import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle }
 import Link from "next/link";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
+import AnimatedModal from "@/app/components/AnimatedModal";
 import ProductScanModal from "./ProductScanModal";
 import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight, Plus, Lock, X } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
@@ -1031,9 +1032,13 @@ export default function WhatIfPage() {
       />
 
       {/* Pro Custom Product Upgrade Modal */}
-      {upgradeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="tk-glass bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 border border-white/50 shadow-2xl relative animate-scale-up">
+      <AnimatedModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        zIndex={50}
+        ariaLabel="Custom Product Scanning"
+        panelClassName="p-6 pt-8 sm:p-8"
+      >
             <button
               onClick={() => setUpgradeModalOpen(false)}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors cursor-pointer"
@@ -1060,7 +1065,7 @@ export default function WhatIfPage() {
               Upgrade to <strong>Pro</strong> to scan ingredient labels from any vanity skincare product and simulate how your exact routine impacts facial aging.
             </p>
 
-            <div className="space-y-2.5 mb-6 bg-sage/10 p-4 rounded-2xl border border-sage/20 text-xs text-primary">
+            <div className="space-y-2.5 mb-6 bg-white p-4 rounded-2xl border border-sage/25 text-sm sm:text-xs text-primary">
               <div className="flex items-center gap-2">
                 <span className="text-sage font-bold">✓</span>
                 <span>Unlimited custom formula label scans</span>
@@ -1078,20 +1083,18 @@ export default function WhatIfPage() {
             <div className="flex flex-col gap-2.5">
               <Link
                 href="/pricing"
-                className="w-full py-3 bg-primary text-white font-semibold text-center rounded-xl hover:bg-primary/90 transition shadow-sm"
+                className="w-full py-3.5 sm:py-3 bg-primary text-white font-semibold text-center rounded-xl hover:bg-primary/90 transition shadow-sm"
               >
                 View Pro Membership
               </Link>
               <button
                 onClick={() => setUpgradeModalOpen(false)}
-                className="w-full py-2 text-xs text-muted hover:text-primary transition font-medium cursor-pointer"
+                className="w-full py-3 sm:py-2 text-sm sm:text-xs text-muted hover:text-primary transition font-medium cursor-pointer"
               >
                 Maybe Later
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </div>
   );
 }

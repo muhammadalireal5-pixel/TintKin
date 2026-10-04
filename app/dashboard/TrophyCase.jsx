@@ -253,11 +253,11 @@ export default function TrophyCase({
       {selectedBadge && mounted &&
         createPortal(
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-stone-900/15 backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 animate-in fade-in"
+            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 bg-[#2C3E50]/50 animate-in fade-in"
             onClick={() => setSelectedBadge(null)}
           >
             <div
-              className="w-full max-w-[390px] flex flex-col items-center animate-in zoom-in-95 duration-200 relative"
+              className="w-full max-w-[390px] my-auto flex flex-col items-center animate-in zoom-in-95 duration-200 relative"
               onClick={(e) => e.stopPropagation()}
             >
               {/* The Exportable HTML Certificate Card (Golden Ratio Proportions & Swiss Typographic Rhythm) */}
@@ -373,10 +373,10 @@ export default function TrophyCase({
               </div>
 
               {/* Floating Action Buttons beneath the card */}
-              <div className="mt-4 flex items-center justify-center gap-2.5 w-full">
+              <div className="mt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-center gap-2.5 w-full">
                 <button
                   onClick={() => setSelectedBadge(null)}
-                  className="px-5 py-2.5 rounded-full text-xs font-semibold text-primary bg-white/90 hover:bg-white border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+                  className="px-5 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold text-primary bg-[#FDFBF7] hover:bg-white border border-[rgba(44,62,80,0.08)] shadow-md transition-all active:scale-95 cursor-pointer"
                 >
                   Close
                 </button>
@@ -384,7 +384,7 @@ export default function TrophyCase({
                   <button
                     onClick={handleDownloadBadge}
                     disabled={downloading}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition shadow-lg shadow-black/10 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    className="flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition shadow-lg shadow-black/10 active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     <Download size={14} />
                     <span>{downloading ? "Rendering PNG..." : "Download Badge PNG"}</span>

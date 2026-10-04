@@ -10,7 +10,8 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
       variant="center"
       zIndex={100}
       ariaLabel={title}
-      panelClassName="tk-glass bg-white/70 w-full max-w-sm rounded-2xl p-6 shadow-xl"
+      size="sm"
+      panelClassName="p-6 pt-7 sm:pt-6"
     >
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-display font-semibold text-primary">
@@ -21,18 +22,18 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
         </p>
       </div>
 
-      <div className="mt-6 flex justify-end gap-3">
+      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="tk-pill-btn tk-btn-ghost px-4 py-2 text-sm text-muted hover:text-primary transition-colors"
+          className="tk-pill-btn tk-btn-ghost w-full sm:w-auto px-4 py-3 sm:py-2 text-sm text-muted hover:text-primary transition-colors"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="tk-pill-btn bg-red-500/90 text-white hover:bg-red-600 px-4 py-2 text-sm shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0"
+          className="tk-pill-btn bg-red-600 text-white hover:bg-red-700 w-full sm:w-auto px-4 py-3 sm:py-2 text-sm font-medium transition-colors"
         >
           Delete
         </button>

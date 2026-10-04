@@ -236,19 +236,6 @@ export const Simulation = mongoose.models.Simulation || mongoose.model('Simulati
 export const RoutineLog = mongoose.models.RoutineLog || mongoose.model('RoutineLog', RoutineLogSchema);
 export const Report = mongoose.models.Report || mongoose.model('Report', ReportSchema);
 
-const AdminOTPSchema = new mongoose.Schema({
-    email: { type: String, required: true, index: true },
-    code: { type: String, required: true },
-    expiresAt: { type: Date, required: true },
-    ttlExpiresAt: { type: Date, required: true },
-    attempts: { type: Number, default: 0 },
-    used: { type: Boolean, default: false },
-}, { timestamps: true, strict: true });
-AdminOTPSchema.index({ ttlExpiresAt: 1 }, { expireAfterSeconds: 0 });
-AdminOTPSchema.index({ email: 1, createdAt: -1 });
-
-export const AdminOTP = mongoose.models.AdminOTP || mongoose.model('AdminOTP', AdminOTPSchema);
-
 /**
  * Rate Limit Schema with TTL index for automatic cleanup
  * Setup: db.ratelimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });

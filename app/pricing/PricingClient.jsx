@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateUserTier } from "@/app/lib/actions";
 import { Check, Sparkles, Star, Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
+import AnimatedModal from "@/app/components/AnimatedModal";
 import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 
 export default function PricingClient() {
@@ -233,16 +234,22 @@ export default function PricingClient() {
 
             {/* Loading Overlay */}
             {loading && (
-                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm">
-                    <Loader2 className="w-10 h-10 animate-spin text-sage mb-4" />
-                    <p className="text-primary font-medium">Setting up your plan...</p>
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-[#2C3E50]/45" role="status" aria-live="polite">
+                    <div className="flex flex-col items-center gap-3 rounded-3xl bg-[#FDFBF7] border border-[rgba(44,62,80,0.08)] px-8 py-7 shadow-[0_24px_64px_-16px_rgba(44,62,80,0.35)]">
+                        <Loader2 className="w-8 h-8 animate-spin text-sage" />
+                        <p className="text-primary font-medium text-sm">Setting up your plan...</p>
+                    </div>
                 </div>
             )}
 
             {/* Standard Frequency Modal */}
-            {showStandardModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                    <div className="tk-glass bg-white max-w-md w-full rounded-3xl p-5 sm:p-8 border border-white/50 shadow-2xl relative animate-scale-up">
+            <AnimatedModal
+                isOpen={showStandardModal}
+                onClose={() => setShowStandardModal(false)}
+                zIndex={60}
+                ariaLabel="Choose your rhythm"
+                panelClassName="p-6 pt-8 sm:p-8"
+            >
                         <h2 className="text-2xl font-display font-medium text-primary mb-2">Choose your rhythm</h2>
                         <p className="text-muted text-sm mb-6">
                             With the Standard plan, you get 15 scans per month. How would you like to pace them? 
@@ -252,7 +259,7 @@ export default function PricingClient() {
                         <div className="space-y-4">
                             <button 
                                 onClick={() => handleStandardFrequency(STANDARD_PACING.EVERY_OTHER_DAY)}
-                                className="w-full text-left p-4 rounded-2xl border-2 border-sage/50 bg-sage/5 hover:bg-sage/10 transition-colors relative group"
+                                className="w-full text-left p-4 rounded-2xl border-2 border-sage/50 bg-white hover:bg-sage/5 transition-colors relative group"
                             >
                                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2">
                                     <span className="bg-sage text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
@@ -270,7 +277,7 @@ export default function PricingClient() {
 
                             <button 
                                 onClick={() => handleStandardFrequency(STANDARD_PACING.FLEXIBLE)}
-                                className="w-full text-left p-4 rounded-2xl border border-lavender hover:bg-black/5 transition-colors group"
+                                className="w-full text-left p-4 rounded-2xl border border-[rgba(44,62,80,0.12)] bg-white hover:bg-black/[0.02] transition-colors group"
                             >
                                 <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
                                     Flexible (Any Day)
@@ -284,13 +291,11 @@ export default function PricingClient() {
                         
                         <button 
                             onClick={() => setShowStandardModal(false)}
-                            className="mt-6 w-full py-2 text-sm font-medium text-muted hover:text-primary transition-colors"
+                            className="mt-4 sm:mt-6 w-full py-3 sm:py-2 text-sm font-medium text-muted hover:text-primary transition-colors"
                         >
                             Cancel
                         </button>
-                    </div>
-                </div>
-            )}
+            </AnimatedModal>
         </>
     );
 }

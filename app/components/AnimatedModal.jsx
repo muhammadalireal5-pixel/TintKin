@@ -2,13 +2,27 @@
 
 import { useEffect, useSyncExternalStore, Fragment } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 
 const emptySubscribe = () => () => {};
 function useMounted() {
   return useSyncExternalStore(
     emptySubscribe,
     () => true,
+    () => false
+  );
+}
+
+const MOBILE_QUERY = "(max-width: 639px)";
+function subscribeMobile(callback) {
+  const mql = window.matchMedia(MOBILE_QUERY);
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+function useIsMobile() {
+  return useSyncExternalStore(
+    subscribeMobile,
+    () => window.matchMedia(MOBILE_QUERY).matches,
     () => false
   );
 }
@@ -28,18 +42,29 @@ function unlockScroll() {
   if (scrollLockCount === 0) document.body.style.overflow = "";
 }
 
-const VARIANTS = {
+// Solid, warm surface that matches the app's cards instead of frosted glass.
+const SURFACE = "bg-[#FDFBF7] text-primary border border-[rgba(44,62,80,0.08)] shadow-[0_24px_64px_-16px_rgba(44,62,80,0.35)]";
+
+const SIZES = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+};
+
+const DESKTOP = {
   center: {
-    wrapperClassName: "fixed inset-0 flex items-center justify-center p-4",
+    wrapper: "fixed inset-0 flex items-center justify-center p-6",
+    shape: "w-full rounded-3xl max-h-[min(85vh,820px)] overflow-y-auto overscroll-contain",
     panel: {
-      initial: { opacity: 0, scale: 0.95, y: 8 },
+      initial: { opacity: 0, scale: 0.96, y: 8 },
       animate: { opacity: 1, scale: 1, y: 0 },
-      exit: { opacity: 0, scale: 0.96, y: 6 },
-      transition: { duration: 0.25, ease: EASE },
+      exit: { opacity: 0, scale: 0.97, y: 6 },
+      transition: { duration: 0.22, ease: EASE },
     },
   },
   sheet: {
-    wrapperClassName: "fixed inset-0 flex justify-end",
+    wrapper: "fixed inset-0 flex justify-end",
+    shape: "w-full h-full overflow-y-auto overscroll-contain border-y-0 border-r-0",
     panel: {
       initial: { x: "100%" },
       animate: { x: 0 },
@@ -47,27 +72,36 @@ const VARIANTS = {
       transition: { duration: 0.32, ease: EASE },
     },
   },
-  "bottom-sheet": {
-    wrapperClassName: "fixed inset-0 flex items-end justify-center sm:items-center",
-    panel: {
-      initial: { y: "100%" },
-      animate: { y: 0 },
-      exit: { y: "100%" },
-      transition: { duration: 0.32, ease: EASE },
-    },
+};
+
+// On phones every variant becomes a bottom sheet: thumb-reachable actions,
+// a drag handle, swipe-down to dismiss and room for the home indicator.
+const MOBILE = {
+  wrapper: "fixed inset-0 flex items-end justify-center",
+  shape: "w-full rounded-t-[28px] max-h-[92dvh] overflow-y-auto overscroll-contain border-b-0 pb-[env(safe-area-inset-bottom)]",
+  panel: {
+    initial: { y: "100%" },
+    animate: { y: 0 },
+    exit: { y: "100%" },
+    transition: { duration: 0.34, ease: EASE },
   },
 };
 
+const DISMISS_OFFSET = 110;
+const DISMISS_VELOCITY = 600;
+
 /**
- * Shared enter/exit animated modal shell (backdrop fade + panel transition) on
- * top of a body-level portal. Content/behavior stays in the caller; this only
- * owns open/close mechanics (escape key, scroll lock, backdrop click, motion).
+ * Shared enter/exit animated modal shell (scrim fade + panel transition) on
+ * top of a body-level portal. Owns the surface, shape and open/close mechanics
+ * (escape key, scroll lock, backdrop click, swipe-to-dismiss on mobile);
+ * `panelClassName` styles the inner content (padding, layout).
  */
 export default function AnimatedModal({
   isOpen,
   onClose,
   children,
   variant = "center",
+  size = "md",
   zIndex = 100,
   closeOnBackdrop = true,
   panelClassName = "",
@@ -75,6 +109,8 @@ export default function AnimatedModal({
   ariaLabel,
 }) {
   const mounted = useMounted();
+  const isMobile = useIsMobile();
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,7 +127,9 @@ export default function AnimatedModal({
 
   if (!mounted) return null;
 
-  const config = VARIANTS[variant] || VARIANTS.center;
+  const config = isMobile ? MOBILE : DESKTOP[variant === "sheet" ? "sheet" : "center"];
+  const width = variant === "sheet" && !isMobile ? "max-w-sm" : SIZES[size] || SIZES.md;
+  const canSwipeClose = isMobile && closeOnBackdrop;
 
   return createPortal(
     <AnimatePresence>
@@ -99,7 +137,7 @@ export default function AnimatedModal({
         <Fragment>
           <motion.div
             key="backdrop"
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-[#2C3E50]/45"
             style={{ zIndex }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -108,7 +146,7 @@ export default function AnimatedModal({
             aria-hidden="true"
           />
           <div
-            className={config.wrapperClassName}
+            className={config.wrapper}
             style={{ zIndex: zIndex + 1 }}
             onClick={closeOnBackdrop ? onClose : undefined}
           >
@@ -117,14 +155,31 @@ export default function AnimatedModal({
               role={role}
               aria-modal="true"
               aria-label={ariaLabel}
-              className={`relative ${panelClassName}`}
+              className={`relative ${SURFACE} ${config.shape} ${width}`}
               onClick={(e) => e.stopPropagation()}
               initial={config.panel.initial}
               animate={config.panel.animate}
               exit={config.panel.exit}
               transition={config.panel.transition}
+              drag={canSwipeClose ? "y" : false}
+              dragListener={false}
+              dragControls={dragControls}
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.7 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > DISMISS_OFFSET || info.velocity.y > DISMISS_VELOCITY) onClose?.();
+              }}
             >
-              {children}
+              {isMobile && (
+                <div
+                  className="sticky top-0 z-30 mx-auto -mb-6 flex h-6 w-24 justify-center pt-2.5 touch-none cursor-grab"
+                  onPointerDown={canSwipeClose ? (e) => dragControls.start(e) : undefined}
+                  aria-hidden="true"
+                >
+                  <span className="h-1 w-10 rounded-full bg-[#2C3E50]/20" />
+                </div>
+              )}
+              <div className={panelClassName}>{children}</div>
             </motion.div>
           </div>
         </Fragment>

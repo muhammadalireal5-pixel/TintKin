@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
-import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop } from "lucide-react";
+import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop, CalendarClock } from "lucide-react";
 import ImageCropper from "@/app/components/ImageCropper";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import Link from "next/link";
@@ -27,6 +27,7 @@ export default function CapturePage() {
     const [isCropping, setIsCropping] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [quotas, setQuotas] = useState(null);
+    const [quotasLoaded, setQuotasLoaded] = useState(false);
 
     const loadingTexts = [
         "Analyzing skin tone & texture...",
@@ -64,6 +65,8 @@ export default function CapturePage() {
                 setQuotas(data);
             } catch {
                 // Best-effort quota fetch
+            } finally {
+                setQuotasLoaded(true);
             }
         };
         fetchQuotas();
@@ -156,6 +159,8 @@ export default function CapturePage() {
         }
     };
 
+    const scanLimitReached = quotas ? !quotas.scans.canScanToday : false;
+
     return (
         <div className="capture-page">
             <input
@@ -176,8 +181,10 @@ export default function CapturePage() {
                 aria-hidden="true"
             />
 
-            <div className="blob blob-1" aria-hidden="true" />
-            <div className="blob blob-2" aria-hidden="true" />
+            <div className="blob-layer" aria-hidden="true">
+                <div className="blob blob-1" />
+                <div className="blob blob-2" />
+            </div>
 
             <div className="capture-card">
                 <ComponentErrorFallback title="Camera Access Error">
@@ -255,31 +262,46 @@ export default function CapturePage() {
                             </div>
                         )}
                     </div>
+                ) : !quotasLoaded ? (
+                    <div className="cta-group" aria-busy="true">
+                        <div className="cta-skeleton" />
+                        <div className="or-divider"><span /><p>or</p><span /></div>
+                        <div className="cta-skeleton" />
+                    </div>
+                ) : scanLimitReached ? (
+                    <div className="limit-card" role="status">
+                        <div className="limit-icon">
+                            <CalendarClock size={22} strokeWidth={2} />
+                        </div>
+                        <p className="limit-title">
+                            {quotas.scans.denialReason === 'monthly_limit'
+                                ? "Monthly limit reached"
+                                : "You're all set for today"}
+                        </p>
+                        <p className="limit-body">
+                            {quotas.scans.denialReason === 'monthly_limit'
+                                ? "You've used all your scans for this month. Your allowance resets next billing cycle."
+                                : quotas.scans.denialReason === 'every_other_day'
+                                ? "Your plan uses every-other-day pacing. Come back tomorrow for your next entry."
+                                : "You've already logged a photo today. Come back tomorrow to keep your streak going!"}
+                        </p>
+                        <div className="limit-actions">
+                            <Link href="/dashboard" className="cta-btn cta-primary limit-btn">
+                                View my journal
+                            </Link>
+                            {quotas.scans.denialReason === 'monthly_limit' && (
+                                <Link href="/pricing" className="cta-btn cta-secondary limit-btn">
+                                    See plans
+                                </Link>
+                            )}
+                        </div>
+                    </div>
                 ) : (
                     <div className="cta-group">
-                        {quotas && !quotas.scans.canScanToday && (
-                            <div className="mb-4 p-4 rounded-xl bg-red-50/80 backdrop-blur-sm border border-red-200 text-red-900 text-sm flex items-start gap-3 shadow-sm">
-                                <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-600" />
-                                <div>
-                                    <p className="font-bold text-base text-red-950">
-                                        {quotas.scans.denialReason === 'monthly_limit' 
-                                            ? "Monthly Limit Reached" 
-                                            : "Daily Scan Limit Reached"}
-                                    </p>
-                                    <p className="mt-0.5 opacity-90">
-                                        {quotas.scans.denialReason === 'monthly_limit' 
-                                            ? "You've used all your scans for this month. We will await your arrival next billing cycle." 
-                                            : quotas.scans.denialReason === 'every_other_day'
-                                            ? "Your plan is set to every-other-day pacing. We will await your arrival tomorrow!"
-                                            : "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!"}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
                         <button
                             className="cta-btn cta-primary"
                             onClick={() => handleActionClick('camera')}
-                            disabled={loading || checkingOnboarding || (quotas && !quotas.scans.canScanToday)}
+                            disabled={loading || checkingOnboarding}
                         >
                             <span className="cta-icon">
                                 <Camera size={22} strokeWidth={2} />
@@ -298,7 +320,7 @@ export default function CapturePage() {
                         <button
                             className="cta-btn cta-secondary"
                             onClick={() => handleActionClick('gallery')}
-                            disabled={loading || checkingOnboarding || (quotas && !quotas.scans.canScanToday)}
+                            disabled={loading || checkingOnboarding}
                         >
                             <span className="cta-icon cta-icon-gallery">
                                 <ImageIcon size={20} strokeWidth={2} />
@@ -366,8 +388,18 @@ export default function CapturePage() {
                     padding: 1.5rem 1rem;
                     background-color: var(--tk-bg);
                     position: relative;
-                    overflow-y: auto;
-                    overflow-x: hidden;
+                    isolation: isolate;
+                }
+
+                /* Blobs live in their own clipped layer. They used to sit directly in a
+                   scroll container, so their endless transform animation kept resizing
+                   its scrollable area and nudged the card down whenever it overflowed. */
+                .blob-layer {
+                    position: absolute;
+                    inset: 0;
+                    overflow: hidden;
+                    pointer-events: none;
+                    z-index: 0;
                 }
 
                 .blob {
@@ -395,6 +427,8 @@ export default function CapturePage() {
                     z-index: 1;
                     width: 100%;
                     max-width: 400px;
+                    margin: auto 0;
+                    flex-shrink: 0;
                     background: rgba(255, 255, 255, 0.35);
                     backdrop-filter: blur(24px);
                     -webkit-backdrop-filter: blur(24px);
@@ -530,6 +564,49 @@ export default function CapturePage() {
                     opacity: 0.4;
                     flex-shrink: 0;
                 }
+
+                .cta-skeleton {
+                    height: 74px;
+                    border-radius: 1.125rem;
+                    background: rgba(44,62,80,0.06);
+                    animation: pulse 1.6s ease-in-out infinite;
+                }
+
+                .limit-card {
+                    text-align: center;
+                    padding: 1.5rem 1.25rem 1.25rem;
+                    margin-bottom: 1rem;
+                    border-radius: 1.25rem;
+                    background: #fff;
+                    border: 1px solid rgba(44,62,80,0.08);
+                }
+                .limit-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 48px; height: 48px;
+                    border-radius: 14px;
+                    background: var(--tk-accent-peach);
+                    color: var(--tk-text-primary);
+                    margin-bottom: 0.875rem;
+                }
+                .limit-title {
+                    font-family: var(--font-display);
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                    color: var(--tk-text-primary);
+                    margin: 0 0 0.375rem;
+                }
+                .limit-body {
+                    font-size: 0.875rem;
+                    line-height: 1.55;
+                    color: var(--tk-text-muted);
+                    margin: 0 0 1.25rem;
+                }
+                .limit-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+                .limit-btn { justify-content: center; text-align: center; font-weight: 600; font-size: 0.9375rem; text-decoration: none; }
+
+                @keyframes pulse { 50% { opacity: 0.55; } }
 
                 .or-divider {
                     display: flex;

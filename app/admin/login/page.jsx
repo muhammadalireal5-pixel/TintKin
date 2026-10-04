@@ -1,425 +1,205 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const otpRefs = useRef([]);
-
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const t = setInterval(() => setResendCooldown((c) => c - 1), 1000);
-    return () => clearInterval(t);
-  }, [resendCooldown]);
 
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleSendOTP = async (e) => {
-    e?.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/admin/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setError(data.error || "Failed to send code.");
-        triggerShake();
-      } else {
-        setStep(2);
-        setResendCooldown(60);
-        setTimeout(() => otpRefs.current[0]?.focus(), 100);
-      }
-    } catch {
-      setError("Network error. Please try again.");
-      triggerShake();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOTPChange = (index, value) => {
-    if (!/^\d*$/.test(value)) return;
-    const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
-    setOtp(newOtp);
-    setError("");
-
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
-
-    if (value && index === 5 && newOtp.every((d) => d)) {
-      verifyOTP(newOtp.join(""));
-    }
-  };
-
-  const handleOTPKeyDown = (index, e) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-    if (e.key === "Enter" && otp.every((d) => d)) {
-      verifyOTP(otp.join(""));
-    }
-  };
-
-  const handleOTPPaste = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (!pasted) return;
-    const newOtp = [...otp];
-    for (let i = 0; i < pasted.length; i++) {
-      newOtp[i] = pasted[i];
-    }
-    setOtp(newOtp);
-    const nextIdx = Math.min(pasted.length, 5);
-    otpRefs.current[nextIdx]?.focus();
-    if (pasted.length === 6) {
-      verifyOTP(pasted);
-    }
-  };
-
-  const verifyOTP = async (code) => {
     setError("");
     setLoading(true);
 
     try {
-      const res = await fetch("/api/admin/verify-otp", {
+      const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), code }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error || "Invalid code.");
+        setError(data.error || "Sign in failed.");
+        setPassword("");
         triggerShake();
-        setOtp(["", "", "", "", "", ""]);
-        otpRefs.current[0]?.focus();
+        setLoading(false);
       } else {
-        router.push("/admin");
+        router.replace("/admin");
+        router.refresh();
       }
     } catch {
       setError("Network error. Please try again.");
       triggerShake();
-    } finally {
       setLoading(false);
     }
   };
+
+  const canSubmit = email.trim() && password && !loading;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: "-20%",
-          left: "-10%",
-          width: "500px",
-          height: "500px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(230,230,250,0.6) 0%, transparent 70%)",
-          animation: "orbFloat 20s ease-in-out infinite",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: "-15%",
-          right: "-5%",
-          width: "400px",
-          height: "400px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,218,185,0.6) 0%, transparent 70%)",
-          animation: "orbFloat 15s ease-in-out infinite reverse",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "var(--tk-surface-glass)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid var(--tk-border-glass)",
-          borderRadius: "24px",
-          padding: "48px 36px",
-          boxShadow: "var(--tk-glow-card)",
-          animation: shake
-            ? "shake 0.5s ease-in-out"
-            : "fadeInUp 0.6s ease both",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: "36px" }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "56px",
-              height: "56px",
-              borderRadius: "50%",
-              background: "var(--tk-accent-lavender)",
-              marginBottom: "16px",
-            }}
-          >
-            <ShieldCheck size={28} style={{ color: "var(--tk-text-primary)" }} />
+    <div className="admin-login">
+      <div className={`admin-login-card ${shake ? "is-shaking" : ""}`}>
+        <div className="admin-login-head">
+          <div className="admin-login-badge">
+            <ShieldCheck size={26} />
           </div>
-          <h1
-            style={{
-              fontFamily: "var(--font-display, 'Playfair Display', serif)",
-              fontSize: "24px",
-              fontWeight: 600,
-              color: "var(--tk-text-primary)",
-              margin: "0 0 6px",
-              letterSpacing: "-0.5px",
-            }}
-          >
-            TintKin Admin
-          </h1>
-          <p
-            style={{
-              fontSize: "13px",
-              color: "var(--tk-text-muted)",
-              margin: 0,
-            }}
-          >
-            {step === 1 ? "Enter your admin email to continue" : "Enter the 6-digit code sent to your email"}
-          </p>
+          <h1>TintKin Admin</h1>
+          <p>Sign in with your admin credentials</p>
         </div>
 
-        {step === 1 && (
-          <form onSubmit={handleSendOTP} style={{ animation: "fadeIn 0.3s ease" }}>
-            <div style={{ position: "relative", marginBottom: "20px" }}>
-              <Mail
-                size={18}
-                style={{
-                  position: "absolute",
-                  left: "14px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--tk-text-faint)",
-                }}
-              />
+        <form onSubmit={handleSubmit} noValidate>
+          <label className="admin-field">
+            <span className="admin-field-label">Email</span>
+            <span className={`admin-input-wrap ${error ? "has-error" : ""}`}>
+              <Mail size={18} aria-hidden="true" />
               <input
                 type="email"
+                inputMode="email"
+                autoComplete="username"
                 placeholder="admin@email.com"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                required
                 autoFocus
-                style={{
-                  width: "100%",
-                  padding: "14px 16px 14px 44px",
-                  background: "rgba(255,255,255,0.6)",
-                  border: error ? "1px solid rgba(239,68,68,0.5)" : "1px solid var(--tk-border-solid)",
-                  borderRadius: "14px",
-                  color: "var(--tk-text-primary)",
-                  fontSize: "15px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => { if (!error) e.target.style.borderColor = "var(--tk-text-primary)"; }}
-                onBlur={(e) => { if (!error) e.target.style.borderColor = "var(--tk-border-solid)"; }}
+                required
               />
-            </div>
+            </span>
+          </label>
 
-            <button
-              type="submit"
-              disabled={loading || !email}
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: "var(--tk-text-primary)",
-                border: "none",
-                borderRadius: "14px",
-                color: "#FDFBF7",
-                fontSize: "15px",
-                fontWeight: 500,
-                cursor: loading ? "wait" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                transition: "all 0.2s",
-                fontFamily: "inherit",
-                opacity: !email ? 0.5 : loading ? 0.8 : 1,
-              }}
-              onMouseEnter={(e) => { if (!loading) e.target.style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { if (!loading) e.target.style.opacity = "1"; }}
-            >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-              {loading ? "Sending code…" : "Send verification code"}
-            </button>
-          </form>
-        )}
-
-        {step === 2 && (
-          <div style={{ animation: "fadeIn 0.3s ease" }}>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                justifyContent: "center",
-                marginBottom: "24px",
-              }}
-            >
-              {otp.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => (otpRefs.current[i] = el)}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleOTPChange(i, e.target.value)}
-                  onKeyDown={(e) => handleOTPKeyDown(i, e)}
-                  onPaste={i === 0 ? handleOTPPaste : undefined}
-                  style={{
-                    width: "48px",
-                    height: "56px",
-                    textAlign: "center",
-                    fontSize: "22px",
-                    fontWeight: 600,
-                    background: "rgba(255,255,255,0.6)",
-                    border: error
-                      ? "1px solid rgba(239,68,68,0.5)"
-                      : digit
-                        ? "1px solid var(--tk-text-primary)"
-                        : "1px solid var(--tk-border-solid)",
-                    borderRadius: "12px",
-                    color: "var(--tk-text-primary)",
-                    outline: "none",
-                    transition: "all 0.2s",
-                    fontFamily: "'SF Mono', 'Fira Code', monospace",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "var(--tk-text-primary)";
-                    e.target.style.boxShadow = "var(--tk-glow-focus)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = digit ? "var(--tk-text-primary)" : "var(--tk-border-solid)";
-                    e.target.style.boxShadow = "none";
-                  }}
-                />
-              ))}
-            </div>
-
-            {loading && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  color: "var(--tk-text-muted)",
-                  fontSize: "14px",
-                  marginBottom: "16px",
-                }}
-              >
-                <Loader2 size={16} className="animate-spin" />
-                Verifying…
-              </div>
-            )}
-
-            <div style={{ textAlign: "center", marginTop: "8px" }}>
-              {resendCooldown > 0 ? (
-                <p style={{ fontSize: "13px", color: "var(--tk-text-muted)", margin: 0 }}>
-                  Resend code in {resendCooldown}s
-                </p>
-              ) : (
-                <button
-                  onClick={handleSendOTP}
-                  disabled={loading}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--tk-text-muted)",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    textUnderlineOffset: "3px",
-                    fontFamily: "inherit",
-                    transition: "color 0.2s",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.color = "var(--tk-text-primary)")}
-                  onMouseLeave={(e) => (e.target.style.color = "var(--tk-text-muted)")}
-                >
-                  Resend code
-                </button>
-              )}
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: "16px" }}>
+          <label className="admin-field">
+            <span className="admin-field-label">Password</span>
+            <span className={`admin-input-wrap ${error ? "has-error" : ""}`}>
+              <Lock size={18} aria-hidden="true" />
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                required
+              />
               <button
-                onClick={() => { setStep(1); setOtp(["", "", "", "", "", ""]); setError(""); }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--tk-text-faint)",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "color 0.2s",
-                }}
-                onMouseEnter={(e) => (e.target.style.color = "var(--tk-text-muted)")}
-                onMouseLeave={(e) => (e.target.style.color = "var(--tk-text-faint)")}
+                type="button"
+                className="admin-eye"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                ← Use a different email
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            </div>
-          </div>
-        )}
+            </span>
+          </label>
 
-        {error && (
-          <p
-            style={{
-              color: "#ef4444",
-              fontSize: "13px",
-              textAlign: "center",
-              marginTop: "16px",
-              marginBottom: 0,
-              animation: "fadeIn 0.2s ease",
-            }}
-          >
-            {error}
-          </p>
-        )}
+          {error && <p className="admin-error" role="alert">{error}</p>}
+
+          <button type="submit" className="admin-submit" disabled={!canSubmit}>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
       </div>
 
       <style>{`
-        @keyframes shake {
+        .admin-login {
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 16px;
+          padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+          background: var(--tk-bg);
+        }
+        .admin-login-card {
+          width: 100%;
+          max-width: 400px;
+          background: #fff;
+          border: 1px solid var(--tk-border-solid);
+          border-radius: 24px;
+          padding: 40px 32px 32px;
+          box-shadow: 0 1px 2px rgba(44,62,80,0.04), 0 12px 32px -8px rgba(44,62,80,0.12);
+          animation: fadeInUp 0.5s ease both;
+        }
+        .admin-login-card.is-shaking { animation: adminShake 0.45s ease-in-out; }
+        .admin-login-head { text-align: center; margin-bottom: 28px; }
+        .admin-login-badge {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 56px; height: 56px; border-radius: 16px;
+          background: var(--tk-accent-lavender); color: var(--tk-text-primary);
+          margin-bottom: 16px;
+        }
+        .admin-login-head h1 {
+          font-family: var(--font-display, 'Playfair Display', serif);
+          font-size: 24px; font-weight: 600; letter-spacing: -0.5px;
+          color: var(--tk-text-primary); margin: 0 0 6px;
+        }
+        .admin-login-head p { font-size: 14px; color: var(--tk-text-muted); margin: 0; }
+
+        .admin-field { display: block; margin-bottom: 16px; }
+        .admin-field-label {
+          display: block; font-size: 13px; font-weight: 500;
+          color: var(--tk-text-primary); margin-bottom: 6px;
+        }
+        .admin-input-wrap {
+          display: flex; align-items: center; gap: 10px;
+          padding: 0 14px; height: 50px;
+          background: var(--tk-bg);
+          border: 1px solid rgba(44,62,80,0.12);
+          border-radius: 14px;
+          color: var(--tk-text-faint);
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .admin-input-wrap:focus-within {
+          border-color: var(--tk-text-primary);
+          box-shadow: 0 0 0 3px rgba(44,62,80,0.08);
+        }
+        .admin-input-wrap.has-error { border-color: rgba(220,38,38,0.5); }
+        .admin-input-wrap input {
+          flex: 1; min-width: 0; height: 100%;
+          border: none; outline: none; background: transparent;
+          color: var(--tk-text-primary);
+          font-family: inherit;
+          font-size: 16px; /* >=16px stops iOS zooming on focus */
+        }
+        .admin-eye {
+          display: flex; align-items: center; justify-content: center;
+          width: 36px; height: 36px; margin-right: -8px;
+          border: none; background: none; border-radius: 10px;
+          color: var(--tk-text-faint); cursor: pointer;
+        }
+        .admin-eye:hover { color: var(--tk-text-primary); background: rgba(44,62,80,0.05); }
+
+        .admin-error {
+          font-size: 13px; color: #dc2626;
+          background: #fef2f2; border: 1px solid #fecaca;
+          border-radius: 12px; padding: 10px 12px; margin: 0 0 16px;
+        }
+        .admin-submit {
+          width: 100%; height: 50px; margin-top: 8px;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          border: none; border-radius: 14px;
+          background: var(--tk-text-primary); color: #FDFBF7;
+          font-family: inherit; font-size: 15px; font-weight: 500;
+          cursor: pointer; transition: background 0.15s, opacity 0.15s;
+        }
+        .admin-submit:hover:not(:disabled) { background: #3a5068; }
+        .admin-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        @media (max-width: 480px) {
+          .admin-login { align-items: flex-start; padding-top: 48px; }
+          .admin-login-card { padding: 32px 20px 24px; border-radius: 20px; }
+        }
+        @keyframes adminShake {
           0%, 100% { transform: translateX(0); }
           20% { transform: translateX(-8px); }
           40% { transform: translateX(8px); }

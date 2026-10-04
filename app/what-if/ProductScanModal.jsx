@@ -30,7 +30,7 @@ export default function ProductScanModal({
       zIndex={50}
       closeOnBackdrop={false}
       ariaLabel="Scan Your Product"
-      panelClassName="tk-glass bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 border border-white/50 shadow-2xl"
+      panelClassName="p-6 pt-8 sm:p-8"
     >
       {/* Hidden inputs */}
       <input

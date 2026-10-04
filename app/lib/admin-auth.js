@@ -2,17 +2,8 @@
 
 import "server-only";
 import crypto from "crypto";
-import { Resend } from "resend";
-import { cookies } from "next/headers";
-import { connectDb, AdminOTP } from "./mongoose";
-
-let resendClient = null;
-function getResendClient() {
-  if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resendClient;
-}
+import { cookies, headers } from "next/headers";
+import { checkRateLimit } from "./rate-limit";
 
 function getAdminEmail() {
   const configured = process.env.ADMIN_EMAIL;
@@ -20,152 +11,76 @@ function getAdminEmail() {
   return configured.toLowerCase().trim();
 }
 
-const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+function getAdminPassword() {
+  const configured = process.env.ADMIN_PASSWORD;
+  if (!configured) throw new Error("ADMIN_PASSWORD is not configured");
+  return configured;
+}
+
+function getSessionSecret() {
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  if (!secret) throw new Error("ADMIN_SESSION_SECRET is not configured");
+  return secret;
+}
+
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
-const MAX_OTP_REQUESTS = 3;
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const MAX_OTP_VERIFY_ATTEMPTS = 5;
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-function generateOTP() {
-  return crypto.randomInt(100000, 999999).toString();
+// Hash both sides first so timingSafeEqual always compares equal-length
+// buffers and the comparison doesn't leak the configured value's length.
+function safeEqual(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a)).digest();
+  const hb = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
 }
 
-export async function sendAdminOTP(email) {
-  let adminEmail;
-  try {
-    adminEmail = getAdminEmail();
-  } catch {
-    return { success: true };
-  }
-
-  if (!email || email.toLowerCase().trim() !== adminEmail) {
-    // Return generic response — don't leak whether the email exists
-    return { success: true };
-  }
-
-  await connectDb();
-
-  // Persistent serverless rate limiting via MongoDB
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
-  const recentRequests = await AdminOTP.countDocuments({
-    email: adminEmail,
-    createdAt: { $gte: windowStart }
-  });
-
-  if (recentRequests >= MAX_OTP_REQUESTS) {
-    return { success: false, error: "Too many attempts. Try again later." };
-  }
-
-  const code = generateOTP();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
-  const ttlExpiresAt = new Date(Date.now() + RATE_LIMIT_WINDOW_MS);
-
-  // Invalidate any previously active OTPs for this admin
-  await AdminOTP.updateMany(
-    { email: adminEmail, used: false },
-    { $set: { used: true } }
-  );
-
-  // Create persistent OTP document (auto-purged by MongoDB TTL index)
-  await AdminOTP.create({
-    email: adminEmail,
-    code,
-    expiresAt,
-    ttlExpiresAt,
-    used: false,
-    attempts: 0
-  });
-
-  try {
-    const resend = getResendClient();
-    await resend.emails.send({
-      from: "TintKin Admin <onboarding@resend.dev>",
-      to: [adminEmail],
-      subject: `🔐 TintKin Admin — Your code is ${code}`,
-      html: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 420px; margin: 0 auto; padding: 40px 24px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px;">
-          <div style="text-align: center; margin-bottom: 32px;">
-            <span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(230,230,250,0.15); font-size: 24px;">✦</span>
-            <h1 style="color: #E6E6FA; font-size: 20px; margin: 12px 0 4px; letter-spacing: -0.5px;">TintKin Admin</h1>
-            <p style="color: rgba(230,230,250,0.5); font-size: 13px; margin: 0;">Verification Code</p>
-          </div>
-          <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(230,230,250,0.1); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
-            <p style="color: rgba(230,230,250,0.6); font-size: 13px; margin: 0 0 12px;">Your one-time code:</p>
-            <div style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #E6E6FA; font-family: 'SF Mono', 'Fira Code', monospace;">${code}</div>
-          </div>
-          <p style="color: rgba(230,230,250,0.4); font-size: 12px; text-align: center; margin: 0;">
-            Expires in 5 minutes · Do not share this code
-          </p>
-        </div>
-      `,
-    });
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: "Failed to send OTP. Try again." };
-  }
+// Short fingerprint of the configured password, baked into the session token so
+// rotating ADMIN_PASSWORD immediately invalidates every existing admin session.
+function passwordFingerprint() {
+  return crypto
+    .createHmac("sha256", getSessionSecret())
+    .update(getAdminPassword())
+    .digest("base64url")
+    .slice(0, 16);
 }
 
-export async function verifyAdminOTP(email, code) {
+export async function adminLogin(email, password) {
   let adminEmail;
+  let adminPassword;
   try {
     adminEmail = getAdminEmail();
+    adminPassword = getAdminPassword();
+    getSessionSecret();
   } catch {
-    return { success: false, error: "Admin authentication is not configured." };
+    return { success: false, error: "Admin login is not configured." };
   }
 
-  if (!email || email.toLowerCase().trim() !== adminEmail) {
-    return { success: false, error: "Invalid credentials." };
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
+  const rate = await checkRateLimit(`ip:${ip}`, "admin_login", LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  if (!rate.allowed) {
+    return { success: false, status: 429, error: "Too many attempts. Try again in a few minutes." };
   }
 
-  if (typeof code !== "string" || !code.trim()) {
-    return { success: false, error: "Invalid code. Please try again." };
+  const normalizedEmail = typeof email === "string" ? email.toLowerCase().trim() : "";
+  const suppliedPassword = typeof password === "string" ? password : "";
+
+  // Evaluate both checks unconditionally so a wrong email and a wrong password
+  // take the same time and return the same message.
+  const emailOk = safeEqual(normalizedEmail, adminEmail);
+  const passwordOk = safeEqual(suppliedPassword, adminPassword);
+  if (!emailOk || !passwordOk) {
+    return { success: false, status: 401, error: "Incorrect email or password." };
   }
 
-  await connectDb();
-
-  const activeFilter = { email: adminEmail, used: false, expiresAt: { $gt: new Date() } };
-
-  // Count the attempt atomically *before* comparing, so parallel guesses can't
-  // all read the same attempt count and exceed MAX_OTP_VERIFY_ATTEMPTS.
-  const otpRecord = await AdminOTP.findOneAndUpdate(
-    { ...activeFilter, attempts: { $lt: MAX_OTP_VERIFY_ATTEMPTS } },
-    { $inc: { attempts: 1 } },
-    { sort: { createdAt: -1 }, new: true }
-  );
-
-  if (!otpRecord) {
-    const exhausted = await AdminOTP.findOneAndUpdate(
-      activeFilter,
-      { $set: { used: true } },
-      { sort: { createdAt: -1 } }
-    );
-    return exhausted
-      ? { success: false, error: "Too many incorrect attempts. Please request a new code." }
-      : { success: false, error: "No active OTP found. Please request a new code." };
-  }
-
-  const expectedBuffer = Buffer.from(otpRecord.code);
-  const inputBuffer = Buffer.from(code.trim());
-
-  const matches = expectedBuffer.length === inputBuffer.length && crypto.timingSafeEqual(expectedBuffer, inputBuffer);
-  if (!matches) {
-    return { success: false, error: "Invalid code. Please try again." };
-  }
-
-  // Single-use: only the request that flips `used` gets a session.
-  const consumed = await AdminOTP.updateOne({ _id: otpRecord._id, used: false }, { $set: { used: true } });
-  if (consumed.modifiedCount !== 1) {
-    return { success: false, error: "No active OTP found. Please request a new code." };
-  }
-
-  // Create session
   const token = signAdminToken({
     email: adminEmail,
+    pv: passwordFingerprint(),
     loginAt: Date.now(),
     expiresAt: Date.now() + SESSION_EXPIRY_MS,
   });
 
-  // Set cookie with secure settings for all environments
   const cookieStore = await cookies();
   cookieStore.set("admin-session", token, {
     httpOnly: true,
@@ -179,11 +94,9 @@ export async function verifyAdminOTP(email, code) {
 }
 
 function signAdminToken(payload) {
-  if (!process.env.ADMIN_SESSION_SECRET) throw new Error("ADMIN_SESSION_SECRET is not configured");
-  const data = JSON.stringify(payload);
-  const encoded = Buffer.from(data).toString("base64url");
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
-    .createHmac("sha256", process.env.ADMIN_SESSION_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(encoded)
     .digest("base64url");
   return `${encoded}.${signature}`;
@@ -199,7 +112,7 @@ export async function verifyAdminSession() {
     if (!encoded || !signature) return null;
 
     const expectedSig = crypto
-      .createHmac("sha256", process.env.ADMIN_SESSION_SECRET)
+      .createHmac("sha256", getSessionSecret())
       .update(encoded)
       .digest("base64url");
 
@@ -214,6 +127,7 @@ export async function verifyAdminSession() {
 
     if (payload.expiresAt < Date.now()) return null;
     if (payload.email !== getAdminEmail()) return null;
+    if (payload.pv !== passwordFingerprint()) return null;
 
     return payload;
   } catch {
