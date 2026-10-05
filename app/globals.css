@@ -28,6 +28,8 @@
   --tk-gradient-pastel: linear-gradient(135deg, rgba(230,230,250,0.6) 0%, rgba(255,218,185,0.6) 100%);
 
   --tk-surface-glass: rgba(255, 255, 255, 0.4);
+  --tk-surface-card: #FFFFFF;
+  --tk-shadow-card: 0 1px 2px rgba(44, 62, 80, 0.04), 0 8px 24px -12px rgba(44, 62, 80, 0.12);
   --tk-border-glass: rgba(255, 255, 255, 0.2);
   --tk-border-solid: rgba(44, 62, 80, 0.08);
 
@@ -143,13 +145,16 @@ h1, h2, h3, h4, h5, h6 {
   .pb-safe-nav { padding-bottom: 0; }
 }
 
-.tk-glass {
-  background: var(--tk-surface-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--tk-border-glass);
-  box-shadow: var(--tk-glow-card);
-  border-radius: 1.5rem;
+/* Solid card surface used across the app. .tk-glass is kept as an alias so
+   older markup picks up the same look (the frosted-glass style was retired). */
+@layer components {
+  .tk-card,
+  .tk-glass {
+    background: var(--tk-surface-card);
+    border: 1px solid var(--tk-border-solid);
+    box-shadow: var(--tk-shadow-card);
+    border-radius: 1.5rem;
+  }
 }
 
 .tk-pill-btn {

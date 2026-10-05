@@ -62,7 +62,7 @@ export default function OnboardingPage() {
 
     return (
         <div className="min-h-screen bg-base tk-mesh-bg flex items-center justify-center p-4 sm:p-6 lg:p-8">
-            <div className="max-w-md w-full tk-glass p-5 sm:p-7 lg:p-9 relative tk-anim-1 shadow-lg rounded-3xl border border-white/60">
+            <div className="max-w-md w-full tk-glass p-5 sm:p-7 lg:p-9 relative tk-anim-1 shadow-lg rounded-3xl border">
                 <div className="text-center mb-5 sm:mb-7">
                     <h1 className="text-xl sm:text-2xl font-display font-medium text-primary mb-1.5 leading-tight">Welcome to TintKin</h1>
                     <p className="text-xs sm:text-sm text-muted">Let's personalize your skin journey.</p>

@@ -570,7 +570,7 @@ export default function WhatIfPage() {
                   setUpgradeModalOpen(true);
                 }
               }}
-              className="tk-glass rounded-3xl p-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-sage/40 hover:border-sage bg-white/40 hover:bg-white/75 transition-all min-h-[360px] cursor-pointer group shadow-xs hover:shadow-md relative overflow-hidden"
+              className="tk-glass rounded-3xl p-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-sage/40 hover:border-sage transition-all min-h-[360px] cursor-pointer group shadow-xs hover:shadow-md relative overflow-hidden"
             >
               <div className="w-14 h-14 rounded-2xl bg-sage/15 border border-sage/20 flex items-center justify-center text-sage mb-4 group-hover:scale-110 transition-transform shadow-xs">
                 <Plus size={26} strokeWidth={2.2} />
@@ -678,7 +678,7 @@ export default function WhatIfPage() {
           <div id="simulation-results" className="flex flex-col gap-8 tk-anim-4 scroll-mt-24">
             <ComponentErrorFallback title="Simulation Results">
 
-            <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border border-white/50">
+            <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/50 border-b border-white/30 gap-3">
                 <div className="inline-flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-sage"></span>
@@ -734,7 +734,7 @@ export default function WhatIfPage() {
               </div>
             </div>
 
-            <div className="tk-glass rounded-3xl overflow-hidden border border-white/50">
+            <div className="tk-glass rounded-3xl overflow-hidden border">
               <div className="bg-sage/10 border-b border-sage/20 p-4 flex items-center gap-3">
                 <Calendar size={24} className="text-sage" />
                 <div>
@@ -877,7 +877,7 @@ export default function WhatIfPage() {
             </div>
 
             {!simConfirmed ? (
-              <div className="tk-glass rounded-3xl p-6 border border-white/50 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+              <div className="tk-glass rounded-3xl p-6 border flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -950,7 +950,7 @@ export default function WhatIfPage() {
                     setResult(simToSet);
                     
                   }}
-                  className={`tk-glass rounded-2xl p-4 text-left border border-white/40 hover:border-sage/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                  className={`tk-glass rounded-2xl p-4 text-left border hover:border-sage/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   <button
                     onClick={(e) => handleDeleteSim(e, simId)}
@@ -987,7 +987,7 @@ export default function WhatIfPage() {
       </div>
 
       {/* Sticky Mobile Simulation CTA */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base/90 backdrop-blur-md border-t border-black/5 z-40 pb-safe">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-black/5 z-40 pb-safe">
         <button
           onClick={handleRunSimulation}
           disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}

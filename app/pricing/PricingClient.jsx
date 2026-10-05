@@ -120,7 +120,7 @@ export default function PricingClient() {
                 </div>
 
                 {/* Standard Plan */}
-                <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-3 relative hover:shadow-xl transition-all border-sage/30 bg-white/50 ${
+                <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-3 relative hover:shadow-xl transition-all border-sage/30 ${
                     activeTab !== TIERS.STANDARD ? "hidden md:flex" : "flex"
                 }`}>
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2 sm:translate-x-4">
@@ -199,7 +199,7 @@ export default function PricingClient() {
             </div>
 
             {/* Sticky Mobile CTA */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-base/90 backdrop-blur-md border-t border-black/5 z-40 pb-safe">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-black/5 z-40 pb-safe">
                 {activeTab === TIERS.FREE && (
                     <button
                         onClick={() => handleSelectPlan(TIERS.FREE)}

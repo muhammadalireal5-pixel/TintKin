@@ -58,7 +58,7 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
 };
 
 const StatCard = ({ title, value, icon: Icon, accentColor }) => (
-  <div className="flex items-center p-5 rounded-2xl bg-white/60 border border-[var(--tk-border-solid)] backdrop-blur-md transition-all duration-300 hover:bg-black/5">
+  <div className="flex items-center p-5 rounded-2xl bg-white border border-[var(--tk-border-solid)] transition-all duration-300 hover:bg-black/5">
     <div className="p-3 rounded-xl mr-4" style={{ backgroundColor: `${accentColor}1A`, color: accentColor }}>
       <Icon size={24} strokeWidth={2} />
     </div>
@@ -210,7 +210,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#f97316" />
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white/60 p-4 rounded-2xl border border-[var(--tk-border-solid)] backdrop-blur-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-[var(--tk-border-solid)]">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--tk-text-faint)]" size={18} />
           <input
@@ -242,7 +242,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         </div>
       </div>
 
-      <div className="bg-white/60 border border-[var(--tk-border-solid)] rounded-2xl backdrop-blur-md overflow-hidden">
+      <div className="bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-black/[0.02] border-b border-[var(--tk-border-solid)] text-[var(--tk-text-muted)]">

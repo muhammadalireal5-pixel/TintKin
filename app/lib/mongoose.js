@@ -113,6 +113,9 @@ const UserSchema = new mongoose.Schema({
     currentPeriodStart: { type: Date, default: Date.now },
     currentPeriodEnd: { type: Date, default: null },
     extraScans: { type: Number, default: 0 },
+    // Set when the user reaches SCANS_PER_REPORT new scans (and the "report
+    // ready" email went out); cleared when they generate that report.
+    reportReadyAt: { type: Date, default: null },
     extraSimulations: { type: Number, default: 0 },
     // Atomic usage counters backing the scan/simulation quota reservation in
     // app/lib/quota.js. dayKey/monthKey are "YYYY-MM-DD"/"YYYY-MM" period
@@ -242,7 +245,7 @@ export const Report = mongoose.models.Report || mongoose.model('Report', ReportS
  */
 const RateLimitSchema = new mongoose.Schema({
     identifier: { type: String, required: true },
-    action: { type: String, required: true, enum: ['login', 'register', 'password-reset', 'upload', 'analyze', 'simulate', 'product_ocr'] },
+    action: { type: String, required: true, enum: ['login', 'register', 'password-reset', 'upload', 'analyze', 'simulate', 'product_ocr', 'admin_login'] },
     windowStart: { type: Date, required: true },
     count: { type: Number, required: true, default: 1 },
     expiresAt: { type: Date, required: true },

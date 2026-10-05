@@ -96,7 +96,7 @@ export default function LocationPrompt({ user }) {
   if (!show) return null;
 
   return (
-    <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-sage/15 via-white/80 to-lavender/20 border border-sage/30 rounded-3xl shadow-xs relative tk-anim-1 backdrop-blur-md">
+    <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-sage/15 via-white/80 to-lavender/20 border border-sage/30 rounded-3xl shadow-xs relative tk-anim-1">
       <button 
         onClick={handleDismiss} 
         className="absolute top-3.5 right-3.5 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors cursor-pointer"

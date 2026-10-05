@@ -1,5 +1,5 @@
 
-import { getLatestData } from "@/app/lib/actions";
+import { getLatestData, getReportStatus } from "@/app/lib/actions";
 import { SkeletonRoutine, SkeletonScoreCard, SkeletonRadar, SkeletonChart, SkeletonTrophy } from "./SkeletonLoader";
 import { redirect } from "next/navigation";
 import { RadarChartClient, ProgressChart } from "./LazyCharts";
@@ -9,6 +9,7 @@ import ProductImage from "./ProductImage";
 import { Sparkles, ArrowRight, Dumbbell, Flame, Share2, Trophy as TrophyIcon, LineChart } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
+import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import RoutineChecklist from "./RoutineChecklist";
 import TrophyCase from "./TrophyCase";
@@ -23,6 +24,7 @@ const DASHBOARD_SELFIE_LIMIT = 20;
 async function DashboardContent() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData("UTC", { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
+    const reportStatus = await getReportStatus();
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
     const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout, adviceStatus } = sourceData;
@@ -60,6 +62,7 @@ async function DashboardContent() {
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
             <div className="max-w-6xl mx-auto">
                 <LocationPrompt user={user} />
+                <ReportReadyPrompt status={reportStatus} />
 
                 {/* Page Title */}
                 <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">

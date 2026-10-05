@@ -8,6 +8,7 @@ import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop, CalendarClock } from "lucide-react";
 import ImageCropper from "@/app/components/ImageCropper";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
+import { refreshReportStatus } from "@/app/components/reportStatus";
 import Link from "next/link";
 
 export default function CapturePage() {
@@ -146,6 +147,15 @@ export default function CapturePage() {
                         message: `Updated your ${refreshed.join(", ")} based on today's scan.`,
                     });
                 }
+
+                if (res.reportJustUnlocked) {
+                    showToast({
+                        type: "success",
+                        title: "Your weekly report is ready!",
+                        message: "That's 7 scans. Generate your report from your journal or the Reports tab.",
+                    });
+                }
+                refreshReportStatus();
 
                 setStatus({ type: "success", msg: "Done! Opening your journal…" });
                 setTimeout(() => router.push("/dashboard"), 800);
@@ -429,13 +439,11 @@ export default function CapturePage() {
                     max-width: 400px;
                     margin: auto 0;
                     flex-shrink: 0;
-                    background: rgba(255, 255, 255, 0.35);
-                    backdrop-filter: blur(24px);
-                    -webkit-backdrop-filter: blur(24px);
-                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    background: #FFFFFF;
+                    border: 1px solid rgba(44, 62, 80, 0.08);
                     border-radius: 2rem;
                     padding: 1.5rem;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+                    box-shadow: 0 1px 2px rgba(44, 62, 80, 0.04), 0 8px 24px -12px rgba(44, 62, 80, 0.12);
                     animation: fadeInUp 0.6s ease both;
                 }
                 
@@ -511,13 +519,13 @@ export default function CapturePage() {
                 }
 
                 .cta-secondary {
-                    background: rgba(255,255,255,0.6);
+                    background: var(--tk-bg);
                     color: var(--tk-text-primary);
                     border: 1px solid rgba(44,62,80,0.06);
                     box-shadow: 0 2px 10px rgba(44,62,80,0.04);
                 }
                 .cta-secondary:hover {
-                    background: rgba(255,255,255,0.85);
+                    background: #F7F4EE;
                     transform: translateY(-1px);
                     box-shadow: 0 6px 18px rgba(44,62,80,0.08);
                 }

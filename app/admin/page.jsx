@@ -18,9 +18,7 @@ export default async function AdminPage() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(255,255,255,0.6)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          background: "#FDFBF7",
           borderBottom: "1px solid var(--tk-border-solid)",
           padding: "0 24px",
         }}

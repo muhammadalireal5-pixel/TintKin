@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Camera, Sparkles, FileText, Trophy } from "lucide-react";
 import { useAuthContext } from "../context/AuthContext";
+import { useReportStatus } from "./reportStatus";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -17,17 +18,19 @@ const NAV_ITEMS = [
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { user } = useAuthContext();
+  const reportStatus = useReportStatus(Boolean(user));
 
   if (!user) return null;
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/80 backdrop-blur-lg border-t border-black/5 pb-safe"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#FDFBF7] border-t border-[rgba(44,62,80,0.08)] shadow-[0_-4px_16px_rgba(44,62,80,0.04)] pb-safe"
       aria-label="Primary"
     >
       <div className="flex items-stretch justify-between px-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+          const showBadge = href === "/reports" && reportStatus?.ready;
           return (
             <Link
               key={href}
@@ -39,7 +42,12 @@ export default function MobileBottomNav() {
                 whileTap={{ scale: 0.88 }}
                 className={`flex flex-col items-center gap-0.5 ${isActive ? "text-primary" : "text-muted"}`}
               >
-                <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
+                <span className="relative">
+                  <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
+                  {showBadge && (
+                    <span className="absolute -top-0.5 -right-1 w-2.5 h-2.5 rounded-full bg-[#D9534F] ring-2 ring-[#FDFBF7]" aria-label="Report ready" />
+                  )}
+                </span>
                 <span className={`text-[10px] leading-none ${isActive ? "font-semibold" : "font-medium"}`}>
                   {label}
                 </span>

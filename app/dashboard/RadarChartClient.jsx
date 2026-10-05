@@ -10,7 +10,7 @@ const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg border border-white/40">
+      <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-[rgba(44,62,80,0.08)]">
         <p className="text-primary font-medium">{data.subject}</p>
         <p className="text-sage text-sm">{data.tag}</p>
       </div>

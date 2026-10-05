@@ -34,6 +34,8 @@ import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
+import { SCANS_PER_REPORT, getReportProgress } from "@/lib/constants/reports";
+import { sendReportReadyEmail } from "./email";
 import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
 import {
   getLocalDayStart,
@@ -579,23 +581,29 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     await User.findByIdAndUpdate(user._id, { baselineSelfie: finalImageUrl });
 
+    const report = await notifyReportReadyIfDue(user);
+
     if (adviceSucceeded) {
-      return okResult({ 
+      return okResult({
         selfieId: selfie._id.toString(),
         adviceStatus: STATUS.OK,
         productsChanged,
         habitsChanged,
-        workoutChanged
+        workoutChanged,
+        reportReady: report.ready,
+        reportJustUnlocked: report.justUnlocked,
       });
     }
 
-    return partialResult({ 
+    return partialResult({
       selfieId: selfie._id.toString(),
       adviceStatus: STATUS.ERROR,
       productsChanged: false,
       habitsChanged: false,
-      workoutChanged: false
-    }, ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
+      workoutChanged: false,
+      reportReady: report.ready,
+      reportJustUnlocked: report.justUnlocked,
+    },  ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
   } catch (err) {
     if (extraScanConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
@@ -1584,7 +1592,59 @@ export async function optInComparison(optIn) {
   }
 }
 
-const REPORT_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days, matches the UI copy
+/** Analyzed scans taken after the user's most recent report (or ever, if none). */
+function scansSinceLastReportFilter(userId, lastReport) {
+  const filter = { userId, isAnalyzed: true };
+  if (lastReport) filter.takenAt = { $gt: lastReport.createdAt };
+  return filter;
+}
+
+async function countScansSinceLastReport(userId) {
+  const lastReport = await Report.findOne({ userId }).sort({ createdAt: -1 }).select("createdAt").lean();
+  return Selfie.countDocuments(scansSinceLastReportFilter(userId, lastReport));
+}
+
+/**
+ * Called after a successful scan. Once the user reaches SCANS_PER_REPORT new
+ * scans, flags the report as ready and emails them exactly once per cycle (the
+ * conditional update on reportReadyAt makes concurrent scans race-safe).
+ */
+async function notifyReportReadyIfDue(user) {
+  try {
+    const progress = getReportProgress(await countScansSinceLastReport(user._id));
+    if (!progress.ready) return { ready: false, justUnlocked: false };
+
+    const claimed = await User.findOneAndUpdate(
+      { _id: user._id, reportReadyAt: null },
+      { $set: { reportReadyAt: new Date() } }
+    );
+    if (claimed) {
+      await sendReportReadyEmail({ email: user.email, name: user.displayName, scanCount: SCANS_PER_REPORT });
+    }
+    return { ready: true, justUnlocked: Boolean(claimed) };
+  } catch (err) {
+    console.error("Report-ready check failed:", err);
+    return { ready: false, justUnlocked: false };
+  }
+}
+
+/**
+ * Progress toward the next report, for nav badges and the dashboard prompt.
+ * Never redirects (it runs in the background from client components), so it
+ * returns null when there is no signed-in, onboarded user.
+ */
+export async function getReportStatus() {
+  try {
+    await connectDb();
+    const decoded = await getAuthenticatedUser().catch(() => null);
+    if (!decoded) return null;
+    const user = await findSessionUser(decoded);
+    if (!user?.onboardingComplete) return null;
+    return getReportProgress(await countScansSinceLastReport(user._id));
+  } catch {
+    return null;
+  }
+}
 
 export async function generateReport(prevState, formData) {
   try {
@@ -1593,25 +1653,15 @@ export async function generateReport(prevState, formData) {
 
     const now = new Date();
 
-    const lastReport = await Report.findOne({ userId: user._id }).sort({ createdAt: -1 });
-    if (lastReport && now - lastReport.createdAt < REPORT_COOLDOWN_MS) {
-      const nextAvailable = new Date(lastReport.createdAt.getTime() + REPORT_COOLDOWN_MS);
+    const lastReport = await Report.findOne({ userId: user._id }).sort({ createdAt: -1 }).select("createdAt").lean();
+    const selfies = await Selfie.find(scansSinceLastReportFilter(user._id, lastReport)).sort({ takenAt: -1 });
+
+    const progress = getReportProgress(selfies.length);
+    if (!progress.ready) {
       return {
         success: false,
-        error: `You can generate a new report every 3 days. Next report available ${nextAvailable.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`,
+        error: `Your next report unlocks after ${SCANS_PER_REPORT} scans. You're at ${progress.count} of ${SCANS_PER_REPORT}, ${progress.remaining} to go!`,
       };
-    }
-
-    // Get user's scan history for analysis
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const selfies = await Selfie.find({
-      userId: user._id,
-      isAnalyzed: true,
-      takenAt: { $gte: thirtyDaysAgo }
-    }).sort({ takenAt: -1 }).limit(30);
-
-    if (selfies.length === 0) {
-      return { success: false, error: "Not enough scan data to generate a report. Please complete at least one scan first." };
     }
 
     // Calculate metrics from scans
@@ -1679,11 +1729,14 @@ export async function generateReport(prevState, formData) {
       reportData.compliments.push("Your skin has unique beauty. Let's work together to enhance it.");
     }
 
+    const fmtDay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const periodLabel = `${fmtDay(selfies[selfies.length - 1].takenAt)} – ${fmtDay(selfies[0].takenAt)}`;
+
     const reportDoc = await Report.create({
       userId: user._id,
-      type: 'manual',
-      title: `Personalized Skin Analysis - ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
-      summary: `Over the past ${Math.min(30, selfies.length)} days, your skin has shown ${reportData.trend} trends with an average harmony score of ${avgScore}/100.`,
+      type: 'weekly',
+      title: `Weekly Skin Report · ${periodLabel}`,
+      summary: `Across your last ${selfies.length} scans (${periodLabel}), your skin has shown ${reportData.trend} trends with an average harmony score of ${avgScore}/100.`,
       highlights: reportData.topMetrics.map(m => `${m.name.charAt(0).toUpperCase() + m.name.slice(1)}: ${m.score}/100`),
       compliments: reportData.compliments,
       scanCount: reportData.scanCount,
@@ -1693,7 +1746,10 @@ export async function generateReport(prevState, formData) {
       aiGenerated: true,
     });
 
+    await User.updateOne({ _id: user._id }, { $set: { reportReadyAt: null } });
+
     revalidatePath("/reports");
+    revalidatePath("/dashboard");
 
     return {
       success: true,
@@ -1727,6 +1783,10 @@ export async function getUserReports() {
     highlights: r.highlights || [],
     compliments: r.compliments || [],
     aiGenerated: r.aiGenerated,
+    scanCount: r.scanCount ?? null,
+    averageScore: r.averageScore ?? null,
+    trend: r.trend || null,
+    trendValue: r.trendValue ?? null,
   }));
 }
 

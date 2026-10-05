@@ -55,7 +55,7 @@ export default function HistoryPage() {
         {loading && (
           <div className="flex flex-col gap-4 tk-anim-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="tk-glass p-6 rounded-3xl h-40 animate-pulse bg-white/30" />
+              <div key={i} className="tk-glass p-6 rounded-3xl h-40 animate-pulse" />
             ))}
           </div>
         )}
@@ -73,7 +73,7 @@ export default function HistoryPage() {
         )}
 
         {!loading && !error && history.length === 0 && (
-          <div className="tk-glass p-12 text-center rounded-3xl tk-anim-2 border border-white/50 bg-white/40">
+          <div className="tk-glass p-12 text-center rounded-3xl tk-anim-2 border">
             <div className="w-16 h-16 bg-sage/10 text-sage rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-8 h-8" />
             </div>
@@ -91,7 +91,7 @@ export default function HistoryPage() {
           <div className="flex flex-col gap-6 tk-anim-3">
             <ComponentErrorFallback title="History List">
             {history.map((week, idx) => (
-              <div key={idx} className="tk-glass rounded-3xl p-6 sm:p-8 border border-white/50 hover:border-white/80 transition-colors bg-white/40 group relative overflow-hidden">
+              <div key={idx} className="tk-glass rounded-3xl p-6 sm:p-8 border transition-colors group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-sage/5 rounded-bl-full translate-x-10 -translate-y-10 group-hover:bg-sage/10 transition-colors" />
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">

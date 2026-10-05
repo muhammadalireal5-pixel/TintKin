@@ -6,11 +6,13 @@ import { useState } from "react";
 import { Settings, User } from "lucide-react";
 import { usePathname } from "next/navigation";
 import SettingsModal from "./SettingsModal";
+import { useReportStatus } from "./reportStatus";
 
 export function HeaderAuth() {
   const { user } = useAuthContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const pathname = usePathname();
+  const reportStatus = useReportStatus(Boolean(user));
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -50,6 +52,9 @@ export function HeaderAuth() {
                   : "text-gray-600 dark:text-gray-300 hover:text-primary hover:bg-black/5 dark:hover:bg-white/10"
                 }`}>
               {label}
+              {href === "/reports" && reportStatus?.ready && (
+                <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[#D9534F] align-middle" aria-label="Report ready" />
+              )}
             </Link>
           );
         })}

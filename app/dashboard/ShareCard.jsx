@@ -143,7 +143,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
         />
 
         {/* Soft Vignette Overlay for Crisp Readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/20 to-black/35 pointer-events-none backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/20 to-black/35 pointer-events-none" />
 
         {/* Card Content (Relative z-10) */}
         <div className="relative z-10 flex flex-col h-full justify-between gap-5">
@@ -157,7 +157,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
                 className="h-9 sm:h-10 w-auto object-contain mx-auto drop-shadow-lg filter transition-transform hover:scale-105"
               />
             </div>
-            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/80 backdrop-blur-md border border-white/90 shadow-sm text-[10px] font-bold tracking-widest uppercase text-primary mb-1">
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-[rgba(44,62,80,0.08)] shadow-sm text-[10px] font-bold tracking-widest uppercase text-primary mb-1">
               <Sparkles size={11} className="text-sage" />
               <span>Skin Longevity Journal</span>
             </div>
@@ -167,7 +167,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           </div>
 
           {/* Core Score Hero Pill */}
-          <div className="bg-white/85 backdrop-blur-md p-6 rounded-3xl border border-white/90 shadow-lg text-center mx-1">
+          <div className="bg-white p-6 rounded-3xl border border-[rgba(44,62,80,0.08)] shadow-lg text-center mx-1">
             <p className="text-[11px] font-semibold tracking-widest uppercase text-muted mb-1">Overall Skin Health</p>
             <div className="flex items-baseline justify-center gap-2">
               <span className="text-6xl sm:text-7xl font-display font-medium text-primary leading-none tracking-tight">
@@ -179,11 +179,11 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
 
           {/* Real Age vs Skin Age */}
           <div className="grid grid-cols-2 gap-3 mx-1">
-            <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm">
+            <div className="bg-white p-4 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Real Age</p>
               <p className="text-2xl font-display font-medium text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
             </div>
-            <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm relative overflow-hidden">
+            <div className="bg-white p-4 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm relative overflow-hidden">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Skin Age</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-2xl font-display font-medium text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
@@ -201,7 +201,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           </div>
 
           {/* Biomarkers Mini Grid */}
-          <div className="bg-white/80 backdrop-blur-md p-3.5 rounded-2xl border border-white/80 shadow-sm mx-1">
+          <div className="bg-white p-3.5 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm mx-1">
             <div className="grid grid-cols-4 gap-2 text-center divide-x divide-black/5">
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Wrinkles</p>
