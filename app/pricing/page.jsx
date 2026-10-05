@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import PricingClient from "./PricingClient";
 
 export const metadata = {
@@ -93,11 +94,13 @@ const pricingStructuredData = {
     ]
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+    const nonce = (await headers()).get("x-nonce") || undefined;
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
             <script
                 type="application/ld+json"
+                nonce={nonce}
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingStructuredData) }}
             />
             <div className="max-w-6xl mx-auto relative z-10">

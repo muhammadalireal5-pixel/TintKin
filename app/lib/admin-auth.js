@@ -4,6 +4,7 @@ import "server-only";
 import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { checkRateLimit } from "./rate-limit";
+import { connectDb, AdminAuthState } from "./mongoose";
 
 function getAdminEmail() {
   const configured = process.env.ADMIN_EMAIL;
@@ -129,6 +130,12 @@ export async function verifyAdminSession() {
     if (payload.email !== getAdminEmail()) return null;
     if (payload.pv !== passwordFingerprint()) return null;
 
+    await connectDb();
+    const state = await AdminAuthState.findById("singleton").lean();
+    if (state?.revokedBefore && payload.loginAt < new Date(state.revokedBefore).getTime()) {
+      return null;
+    }
+
     return payload;
   } catch {
     return null;
@@ -136,6 +143,18 @@ export async function verifyAdminSession() {
 }
 
 export async function adminLogout() {
+  try {
+    await connectDb();
+    await AdminAuthState.findByIdAndUpdate(
+      "singleton",
+      { revokedBefore: new Date() },
+      { upsert: true }
+    );
+  } catch {
+    // If this fails, logout still clears the cookie below; the stolen-token
+    // window just isn't shortened this time.
+  }
+
   const cookieStore = await cookies();
   cookieStore.delete("admin-session");
   cookieStore.delete("admin_session");

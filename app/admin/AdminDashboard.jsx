@@ -5,7 +5,7 @@ import {
   Users, Activity, Clock, Crown, Eye, BarChart3, Search,
   ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle, Plus
 } from 'lucide-react';
-import { adminAddExtraScans } from "@/app/lib/actions";
+import { adminAddExtraScans, migrateImagesToAuthenticated } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
 
 const formatRelativeTime = (dateString) => {
@@ -54,6 +54,75 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
         }`}
       />
     </button>
+  );
+};
+
+// M22 (AUDIT.md): flips existing public selfie/simulation images to
+// Cloudinary's private `authenticated` delivery type, a batch at a time.
+// Always dry-run first — it only reports counts, nothing is changed.
+const ImageMigrationPanel = () => {
+  const { showToast } = useToast();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const run = async (dryRun) => {
+    if (running) return;
+    setRunning(true);
+    try {
+      const res = await migrateImagesToAuthenticated({ dryRun, limit: 25 });
+      if (!res.success) {
+        showToast({ type: 'error', title: 'Migration failed', message: res.error || 'Please try again.' });
+        return;
+      }
+      setResult(res);
+      if (!dryRun) {
+        showToast({
+          type: 'success',
+          title: 'Batch complete',
+          message: `${res.migrated} migrated, ${res.failed} failed, ${res.remainingSelfies + res.remainingSimulations} images left.`,
+        });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Migration failed', message: 'Please try again.' });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="mb-8 bg-white p-5 rounded-2xl border border-[var(--tk-border-solid)]">
+      <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+        Image privacy migration
+      </h2>
+      <p className="text-sm text-[var(--tk-text-muted)] mb-4">
+        Moves existing selfie/simulation photos from Cloudinary public upload delivery to private authenticated delivery, 25 at a time. Safe to run repeatedly: each batch only touches images not yet migrated.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={running}
+          onClick={() => run(true)}
+          className="px-4 py-2 rounded-xl text-sm font-medium border border-[var(--tk-border-solid)] hover:bg-black/5 disabled:opacity-50"
+        >
+          Dry run (counts only)
+        </button>
+        <button
+          type="button"
+          disabled={running}
+          onClick={() => run(false)}
+          className="px-4 py-2 rounded-xl text-sm font-medium bg-[#7E72A8] text-white hover:bg-[#6a5f91] disabled:opacity-50"
+        >
+          {running ? 'Running…' : 'Migrate next batch'}
+        </button>
+        {result && (
+          <span className="text-sm text-[var(--tk-text-muted)]">
+            {result.dryRun
+              ? `This batch: ${result.selfiesInBatch} selfies, ${result.simulationsInBatch} sim images. Remaining overall: ${result.remainingSelfies} selfies, ${result.remainingSimulations} sim images.`
+              : `Migrated ${result.migrated}, failed ${result.failed}. Remaining: ${result.remainingSelfies} selfies, ${result.remainingSimulations} sim images.`}
+          </span>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -209,6 +278,8 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         <StatCard title="Total Scans" value={initialStats.totalScans || 0} icon={Eye} accentColor="#5A6A3B" />
         <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#f97316" />
       </div>
+
+      <ImageMigrationPanel />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-[var(--tk-border-solid)]">
         <div className="relative w-full md:w-96">

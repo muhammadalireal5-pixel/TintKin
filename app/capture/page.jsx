@@ -3,7 +3,8 @@
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus } from "@/app/lib/actions";
+import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, checkOnboardingStatus, getScanConsentStatus, acceptScanConsent } from "@/app/lib/actions";
+import ScanConsentModal from "@/app/components/ScanConsentModal";
 import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, ArrowRight, X, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop, CalendarClock } from "lucide-react";
 import ImageCropper from "@/app/components/ImageCropper";
@@ -29,6 +30,9 @@ export default function CapturePage() {
     const [isFlipped, setIsFlipped] = useState(false);
     const [quotas, setQuotas] = useState(null);
     const [quotasLoaded, setQuotasLoaded] = useState(false);
+    const [showConsent, setShowConsent] = useState(false);
+    const [savingConsent, setSavingConsent] = useState(false);
+    const pendingActionType = useRef(null);
 
     const loadingTexts = [
         "Analyzing skin tone & texture...",
@@ -46,16 +50,45 @@ export default function CapturePage() {
         return () => clearInterval(interval);
     }, [loading, status?.type, loadingTexts.length]);
 
+    const openPicker = (type) => {
+        if (type === 'camera') cameraInputRef.current?.click();
+        else galleryInputRef.current?.click();
+    };
+
     const handleActionClick = async (type) => {
         setCheckingOnboarding(true);
         const res = await checkOnboardingStatus();
-        setCheckingOnboarding(false);
         if (!res.complete) {
+            setCheckingOnboarding(false);
             router.push("/onboarding");
             return;
         }
-        if (type === 'camera') cameraInputRef.current?.click();
-        else galleryInputRef.current?.click();
+
+        const consent = await getScanConsentStatus();
+        setCheckingOnboarding(false);
+        if (consent.needsConsent) {
+            pendingActionType.current = type;
+            setShowConsent(true);
+            return;
+        }
+        openPicker(type);
+    };
+
+    const handleConsentAccept = async (photoPrivacy) => {
+        setSavingConsent(true);
+        try {
+            const res = await acceptScanConsent(photoPrivacy);
+            if (res.success) {
+                setShowConsent(false);
+                const type = pendingActionType.current;
+                pendingActionType.current = null;
+                openPicker(type || 'gallery');
+            } else {
+                showToast({ type: "error", title: "Couldn't save", message: res.error || "Please try again." });
+            }
+        } finally {
+            setSavingConsent(false);
+        }
     };
 
     useEffect(() => {
@@ -749,6 +782,11 @@ export default function CapturePage() {
                     border-width: 0;
                 }
             `}</style>
+            <ScanConsentModal
+                isOpen={showConsent}
+                onAccept={handleConsentAccept}
+                submitting={savingConsent}
+            />
         </div>
     );
 }

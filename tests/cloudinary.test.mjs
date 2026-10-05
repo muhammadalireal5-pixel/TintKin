@@ -12,10 +12,13 @@ const {
   getCloudinaryTransformations,
   stripCloudinarySignature,
   validateTrustedImageUrl,
+  getCloudinaryDeliveryType,
+  isOwnedUserUpload,
 } = await import("../lib/utils/cloudinary.js");
 const { signCloudinaryUrl } = await import("../lib/utils/cloudinary-sign.js");
 
 const BASE = "https://res.cloudinary.com/demo-cloud/image/upload";
+const AUTH_BASE = "https://res.cloudinary.com/demo-cloud/image/authenticated";
 const CROP = "c_thumb,g_face,z_1.05,w_1200,h_1200";
 
 function expectedSig(toSign) {
@@ -72,6 +75,37 @@ test("helpers ignore non-Cloudinary and empty input", () => {
   assert.equal(signCloudinaryUrl(null), null);
   assert.equal(getCloudinaryTransformations(`${BASE}/abc.jpg`), "");
   assert.equal(stripCloudinarySignature(`${BASE}/s--AbCd12_---/abc`), `${BASE}/abc`);
+});
+
+// M22 (AUDIT.md): existing selfies are uploaded as Cloudinary's public
+// `upload` type; new ones (and anything migrateImagesToAuthenticated has
+// flipped) are `authenticated`, which Cloudinary refuses to serve unsigned.
+test("getCloudinaryDeliveryType reports upload vs authenticated", () => {
+  assert.equal(getCloudinaryDeliveryType(`${BASE}/abc123.jpg`), "upload");
+  assert.equal(getCloudinaryDeliveryType(`${AUTH_BASE}/abc123.jpg`), "authenticated");
+  assert.equal(getCloudinaryDeliveryType("https://example.com/x.jpg"), null);
+});
+
+test("getCloudinaryPublicId and isOwnedUserUpload work for authenticated URLs too", () => {
+  assert.equal(getCloudinaryPublicId(`${AUTH_BASE}/v1712345/users/u1/abc123.jpg`), "users/u1/abc123");
+  assert.equal(isOwnedUserUpload(`${AUTH_BASE}/users/u1/abc123.jpg`, "u1", "demo-cloud"), true);
+  assert.equal(isOwnedUserUpload(`${AUTH_BASE}/users/u1/abc123.jpg`, "u2", "demo-cloud"), false);
+});
+
+// Unlike an `upload`-type asset, an `authenticated` one 401s on any unsigned
+// URL, so a crop MUST come back signed or every downstream fetch (YouCam
+// downloading it, our own denoise step) breaks.
+test("applyFaceCropToCloudinary signs the result for authenticated URLs, unlike upload URLs", () => {
+  const cropped = applyFaceCropToCloudinary(`${AUTH_BASE}/v1712345/users/u1/abc123.jpg`, 1.05);
+  assert.match(cropped, new RegExp(`^${AUTH_BASE}/s--[A-Za-z0-9_-]{8}--/${CROP}/users/u1/abc123$`));
+
+  const unsigned = applyFaceCropToCloudinary(`${BASE}/v1712345/users/u1/abc123.jpg`, 1.05);
+  assert.equal(unsigned, `${BASE}/${CROP}/v1712345/users/u1/abc123.jpg`);
+});
+
+test("signCloudinaryUrl keeps an authenticated URL authenticated", () => {
+  const signed = signCloudinaryUrl(`${AUTH_BASE}/v1712345/users/u1/abc123.jpg`);
+  assert.match(signed, new RegExp(`^${AUTH_BASE}/s--[A-Za-z0-9_-]{8}--/users/u1/abc123$`));
 });
 
 test("validateTrustedImageUrl only accepts https on allow-listed hosts", () => {

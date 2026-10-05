@@ -19,10 +19,12 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings } from "@/app/lib/actions";
-import { exportUserData } from "@/app/lib/export-data";
+import { resendVerificationEmail } from "@/app/lib/auth-actions";
+import { exportUserData, emailUserDataExport } from "@/app/lib/export-data";
 import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
 import { useToast } from "@/app/components/ToastProvider";
@@ -42,9 +44,11 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [photoPrivacy, setPhotoPrivacy] = useState(PHOTO_PRIVACY.STORE);
   const [standardPlanFrequency, setStandardPlanFrequency] = useState(STANDARD_PACING.FLEXIBLE);
   const [isExporting, setIsExporting] = useState(false);
+  const [isEmailingExport, setIsEmailingExport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [verifyEmailState, setVerifyEmailState] = useState("idle"); // idle | sending | sent
   // Fetch DB profile data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +72,16 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
     }
   }, [isOpen]);
+
+  const handleResendVerification = async () => {
+    if (verifyEmailState === "sending") return;
+    setVerifyEmailState("sending");
+    try {
+      await resendVerificationEmail();
+    } finally {
+      setVerifyEmailState("sent");
+    }
+  };
 
   const handleUseGeolocation = () => {
     setLocationMode("loading");
@@ -241,6 +255,22 @@ export default function SettingsModal({ isOpen, onClose }) {
     }
   };
 
+  const handleEmailExport = async () => {
+    setIsEmailingExport(true);
+    try {
+      const res = await emailUserDataExport();
+      showToast(
+        res?.success
+          ? { type: "success", title: "Export Sent", message: "Check your inbox for a copy of your data." }
+          : { type: "error", title: "Export Failed", message: res?.error || "Could not email the export." }
+      );
+    } catch (err) {
+      showToast({ type: "error", title: "Export Failed", message: err.message || "An unexpected error occurred." });
+    } finally {
+      setIsEmailingExport(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText.trim() !== "DELETE") {
       showToast({
@@ -329,6 +359,24 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <p className="text-xs text-[#5B6D7F] truncate">{user?.email || profile?.email}</p>
               </div>
             </div>
+
+            {profile?.emailVerified === false && (
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
+                <p className="text-xs text-amber-800">
+                  {verifyEmailState === "sent" ? "Confirmation email sent — check your inbox." : "Please confirm your email address."}
+                </p>
+                {verifyEmailState !== "sent" && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={verifyEmailState === "sending"}
+                    className="shrink-0 text-xs font-semibold text-amber-800 underline disabled:opacity-50"
+                  >
+                    {verifyEmailState === "sending" ? "Sending…" : "Resend"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Plan / Tier status */}
             <div className="mt-3.5 pt-3 border-t border-black/5 flex items-center justify-between">
@@ -629,6 +677,26 @@ export default function SettingsModal({ isOpen, onClose }) {
                   </div>
                 </div>
                 {isExporting ? (
+                  <Loader2 size={14} className="animate-spin text-[#8A9A5B]" />
+                ) : (
+                  <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleEmailExport}
+                disabled={isEmailingExport}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group text-left disabled:opacity-60"
+              >
+                <div className="flex items-center gap-3">
+                  <Mail size={16} className="text-[#8A9A5B]" />
+                  <div>
+                    <span className="text-sm font-medium text-[#2C3E50]">Email My Data</span>
+                    <p className="text-[11px] text-[#8E9BAA]">Same export, sent to your inbox</p>
+                  </div>
+                </div>
+                {isEmailingExport ? (
                   <Loader2 size={14} className="animate-spin text-[#8A9A5B]" />
                 ) : (
                   <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />

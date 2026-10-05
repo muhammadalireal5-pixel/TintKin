@@ -4,36 +4,52 @@ import "server-only";
 import crypto from "crypto";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, RateLimit } from "./mongoose";
-import { getCloudinaryPublicId } from "@/lib/utils/cloudinary";
+import { getCloudinaryPublicId, getCloudinaryDeliveryType } from "@/lib/utils/cloudinary";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
+async function destroyOnce(publicId, deliveryType) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  // invalidate=true also purges CDN-cached copies of the deleted image.
+  const signatureString = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}&type=${deliveryType}${process.env.CLOUDINARY_API_SECRET}`;
+  const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
+
+  const form = new FormData();
+  form.append("public_id", publicId);
+  form.append("invalidate", "true");
+  form.append("api_key", process.env.CLOUDINARY_API_KEY);
+  form.append("timestamp", timestamp.toString());
+  form.append("type", deliveryType);
+  form.append("signature", signature);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(20000),
+  });
+  const body = await res.json().catch(() => null);
+  // Cloudinary reports failures with HTTP 200 + {result: "not found"|"..."}
+  const ok = res.ok && (body?.result === "ok" || body?.result === "not found");
+  return ok;
+}
+
+// Non-blocking: account deletion must not fail because Cloudinary is down.
+// Still worth a bounded retry and a visible log line, since a missed destroy
+// here silently leaves the user's image on our CDN after "Delete my account".
 async function deleteCloudinaryAsset(imageUrl) {
   if (!imageUrl || !imageUrl.includes("cloudinary.com")) return;
   const publicId = getCloudinaryPublicId(imageUrl);
+  const deliveryType = getCloudinaryDeliveryType(imageUrl) || "upload";
   if (!publicId || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) return;
 
-  try {
-    const timestamp = Math.floor(Date.now() / 1000);
-    // invalidate=true also purges CDN-cached copies of the deleted image.
-    const signatureString = `invalidate=true&public_id=${publicId}&timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    const signature = crypto.createHash("sha1").update(signatureString).digest("hex");
-
-    const form = new FormData();
-    form.append("public_id", publicId);
-    form.append("invalidate", "true");
-    form.append("api_key", process.env.CLOUDINARY_API_KEY);
-    form.append("timestamp", timestamp.toString());
-    form.append("signature", signature);
-
-    await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
-      method: "POST",
-      body: form,
-      signal: AbortSignal.timeout(20000),
-    });
-  } catch (e) {
-    // Non-blocking image deletion failure
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      if (await destroyOnce(publicId, deliveryType)) return;
+    } catch {
+      // network/timeout error, fall through to retry/log below
+    }
   }
+  console.error(`[delete-account] Cloudinary destroy failed for public_id=${publicId} after retry`);
 }
 
 /**

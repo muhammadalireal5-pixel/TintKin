@@ -108,4 +108,5 @@ export const RATE_LIMIT_CONFIGS = {
   LOGIN: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
   REGISTER: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
   PASSWORD_RESET: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
+  DATA_EXPORT: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour — builds a ZIP and sends an email, both non-trivial cost
 };

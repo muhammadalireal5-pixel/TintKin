@@ -28,6 +28,10 @@ function SignInForm() {
       ? "If this email already had an account, we've sent a link to set a new password. Otherwise your account is ready: please sign in."
       : noticeParam === "session_expired"
       ? "Your session has ended. Please sign in again."
+      : noticeParam === "email_verified"
+      ? "Email confirmed! Please sign in."
+      : noticeParam === "email_verify_failed"
+      ? "That confirmation link is invalid or has expired. Please sign in and request a new one from your account settings."
       : "");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);

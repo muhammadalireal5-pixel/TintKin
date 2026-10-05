@@ -40,7 +40,8 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
       newChecks = pmChecks.includes(step) ? pmChecks.filter(s => s !== step) : [...pmChecks, step];
       setPmChecks(newChecks);
     }
-    await saveRoutineCompletion(time, step, newChecks.includes(step));
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await saveRoutineCompletion(time, step, newChecks.includes(step), tz);
   };
 
   const amTotal = amRoutine?.length || 0;

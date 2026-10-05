@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
 import { headers } from "next/headers";
 import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
+import { getAuthenticatedUser } from "./auth-server";
 
 let resendClient = null;
 function getResendClient() {
@@ -97,7 +98,7 @@ export async function registerUser({ email, password, name } = {}) {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await User.create({
+  const newUser = await User.create({
     email: cleanEmail,
     displayName: (name || "").trim().slice(0, 50),
     passwordHash,
@@ -105,6 +106,109 @@ export async function registerUser({ email, password, name } = {}) {
     lastLoginAt: new Date(),
   });
 
+  // Best-effort: a failed send never blocks account creation. Defense-in-depth
+  // (M21 in AUDIT.md) — the account pre-hijacking exploit this would also
+  // guard against is already closed by the Google email_verified check (H1).
+  await sendVerificationEmail(newUser).catch((err) => {
+    console.error("Failed to send verification email:", err);
+  });
+
+  return { success: true };
+}
+
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+async function sendVerificationEmail(user) {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+  user.emailVerificationToken = hashedToken;
+  user.emailVerificationExpires = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+  await user.save();
+
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "http://localhost:3000";
+  const verifyUrl = `${baseUrl}/api/verify-email?token=${rawToken}`;
+
+  const resend = getResendClient();
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: "TintKin <onboarding@resend.dev>",
+    to: [user.email],
+    subject: "✦ Confirm your TintKin email",
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #FAF9F6; border-radius: 16px; color: #2C3E50;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: #E6E6FA; font-size: 22px;">✦</span>
+          <h1 style="color: #2C3E50; font-size: 22px; margin: 12px 0 4px; letter-spacing: -0.5px;">TintKin</h1>
+          <p style="color: #7F8C8D; font-size: 14px; margin: 0;">Confirm Your Email</p>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #EAE6DF; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+          <p style="color: #555; font-size: 14px; margin: 0 0 18px; line-height: 1.5;">
+            Welcome to TintKin! Please confirm this is your email address.
+          </p>
+          <a href="${verifyUrl}" style="display: inline-block; background: #2C3E50; color: #FFFFFF; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;">
+            Confirm email
+          </a>
+        </div>
+        <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
+          This link is valid for 24 hours. If you didn't create a TintKin account, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Consumes a verification token from the confirm-email link.
+ */
+export async function verifyEmailToken(rawToken) {
+  if (!rawToken || typeof rawToken !== "string") return { success: false };
+
+  await connectDb();
+  const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+  const user = await User.findOneAndUpdate(
+    { emailVerificationToken: hashedToken, emailVerificationExpires: { $gt: new Date() } },
+    { $set: { emailVerified: true }, $unset: { emailVerificationToken: "", emailVerificationExpires: "" } }
+  );
+
+  return { success: Boolean(user) };
+}
+
+/**
+ * Re-sends the confirmation email for the currently signed-in user, if their
+ * email isn't verified yet. Rate-limited the same as password-reset requests.
+ */
+export async function resendVerificationEmail() {
+  let decoded;
+  try {
+    decoded = await getAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Unauthorized" };
+  }
+  if (!decoded?.uid) return { success: false, error: "Unauthorized" };
+
+  const rateCheck = await checkRateLimit(
+    `email-verify:${decoded.uid}`,
+    "password-reset",
+    RATE_LIMIT_CONFIGS.PASSWORD_RESET.limit,
+    RATE_LIMIT_CONFIGS.PASSWORD_RESET.windowMs
+  );
+  if (!rateCheck.allowed) {
+    return { success: false, error: `Too many requests. Please try again in ${Math.ceil(rateCheck.retryAfter / 60)} minutes.` };
+  }
+
+  await connectDb();
+  const user = await User.findById(decoded.uid);
+  if (!user || user.emailVerified || !user.passwordHash) {
+    // Silent success: nothing to do for a Google-only or already-verified account.
+    return { success: true };
+  }
+
+  await sendVerificationEmail(user).catch((err) => {
+    console.error("Failed to send verification email:", err);
+  });
   return { success: true };
 }
 

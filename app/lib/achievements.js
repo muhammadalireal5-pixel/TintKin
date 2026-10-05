@@ -115,6 +115,8 @@ export function evaluateUserAchievements({
   allSelfies = [],
   simulationCount = 0,
   todayRoutineLog = null,
+  amRoutine = [],
+  pmRoutine = [],
   realAge = null,
   selfieCount = null,
   firstSelfie = null,
@@ -126,6 +128,8 @@ export function evaluateUserAchievements({
   // supply the full-history values this function would otherwise read from it.
   const scanCount = Math.max(user.scanCount || 0, selfieCount ?? allSelfies.length);
   const bestStreak = Math.max(streak, longestStreak);
+  const safeAmRoutine = Array.isArray(amRoutine) ? amRoutine : [];
+  const safePmRoutine = Array.isArray(pmRoutine) ? pmRoutine : [];
 
   // Check latest selfie for biological youth catalyst
   const latestSelfie = firstSelfie ?? allSelfies?.[0];
@@ -136,8 +140,12 @@ export function evaluateUserAchievements({
     latestSelfie.skinAge < realAge
   );
 
+  // "Completed all recommended AM & PM routines" — every step, not just one
+  // in each list (that only required a single AM + a single PM tick).
+  const amAllDone = safeAmRoutine.length > 0 && safeAmRoutine.every((s) => todayRoutineLog?.amCompleted?.includes(s));
+  const pmAllDone = safePmRoutine.length > 0 && safePmRoutine.every((s) => todayRoutineLog?.pmCompleted?.includes(s));
   const hasRoutineCompleted = (
-    (todayRoutineLog?.amCompleted?.length > 0 && todayRoutineLog?.pmCompleted?.length > 0) ||
+    (amAllDone && pmAllDone) ||
     existingBadges.includes("routine_master") ||
     existingBadges.includes("Routine Master")
   );
@@ -162,14 +170,16 @@ export function evaluateUserAchievements({
         percent = isUnlocked ? 100 : Math.min(100, Math.round((bestStreak / 7) * 100));
         break;
 
-      case "routine_master":
+      case "routine_master": {
         if (hasRoutineCompleted) isUnlocked = true;
         const amSteps = todayRoutineLog?.amCompleted?.length || 0;
         const pmSteps = todayRoutineLog?.pmCompleted?.length || 0;
         const totalSteps = amSteps + pmSteps;
-        progress = isUnlocked ? "AM + PM Done" : totalSteps > 0 ? `${totalSteps} steps completed` : "0% AM/PM";
-        percent = isUnlocked ? 100 : Math.min(90, totalSteps * 20);
+        const totalExpected = safeAmRoutine.length + safePmRoutine.length;
+        progress = isUnlocked ? "AM + PM Done" : totalSteps > 0 ? `${totalSteps}/${totalExpected || "?"} steps` : "0% AM/PM";
+        percent = isUnlocked ? 100 : totalExpected > 0 ? Math.min(90, Math.round((totalSteps / totalExpected) * 100)) : 0;
         break;
+      }
 
       case "future_gazer":
         if (simulationCount > 0 || (user.simulationsUsed || 0) > 0) isUnlocked = true;

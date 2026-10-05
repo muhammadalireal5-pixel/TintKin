@@ -177,7 +177,7 @@ export async function analyzeSkin(imageUrl) {
   // Candidate 1: Original uncropped image so YouCam's native detector has full head & shoulder context
   candidates.push(imageUrl);
 
-  if (imageUrl.includes("/upload/")) {
+  if (imageUrl.includes("cloudinary.com")) {
     // Candidate 2: Wide padding crop (0.9 zoom) giving plenty of margin around head coverings
     candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9));
     // Candidate 3: Standard centered crop (1.05 zoom)
@@ -258,7 +258,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
   }
 
   const candidates = [];
-  if (imageUrl.includes("/upload/")) {
+  if (imageUrl.includes("cloudinary.com")) {
     candidates.push(applyFaceCropToCloudinary(imageUrl, 1.05));
     candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9));
   }

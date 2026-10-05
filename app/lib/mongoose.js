@@ -88,6 +88,16 @@ const UserSchema = new mongoose.Schema({
     },
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
+    // Credentials sign-ups only (Google accounts are verified by the IdP —
+    // see H1 in AUDIT.md's email_verified check). Defense-in-depth, not a
+    // login gate: unverified users can still sign in (see M21 in AUDIT.md).
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String, select: false },
+    emailVerificationExpires: { type: Date, select: false },
+    // Set once, the first time the user is asked (at their first scan, not
+    // at sign-up — that's when a photo is actually collected). Timestamp
+    // doubles as a consent record.
+    termsAcceptedAt: { type: Date, default: null },
     // Copied into the session JWT at sign-in; bumping it revokes every
     // existing session (password reset, Google taking over a password account).
     sessionVersion: { type: Number, default: 0 },
@@ -158,6 +168,8 @@ const SelfieSchema = new mongoose.Schema({
     overallScore: Number,
     skinAge: Number,
     scores: { wrinkles: Number, firmness: Number, spots: Number, radiance: Number },
+    maskUrls: { type: mongoose.Schema.Types.Mixed, default: {} },
+    youCamTaskId: String,
     adviceStatus: { type: String, enum: ['ok', 'pending', 'error', 'partial', 'empty'], default: 'ok' },
     critique: String,
     habits: [String],
@@ -245,7 +257,7 @@ export const Report = mongoose.models.Report || mongoose.model('Report', ReportS
  */
 const RateLimitSchema = new mongoose.Schema({
     identifier: { type: String, required: true },
-    action: { type: String, required: true, enum: ['login', 'register', 'password-reset', 'upload', 'analyze', 'simulate', 'product_ocr', 'admin_login'] },
+    action: { type: String, required: true, enum: ['login', 'register', 'password-reset', 'upload', 'analyze', 'simulate', 'product_ocr', 'admin_login', 'export'] },
     windowStart: { type: Date, required: true },
     count: { type: Number, required: true, default: 1 },
     expiresAt: { type: Date, required: true },
@@ -257,4 +269,13 @@ RateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 RateLimitSchema.index({ identifier: 1, action: 1, windowStart: 1 });
 
 export const RateLimit = mongoose.models.RateLimit || mongoose.model('RateLimit', RateLimitSchema);
+
+// Single document: lets "Log out" invalidate every admin token issued before
+// that moment, even though the token itself is a stateless signed cookie.
+const AdminAuthStateSchema = new mongoose.Schema({
+    _id: { type: String, default: "singleton" },
+    revokedBefore: { type: Date, default: null },
+}, { strict: true });
+
+export const AdminAuthState = mongoose.models.AdminAuthState || mongoose.model('AdminAuthState', AdminAuthStateSchema);
 

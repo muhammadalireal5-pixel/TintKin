@@ -10,6 +10,9 @@ Sentry.init({
   beforeSend(event) {
     return scrubSentryEvent(event);
   },
+  beforeSendTransaction(event) {
+    return scrubSentryEvent(event);
+  },
 
   sendDefaultPii: false,
 });

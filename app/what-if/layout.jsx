@@ -7,6 +7,12 @@ export const metadata = {
   },
 };
 
+// runWhatIfSim calls YouCam/Qwen sequentially and can run longer than
+// Vercel's default 10s function timeout; without this, a slow provider
+// response gets killed mid-request and the quota-slot release in the catch
+// block never runs.
+export const maxDuration = 60;
+
 export default function WhatIfLayout({ children }) {
   return <>{children}</>;
 }

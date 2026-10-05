@@ -2,6 +2,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { HeaderAuth } from "./components/HeaderAuth";
 import { Outfit, Playfair_Display } from "next/font/google";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { ToastProvider } from "./components/ToastProvider";
 import PageTransition from "./components/PageTransition";
 import "./globals.css";
@@ -100,7 +101,8 @@ const rootStructuredData = {
   ]
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
   return (
     <html lang="en" dir="ltr" className={`${outfit.variable} ${playfair.variable} h-full`}>
       <body className="tk-body min-h-screen min-h-[100dvh] flex flex-col">
@@ -136,6 +138,7 @@ export default function RootLayout({ children }) {
 
             <script
               type="application/ld+json"
+              nonce={nonce}
               dangerouslySetInnerHTML={{
                 __html: JSON.stringify(rootStructuredData),
               }}

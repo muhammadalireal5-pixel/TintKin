@@ -9,15 +9,15 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [older, setOlder] = useState({ anchor: null, items: [], hasMore: null });
 
-  if (!allSelfies || allSelfies.length === 0) return null;
+  const safeSelfies = allSelfies || [];
 
   // Older pages are only valid for the window they were loaded against; if a
   // new scan shifts the window, fall back to the server-provided list.
-  const anchor = allSelfies[allSelfies.length - 1]?._id ?? null;
+  const anchor = safeSelfies[safeSelfies.length - 1]?._id ?? null;
   const olderValid = older.anchor === anchor;
   const olderItems = olderValid ? older.items : [];
   const canLoadMore = olderValid && older.hasMore !== null ? older.hasMore : hasMore;
-  const selfies = [...olderItems, ...allSelfies];
+  const selfies = [...olderItems, ...safeSelfies];
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -32,7 +32,7 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
   };
 
   const data = selfies
-    .filter(selfie => selfie.isAnalyzed !== false)
+    .filter(selfie => selfie.isAnalyzed !== false && typeof selfie.overallScore === 'number')
     .map((selfie) => {
     const date = new Date(selfie.takenAt);
     return {
@@ -45,8 +45,18 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
     };
   });
 
+  if (data.length === 0) {
+    return (
+      <div className="w-full min-h-[300px] flex items-center justify-center text-center px-6">
+        <p className="text-sm text-muted">
+          Not enough analyzed scans yet. Take a scan to start your trend line.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full min-h-[300px] flex flex-col">
+    <div className="w-full min-h-[300px] flex flex-col">
       {canLoadMore && (
         <button
           type="button"
@@ -57,7 +67,12 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
           {loadingMore ? "Loading…" : "← Load earlier scans"}
         </button>
       )}
-      <div className="flex-1 min-h-[300px]">
+      {/* Fixed height, not h-full/flex-1: ResponsiveContainer measures its
+          direct parent on mount, and a height inherited through an animated
+          (DashboardSection's collapse/expand) or flex-computed ancestor can
+          get measured as 0 before that ancestor settles, leaving the chart
+          permanently blank even though data is present. */}
+      <div className="h-[280px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6E6FA" />

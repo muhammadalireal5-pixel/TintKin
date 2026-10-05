@@ -6,10 +6,11 @@ import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
 import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
 
-// Track failed attempts for progressive delay (stored in DB via rate limit collection)
+// Track failed attempts for progressive delay (stored in DB via rate limit collection).
+// RATE_LIMIT_CONFIGS.LOGIN already hard-caps at 5/hour, so only indices 1-5
+// (attempt counts 1-5) are ever reached; the array goes slightly past that
+// as headroom if the login limit is ever raised.
 const PROGRESSIVE_DELAYS = [0, 0, 0, 1000, 2000, 4000, 8000]; // ms delays for attempts 1-6
-const HARD_LOCKOUT_THRESHOLD = 7;
-const HARD_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 let dummyHashPromise = null;
 function getDummyHash() {
@@ -73,17 +74,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const isMatch = await bcrypt.compare(credentials.password.toString(), user.passwordHash);
         if (!isMatch) {
-          // Progressive delay based on attempt count
+          // Progressive delay based on attempt count. The hard lockout itself
+          // is enforced by checkRateLimit above (5/hour), which already threw
+          // before this point once that cap is hit.
           const attemptCount = RATE_LIMIT_CONFIGS.LOGIN.limit - rateLimitResult.remaining + 1;
-          if (attemptCount >= HARD_LOCKOUT_THRESHOLD) {
-            throw new Error("Too many failed attempts. Account temporarily locked. Try again in 15 minutes.");
-          }
-          
           const delayMs = PROGRESSIVE_DELAYS[Math.min(attemptCount, PROGRESSIVE_DELAYS.length - 1)];
           if (delayMs > 0) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
-          
+
           throw new Error("Invalid credentials");
         }
 
@@ -135,6 +134,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             displayName: user.name || "",
             photoURL: user.image || "",
             lastLoginAt: new Date(),
+            emailVerified: true,
           });
         } else {
           let changed = false;
@@ -149,6 +149,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               dbUser.passwordHash = undefined;
               dbUser.sessionVersion = (dbUser.sessionVersion || 0) + 1;
             }
+            // Google just proved ownership of this address (email_verified
+            // check above), so it's verified regardless of how the record
+            // was created (M21 in AUDIT.md).
+            dbUser.emailVerified = true;
             changed = true;
           }
           if (!dbUser.photoURL && user.image) {

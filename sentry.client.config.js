@@ -13,6 +13,9 @@ Sentry.init({
   beforeSend(event) {
     return scrubSentryEvent(event);
   },
+  beforeSendTransaction(event) {
+    return scrubSentryEvent(event);
+  },
 
   // Don't send PII
   sendDefaultPii: false,
