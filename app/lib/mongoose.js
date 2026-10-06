@@ -216,6 +216,7 @@ const SimulationSchema = new mongoose.Schema({
     targetAge: Number,
     resultA: Object,
     resultB: Object,
+    confirmed: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now, index: true },
 }, { strict: true });
 SimulationSchema.index({ userId: 1, createdAt: -1 });

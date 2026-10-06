@@ -211,8 +211,12 @@ export default function WhatIfPage() {
       if (res.success) {
         setResult(res);
         setSimConfirmed(false); // Reset confirmation state
-        // Temporarily add to history. If they discard, we'll remove it.
-        setHistory((prev) => [res, ...prev]);
+        // Not added to `history` yet — it's already persisted server-side
+        // (so it can be deleted), but it isn't a "saved" simulation yet. It
+        // only joins the visible gallery once the user actually confirms it
+        // (handleConfirmSimulation) or picks "keep photo"; otherwise it
+        // looked identical to a genuinely saved result before the user had
+        // made any choice.
       } else {
         setError(res.message || res.error || "Simulation failed. Please try again.");
       }
@@ -260,8 +264,12 @@ export default function WhatIfPage() {
     
     if (res.success) {
       setSimConfirmed(true);
-      // Update history with the final sim (which might have null imageUrls)
-      setHistory((prev) => prev.map(s => (s.id || s._id) === result.id ? res.sim : s));
+      // Now that it's confirmed, add it to the visible "Saved Simulations"
+      // gallery (replacing it if it was somehow already there).
+      setHistory((prev) => {
+        const withoutThis = prev.filter(s => (s.id || s._id) !== result.id);
+        return [res.sim, ...withoutThis];
+      });
     }
   };
 
@@ -948,7 +956,14 @@ export default function WhatIfPage() {
                       simToSet.deltas = computedDeltas;
                     }
                     setResult(simToSet);
-                    
+                    // Anything already in the saved-simulations gallery has
+                    // already been through the keep/delete-photo decision —
+                    // reopening it to view details must never show the
+                    // Save/Delete action panel again (re-clicking "Save"
+                    // there would re-run the photo decision with `keepPhoto`
+                    // back at its unchecked default, deleting a photo the
+                    // user had already chosen to keep).
+                    setSimConfirmed(true);
                   }}
                   className={`tk-glass rounded-2xl p-4 text-left border hover:border-sage/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >

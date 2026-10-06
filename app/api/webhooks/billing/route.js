@@ -1,140 +1,61 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
-import mongoose from "mongoose";
+import { Webhooks } from "@polar-sh/nextjs";
 import { connectDb, User } from "@/app/lib/mongoose";
-import {
-  TIERS,
-  STANDARD_PACING,
-  ALLOWED_USER_TIERS,
-  ACTIVE_SUBSCRIPTION_TIERS,
-} from "@/lib/constants/tiers";
+import { TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
 
-/**
- * Universal Billing Webhook Endpoint for TintKin
- * 
- * Supports incoming webhooks from:
- * - Polar.sh (subscription.created, subscription.updated, subscription.canceled)
- * - Stripe (customer.subscription.created, customer.subscription.updated, customer.subscription.deleted)
- * - Lemon Squeezy (subscription_created, subscription_updated, subscription_cancelled)
- * - Paddle / Custom payment systems
- * 
- * Security: Requires 'x-webhook-secret' header matching PAYMENT_WEBHOOK_SECRET.
- * Uses timing-safe comparison to prevent timing attacks.
- */
-export async function POST(req) {
-  try {
-    const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET;
-    
-    // Enforce secret validation with timing-safe comparison
-    const incomingSecret = req.headers.get("x-webhook-secret") || req.headers.get("authorization")?.replace("Bearer ", "");
-    
-    if (!webhookSecret) {
-      console.error("[WEBHOOK] PAYMENT_WEBHOOK_SECRET not configured");
-      return NextResponse.json(
-        { success: false, error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
+// Polar product id -> our internal tier. Webhooks() already verifies the
+// request's webhook-signature header against POLAR_WEBHOOK_SECRET before any
+// of these handlers run (see node_modules/@polar-sh/adapter-utils).
+const PRODUCT_TIERS = {
+  [process.env.POLAR_PRODUCT_ID_STANDARD]: TIERS.STANDARD,
+  [process.env.POLAR_PRODUCT_ID_PREMIUM]: TIERS.PREMIUM,
+};
 
-    // Convert both secrets to buffers for timing-safe comparison
-    const incomingBuffer = Buffer.from(incomingSecret || "");
-    const expectedBuffer = Buffer.from(webhookSecret);
-    
-    // Check length first to avoid timingSafeEqual throwing on mismatched lengths
-    // This is safe because we're not revealing exact length through timing
-    const isValid = incomingBuffer.length === expectedBuffer.length && 
-                    crypto.timingSafeEqual(incomingBuffer, expectedBuffer);
-    
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: Invalid or missing webhook secret" },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-    const { 
-      userId, 
-      email, 
-      tier, 
-      status = "active", 
-      standardPlanFrequency = STANDARD_PACING.FLEXIBLE,
-      currentPeriodEnd 
-    } = body;
-
-    if (!userId && !email) {
-      return NextResponse.json(
-        { success: false, error: "Missing identifier: provide userId or email" },
-        { status: 400 }
-      );
-    }
-
-    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid userId" },
-        { status: 400 }
-      );
-    }
-
-    await connectDb();
-
-    // Find the user by any provided identifier
-    const query = {};
-    if (userId) query._id = userId;
-    else if (email) query.email = email.toLowerCase().trim();
-
-    const user = await User.findOne(query);
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Target user not found" },
-        { status: 404 }
-      );
-    }
-
-    // Determine tier and subscription status
-    const isCanceled = status === "canceled" || status === "cancelled" || status === "inactive";
-    const assignedTier = isCanceled ? TIERS.FREE : (tier || user.tier);
-
-    if (!ALLOWED_USER_TIERS.includes(assignedTier)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid tier. Must be 'free', 'standard', or 'premium'" },
-        { status: 400 }
-      );
-    }
-
-    user.tier = assignedTier;
-    user.isSubscribed = ACTIVE_SUBSCRIPTION_TIERS.includes(assignedTier);
-
-    if (assignedTier === TIERS.STANDARD && Object.values(STANDARD_PACING).includes(standardPlanFrequency)) {
-      user.standardPlanFrequency = standardPlanFrequency;
-    }
-
-    if (currentPeriodEnd) {
-      user.currentPeriodEnd = new Date(currentPeriodEnd);
-    }
-
-    if (user.isSubscribed && !user.subscribedAt) {
-      user.subscribedAt = new Date();
-    }
-
-    await user.save();
-
-    return NextResponse.json({
-      success: true,
-      message: `User subscription updated to tier: ${assignedTier}`,
-      user: {
-        id: user._id.toString(),
-        email: user.email,
-        tier: user.tier,
-        isSubscribed: user.isSubscribed,
-        currentPeriodEnd: user.currentPeriodEnd
-      }
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: "Internal server error processing billing webhook" },
-      { status: 500 }
-    );
+async function findUserForSubscription(subscription) {
+  await connectDb();
+  const externalId = subscription.customer?.external_id;
+  if (externalId) {
+    const user = await User.findById(externalId).catch(() => null);
+    if (user) return user;
   }
+  const email = subscription.customer?.email;
+  return email ? User.findOne({ email: email.toLowerCase().trim() }) : null;
 }
+
+export const POST = Webhooks({
+  webhookSecret: process.env.POLAR_WEBHOOK_SECRET,
+
+  // New subscription, renewal, or a lapsed one coming back - all land here.
+  onSubscriptionActive: async (payload) => {
+    const subscription = payload.data;
+    const tier = PRODUCT_TIERS[subscription.product_id];
+    const user = tier ? await findUserForSubscription(subscription) : null;
+    if (!user) return;
+
+    user.tier = tier;
+    user.isSubscribed = ACTIVE_SUBSCRIPTION_TIERS.includes(tier);
+    user.currentPeriodEnd = new Date(subscription.current_period_end);
+    if (!user.subscribedAt) user.subscribedAt = new Date();
+    await user.save();
+  },
+
+  // Scheduled to cancel at period end - access continues until then.
+  onSubscriptionCanceled: async (payload) => {
+    const subscription = payload.data;
+    const user = await findUserForSubscription(subscription);
+    if (!user) return;
+
+    user.currentPeriodEnd = new Date(subscription.current_period_end);
+    await user.save();
+  },
+
+  // Subscription is actually over (cancellation took effect, or payment
+  // retries were exhausted) - access is revoked immediately.
+  onSubscriptionRevoked: async (payload) => {
+    const user = await findUserForSubscription(payload.data);
+    if (!user) return;
+
+    user.tier = TIERS.FREE;
+    user.isSubscribed = false;
+    await user.save();
+  },
+});

@@ -9,6 +9,7 @@ import ProductImage from "./ProductImage";
 import { Sparkles, ArrowRight, Dumbbell, Flame, Share2, Trophy as TrophyIcon, LineChart } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
+import EmailVerificationBanner from "./EmailVerificationBanner";
 import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import RoutineChecklist from "./RoutineChecklist";
@@ -61,6 +62,7 @@ async function DashboardContent() {
     return (
         <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
             <div className="max-w-6xl mx-auto">
+                <EmailVerificationBanner user={user} />
                 <LocationPrompt user={user} />
                 <ReportReadyPrompt status={reportStatus} />
 

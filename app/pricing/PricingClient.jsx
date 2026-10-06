@@ -1,23 +1,42 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { updateUserTier } from "@/app/lib/actions";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { updateUserTier, updateUserSettings } from "@/app/lib/actions";
 import { Check, Sparkles, Star, Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
 import AnimatedModal from "@/app/components/AnimatedModal";
 import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 
-export default function PricingClient() {
+export default function PricingClient({ demoMode = false }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [showStandardModal, setShowStandardModal] = useState(false);
     const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // for mobile view: 'free' | 'standard' | 'premium'
 
+    useEffect(() => {
+        if (searchParams.get("error") === "checkout_failed") {
+            showToast({ type: 'error', title: 'Checkout failed', message: "Couldn't start checkout. Please try again." });
+            router.replace("/pricing");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const goToCheckout = (tier) => {
+        window.location.href = `/api/checkout?tier=${tier}`;
+    };
+
     const handleSelectPlan = async (tier) => {
         if (tier === TIERS.STANDARD) {
             setShowStandardModal(true);
+            return;
+        }
+
+        if (tier !== TIERS.FREE && !demoMode) {
+            setLoading(true);
+            goToCheckout(tier);
             return;
         }
 
@@ -32,8 +51,18 @@ export default function PricingClient() {
     };
 
     const handleStandardFrequency = async (frequency) => {
-        setLoading(true);
         setShowStandardModal(false);
+
+        if (!demoMode) {
+            setLoading(true);
+            // Pacing is purely a local preference; save it, then hand off to
+            // Polar for the actual subscription (the webhook sets the tier).
+            await updateUserSettings({ standardPlanFrequency: frequency });
+            goToCheckout(TIERS.STANDARD);
+            return;
+        }
+
+        setLoading(true);
         const res = await updateUserTier(TIERS.STANDARD, frequency);
         if (res.success) {
             router.push("/capture");

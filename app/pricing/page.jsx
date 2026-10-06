@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import PricingClient from "./PricingClient";
 
@@ -116,7 +117,9 @@ export default async function PricingPage() {
                     </p>
                 </div>
 
-                <PricingClient />
+                <Suspense fallback={null}>
+                    <PricingClient demoMode={process.env.ENABLE_DEMO_TIER_SWITCHING === "true"} />
+                </Suspense>
             </div>
         </div>
     );

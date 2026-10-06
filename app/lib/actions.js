@@ -608,6 +608,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         lastUploadDate: now,
         baselineSelfie: finalImageUrl,
       },
+      $inc: { scanCount: 1 },
     };
     if (newBadges.length > 0) {
       userUpdateOps.$addToSet = { badges: { $each: newBadges } };
@@ -1080,9 +1081,18 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
     const sim = await Simulation.findOne({ _id: simId, userId: user._id });
     if (!sim) return { success: false, error: "Simulation not found" };
 
+    // The photo-keep decision is a one-time, one-way choice. Re-opening an
+    // already-decided simulation from history and hitting "Save" again must
+    // never re-run the deletion branch — that silently destroyed photos the
+    // user had already chosen to keep, because the client re-defaults
+    // `keepPhoto` to unchecked every time a saved sim is reopened.
+    if (sim.confirmed) {
+      return { success: true, sim: JSON.parse(JSON.stringify({ ...sim.toObject(), id: sim._id.toString() })) };
+    }
+
     if (!keepPhoto) {
       const baselineId = getCloudinaryPublicId(user.baselineSelfie);
-      
+
       if (sim.scenarioA?.imageUrl) {
         const idA = getCloudinaryPublicId(sim.scenarioA.imageUrl);
         if (idA && idA !== baselineId) {
@@ -1095,13 +1105,14 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
           await deleteImageFromCloudinary(sim.scenarioB.imageUrl).catch(() => {});
         }
       }
-      
+
       // We always remove them from the sim record if they didn't want to keep them for the sim
       if (sim.scenarioA) sim.scenarioA.imageUrl = null;
       if (sim.scenarioB) sim.scenarioB.imageUrl = null;
-      
-      await sim.save();
     }
+
+    sim.confirmed = true;
+    await sim.save();
 
     // Server actions can only return plain data: a live Mongoose document
     // made the call reject on the client after the write had already happened.
@@ -2084,10 +2095,17 @@ export async function getLeaderboard(scope = 'city') {
     } else if (scope === 'country') {
       const countryTarget = cleanUserCountry || cleanUserCity;
       const escapedCountry = countryTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const userCountryCode = user.location?.countryCode || "";
       userFilter = {
         $or: [
           { 'location.country': { $regex: new RegExp(`^${escapedCountry}$`, 'i') } },
-          { 'location.city': { $regex: new RegExp(`^${escapedCountry}$`, 'i') } }
+          { 'location.city': { $regex: new RegExp(`^${escapedCountry}$`, 'i') } },
+          // location.country is sometimes missing even when the city was
+          // resolved (e.g. the location prompt only returned a city/coords).
+          // Those users still have a reliable countryCode from geocoding, so
+          // match on that too — otherwise they silently never appear in the
+          // country scope even though location.city plainly puts them there.
+          ...(userCountryCode ? [{ 'location.countryCode': userCountryCode }] : [])
         ]
       };
     } else {
