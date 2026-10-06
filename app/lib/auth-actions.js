@@ -8,6 +8,7 @@ import { connectDb, User } from "./mongoose";
 import { headers } from "next/headers";
 import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
 import { getAuthenticatedUser } from "./auth-server";
+import { getBaseUrl } from "./url";
 
 let resendClient = null;
 function getResendClient() {
@@ -126,7 +127,7 @@ async function sendVerificationEmail(user) {
   user.emailVerificationExpires = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
   await user.save();
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const verifyUrl = `${baseUrl}/api/verify-email?token=${rawToken}`;
 
   const resend = getResendClient();
@@ -256,7 +257,7 @@ export async function requestPasswordReset(email) {
   user.passwordResetExpires = expires;
   await user.save();
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   // Use one-time exchange URL instead of direct reset form
   const exchangeUrl = `${baseUrl}/reset-password/exchange?token=${rawToken}`;
 

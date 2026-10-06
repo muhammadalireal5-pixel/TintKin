@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { getBaseUrl } from "./url";
 
 let resendClient = null;
 function getResendClient() {
@@ -7,10 +8,6 @@ function getResendClient() {
     resendClient = new Resend(process.env.RESEND_API_KEY);
   }
   return resendClient;
-}
-
-function getBaseUrl() {
-  return process.env.NEXTAUTH_URL || process.env.AUTH_URL || "http://localhost:3000";
 }
 
 function escapeHtml(value) {
