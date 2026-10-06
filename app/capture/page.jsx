@@ -32,6 +32,8 @@ export default function CapturePage() {
     const [quotasLoaded, setQuotasLoaded] = useState(false);
     const [showConsent, setShowConsent] = useState(false);
     const [savingConsent, setSavingConsent] = useState(false);
+    const [precheck, setPrecheck] = useState(null); // { onboardingComplete, needsConsent } once prefetched
+    const [scanStage, setScanStage] = useState(null); // null | 'upload' | 'analyze' | 'done'
     const pendingActionType = useRef(null);
 
     const loadingTexts = [
@@ -56,17 +58,30 @@ export default function CapturePage() {
     };
 
     const handleActionClick = async (type) => {
-        setCheckingOnboarding(true);
-        const res = await checkOnboardingStatus();
-        if (!res.complete) {
+        // Prefetched on mount alongside quotas, so the common case is instant —
+        // no spinner, no dead click. Only fall back to a live round-trip if the
+        // user taps before the prefetch has resolved.
+        let onboardingComplete = precheck?.onboardingComplete;
+        let needsConsent = precheck?.needsConsent;
+
+        if (onboardingComplete === undefined) {
+            setCheckingOnboarding(true);
+            const res = await checkOnboardingStatus();
+            onboardingComplete = res.complete;
+        }
+        if (!onboardingComplete) {
             setCheckingOnboarding(false);
             router.push("/onboarding");
             return;
         }
 
-        const consent = await getScanConsentStatus();
+        if (needsConsent === undefined) {
+            const consent = await getScanConsentStatus();
+            needsConsent = consent.needsConsent;
+        }
         setCheckingOnboarding(false);
-        if (consent.needsConsent) {
+
+        if (needsConsent) {
             pendingActionType.current = type;
             setShowConsent(true);
             return;
@@ -80,6 +95,7 @@ export default function CapturePage() {
             const res = await acceptScanConsent(photoPrivacy);
             if (res.success) {
                 setShowConsent(false);
+                setPrecheck((prev) => prev ? { ...prev, needsConsent: false } : prev);
                 const type = pendingActionType.current;
                 pendingActionType.current = null;
                 openPicker(type || 'gallery');
@@ -92,18 +108,18 @@ export default function CapturePage() {
     };
 
     useEffect(() => {
-        const fetchQuotas = async () => {
-            try {
-                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                const data = await getUsageQuotas(tz);
-                setQuotas(data);
-            } catch {
-                // Best-effort quota fetch
-            } finally {
-                setQuotasLoaded(true);
-            }
+        const fetchAll = async () => {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const [quotaData, onboarding, consent] = await Promise.all([
+                getUsageQuotas(tz).catch(() => null),
+                checkOnboardingStatus().catch(() => ({ complete: false })),
+                getScanConsentStatus().catch(() => ({ needsConsent: false })),
+            ]);
+            setQuotas(quotaData);
+            setQuotasLoaded(true);
+            setPrecheck({ onboardingComplete: onboarding.complete, needsConsent: consent.needsConsent });
         };
-        fetchQuotas();
+        fetchAll();
     }, []);
 
     const uploadToCloudinary = async (file) => {
@@ -158,16 +174,19 @@ export default function CapturePage() {
     const confirmUpload = async () => {
         if (!selectedFile) return;
         setLoading(true);
+        setScanStage("upload");
         setStatus({ type: "info", msg: "Uploading photo…" });
 
         try {
             const imgUrl = await uploadToCloudinary(selectedFile);
+            setScanStage("analyze");
             setStatus({ type: "info", msg: "Analysing your skin… (3–5s)" });
 
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
             const res = await analyzeAndSaveSelfie(imgUrl, tz);
 
             if (res.success) {
+                setScanStage("done");
                 const refreshed = [];
                 if (res.habitsChanged) refreshed.push("habits");
                 if (res.workoutChanged) refreshed.push("facial workout");
@@ -194,10 +213,12 @@ export default function CapturePage() {
                 setTimeout(() => router.push("/dashboard"), 800);
             } else {
                 setStatus({ type: "error", msg: `Oops: ${res.message || res.error}` });
+                setScanStage(null);
                 setLoading(false);
             }
         } catch {
             setStatus({ type: "error", msg: "Upload failed. Please try again." });
+            setScanStage(null);
             setLoading(false);
         }
     };
@@ -376,26 +397,43 @@ export default function CapturePage() {
                     </div>
                 )}
 
-                {status && (
+                {status && status.type === "info" && loading ? (
+                    <div className="scan-progress">
+                        <div className="scan-progress-track">
+                            <div className={`scan-progress-fill scan-progress-${scanStage || "upload"}`} />
+                        </div>
+                        <div className="scan-progress-steps">
+                            <div className={`scan-step ${scanStage !== "upload" ? "scan-step-done" : "scan-step-active"}`}>
+                                {scanStage !== "upload" ? <CheckCircle2 size={14} /> : <Loader2 size={14} className="spin" />}
+                                <span>Uploading photo</span>
+                            </div>
+                            <div className={`scan-step ${scanStage === "done" ? "scan-step-done" : scanStage === "analyze" ? "scan-step-active" : ""}`}>
+                                {scanStage === "done" ? (
+                                    <CheckCircle2 size={14} />
+                                ) : scanStage === "analyze" ? (
+                                    <Loader2 size={14} className="spin" />
+                                ) : (
+                                    <span className="scan-step-dot" />
+                                )}
+                                <AnimatePresence mode="wait">
+                                    <motion.span
+                                        key={scanStage === "analyze" ? loadingTextIndex : "pending"}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -6 }}
+                                        transition={{ duration: 0.25 }}
+                                    >
+                                        {scanStage === "analyze" ? loadingTexts[loadingTextIndex] : "Analysing your skin"}
+                                    </motion.span>
+                                </AnimatePresence>
+                            </div>
+                        </div>
+                    </div>
+                ) : status && (
                     <div className={`status-pill status-${status.type}`}>
                         {status.type === "success" && <CheckCircle2 size={16} />}
                         {status.type === "error" && <AlertCircle size={16} />}
-                        {status.type === "info" && <Loader2 size={16} className="spin" />}
-                        {loading && status.type === "info" ? (
-                            <AnimatePresence mode="wait">
-                                <motion.span
-                                    key={loadingTextIndex}
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -6 }}
-                                    transition={{ duration: 0.25 }}
-                                >
-                                    {loadingTexts[loadingTextIndex]}
-                                </motion.span>
-                            </AnimatePresence>
-                        ) : (
-                            status.msg
-                        )}
+                        {status.msg}
                     </div>
                 )}
 
@@ -743,6 +781,72 @@ export default function CapturePage() {
                     text-align: center;
                 }
                 .status-info    { background: rgba(230,230,250,0.5); color: var(--tk-text-primary); border: 1px solid rgba(230,230,250,0.4); }
+
+                .scan-progress {
+                    width: 100%;
+                    padding: 0.875rem 1rem 1rem;
+                    margin-bottom: 1rem;
+                    border-radius: 1.25rem;
+                    background: rgba(230,230,250,0.35);
+                    border: 1px solid rgba(230,230,250,0.4);
+                    box-sizing: border-box;
+                    animation: fadeIn 0.3s ease both;
+                }
+                .scan-progress-track {
+                    height: 5px;
+                    border-radius: 9999px;
+                    background: rgba(44,62,80,0.08);
+                    overflow: hidden;
+                    margin-bottom: 0.75rem;
+                }
+                .scan-progress-fill {
+                    height: 100%;
+                    border-radius: 9999px;
+                    background: linear-gradient(90deg, var(--tk-accent-sage), var(--tk-text-primary));
+                }
+                .scan-progress-fill.scan-progress-upload {
+                    width: 30%;
+                    transition: width 0.4s ease;
+                }
+                .scan-progress-fill.scan-progress-analyze {
+                    width: 92%;
+                    transition: width 4s cubic-bezier(0.1, 0.5, 0.2, 1);
+                }
+                .scan-progress-fill.scan-progress-done {
+                    width: 100%;
+                    transition: width 0.3s ease;
+                }
+                .scan-progress-steps {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .scan-step {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 0.8125rem;
+                    font-weight: 500;
+                    color: var(--tk-text-faint);
+                    transition: color 0.3s ease;
+                }
+                .scan-step-active { color: var(--tk-text-primary); }
+                .scan-step-done { color: var(--tk-accent-sage); }
+                .scan-step-dot {
+                    width: 14px;
+                    height: 14px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .scan-step-dot::before {
+                    content: "";
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    background: currentColor;
+                    opacity: 0.4;
+                }
 
                 .retake-btn {
                     display: block;
