@@ -31,6 +31,20 @@ export async function exchangeResetToken(formData) {
       { $unset: { passwordResetToken: 1, passwordResetExpires: 1 } }
     ).select("email");
 
+    if (!user) {
+      // This token hash matches no live reset — distinguish *why* so a report
+      // of "expired instantly" is diagnosable: a genuinely time-expired token
+      // still matches here (just the $gt check fails), while a token that's
+      // been superseded by a newer request (or already used) matches nothing
+      // at all.
+      const staleMatch = await User.findOne({ passwordResetToken: hashedToken }).select("email passwordResetExpires");
+      if (staleMatch) {
+        console.warn(`[RESET_EXCHANGE] Token for ${staleMatch.email} expired at ${staleMatch.passwordResetExpires?.toISOString()}`);
+      } else {
+        console.warn("[RESET_EXCHANGE] No user holds this token — already used, or superseded by a newer reset request.");
+      }
+    }
+
     if (user) {
       email = user.email;
       const jwt = await new SignJWT({ email })

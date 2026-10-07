@@ -3,7 +3,7 @@ import Link from "next/link";
 import { exchangeResetToken } from "./actions";
 
 const STATUS_MESSAGES = {
-  invalid: "Reset link is invalid or has expired. Please request a new one.",
+  invalid: "Reset link is invalid or has expired. If you requested more than one reset email, only the most recently sent link works — check your inbox for a newer one, or request a fresh link below.",
   error: "An unexpected error occurred. Please try again.",
 };
 

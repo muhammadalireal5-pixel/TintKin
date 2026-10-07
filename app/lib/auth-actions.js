@@ -243,9 +243,17 @@ export async function requestPasswordReset(email) {
 
   await connectDb();
 
-  const user = await User.findOne({ email: cleanEmail });
+  const user = await User.findOne({ email: cleanEmail }).select("+passwordResetExpires");
   if (!user) {
     // Avoid leaking account existence
+    return { success: true };
+  }
+
+  // A token issued less than a minute ago is almost certainly a duplicate
+  // click/tab, not a genuine "send it again" — reissuing would immediately
+  // invalidate an email that's still in flight to the inbox, making whichever
+  // one arrives first look "expired" the moment it's opened.
+  if (user.passwordResetExpires && user.passwordResetExpires.getTime() - Date.now() > 59 * 60 * 1000) {
     return { success: true };
   }
 
