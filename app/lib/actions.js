@@ -1213,8 +1213,27 @@ export async function updatePrivacySettings(photoPrivacy) {
     const user = await findSessionUser(decoded);
     if (!user) return { success: false, error: "User not found" };
 
+    const switchingToDelete = photoPrivacy === "delete" && user.photoPrivacy !== "delete";
+
     user.photoPrivacy = photoPrivacy;
     await user.save();
+
+    // Switching into "delete immediately" also wipes whatever photo was kept
+    // under the previous "store" setting — the user is told this happens
+    // before confirming (ScanConsentModal/SettingsModal), so it must actually
+    // happen here, not just flip the flag going forward.
+    if (switchingToDelete) {
+      const storedSelfies = await Selfie.find({ userId: user._id, imageUrl: { $ne: null } }).select("imageUrl");
+      await Promise.allSettled(storedSelfies.map((s) => deleteImageFromCloudinary(s.imageUrl)));
+      if (storedSelfies.length > 0) {
+        await Selfie.updateMany({ userId: user._id, imageUrl: { $ne: null } }, { $set: { imageUrl: null } });
+      }
+      if (user.baselineSelfie) {
+        await deleteImageFromCloudinary(user.baselineSelfie).catch(() => {});
+        await User.findByIdAndUpdate(user._id, { $set: { baselineSelfie: null } });
+      }
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: "Failed to update settings" };

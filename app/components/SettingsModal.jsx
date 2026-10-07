@@ -48,6 +48,8 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteEverytimeConfirm, setShowDeleteEverytimeConfirm] = useState(false);
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
   const [verifyEmailState, setVerifyEmailState] = useState("idle"); // idle | sending | sent
   // Fetch DB profile data when modal opens
   useEffect(() => {
@@ -139,8 +141,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     );
   };
 
-  const handlePrivacyChange = async (e) => {
-    const val = e.target.value;
+  const applyPrivacyChange = async (val) => {
     const previousVal = photoPrivacy;
     setPhotoPrivacy(val);
     try {
@@ -152,6 +153,27 @@ export default function SettingsModal({ isOpen, onClose }) {
     } catch {
       setPhotoPrivacy(previousVal);
       showToast({ type: 'error', title: 'Error', message: "Failed to update privacy settings." });
+    }
+  };
+
+  const handlePrivacyChange = (e) => {
+    const val = e.target.value;
+    if (val === PHOTO_PRIVACY.DELETE && photoPrivacy !== PHOTO_PRIVACY.DELETE) {
+      // Switching into "delete immediately" wipes any photo already kept
+      // under "store" — confirm before it happens, not after.
+      setShowDeleteEverytimeConfirm(true);
+      return;
+    }
+    applyPrivacyChange(val);
+  };
+
+  const handleConfirmDeleteEverytime = async () => {
+    setIsSavingPrivacy(true);
+    try {
+      await applyPrivacyChange(PHOTO_PRIVACY.DELETE);
+    } finally {
+      setIsSavingPrivacy(false);
+      setShowDeleteEverytimeConfirm(false);
     }
   };
 
@@ -807,6 +829,53 @@ export default function SettingsModal({ isOpen, onClose }) {
               >
                 {isDeleting && <Loader2 size={13} className="animate-spin" />}
                 {isDeleting ? "Erasing Data..." : "Permanently Delete"}
+              </button>
+            </div>
+      </AnimatedModal>
+
+      {/* Delete-every-time Photo Privacy Confirmation Modal */}
+      <AnimatedModal
+        isOpen={showDeleteEverytimeConfirm}
+        onClose={() => setShowDeleteEverytimeConfirm(false)}
+        variant="center"
+        zIndex={250}
+        role="alertdialog"
+        ariaLabel="Delete photo immediately?"
+        panelClassName="p-6 pt-7 sm:pt-6 text-[#2C3E50]"
+      >
+            <div className="flex items-center gap-3 mb-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Delete photo immediately?</h3>
+                <p className="text-xs text-[#5B6D7F]">This also deletes what&apos;s already stored.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#5B6D7F] leading-relaxed mb-5">
+              Switching to this option will immediately and permanently delete any photo currently stored
+              from your previous scans. Future scans will be analyzed and instantly deleted — simulations
+              will need a fresh upload each time.
+            </p>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowDeleteEverytimeConfirm(false)}
+                disabled={isSavingPrivacy}
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteEverytime}
+                disabled={isSavingPrivacy}
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                {isSavingPrivacy && <Loader2 size={13} className="animate-spin" />}
+                {isSavingPrivacy ? "Deleting…" : "Delete Stored Photo & Confirm"}
               </button>
             </div>
       </AnimatedModal>
