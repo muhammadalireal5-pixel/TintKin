@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import AnimatedModal from "./AnimatedModal";
 import {
   X,
@@ -22,14 +23,14 @@ import {
   Mail,
 } from "lucide-react";
 import Link from "next/link";
-import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings } from "@/app/lib/actions";
+import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings, changeSubscriptionTier } from "@/app/lib/actions";
 import { resendVerificationEmail } from "@/app/lib/auth-actions";
 import { exportUserData, emailUserDataExport } from "@/app/lib/export-data";
 import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
-import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
+import { TIERS, TIER_NAMES, ACTIVE_SUBSCRIPTION_TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 import { PHOTO_PRIVACY } from "@/lib/constants/privacy";
 
 export default function SettingsModal({ isOpen, onClose }) {
@@ -51,6 +52,8 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [showDeleteEverytimeConfirm, setShowDeleteEverytimeConfirm] = useState(false);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
   const [verifyEmailState, setVerifyEmailState] = useState("idle"); // idle | sending | sent
+  const [tierChangeState, setTierChangeState] = useState("idle"); // idle | changing
+  const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false);
   // Fetch DB profile data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -232,6 +235,40 @@ export default function SettingsModal({ isOpen, onClose }) {
     setProfile((prev) => ({ ...prev, standardPlanFrequency: newFrequency }));
   };
 
+  const handleChangeTier = async (newTier) => {
+    if (tierChangeState === "changing") return;
+    setTierChangeState("changing");
+    try {
+      const res = await changeSubscriptionTier(newTier);
+      if (res?.success) {
+        const isUpgrade = newTier === TIERS.PREMIUM;
+        showToast({
+          type: 'success',
+          title: isUpgrade ? 'Upgraded' : 'Plan Changed',
+          message: isUpgrade
+            ? `You're now on ${TIER_NAMES[newTier]}. The prorated difference was charged immediately.`
+            : `You'll move to ${TIER_NAMES[newTier]} at the end of your current billing period.`,
+        });
+      } else {
+        showToast({ type: 'error', title: 'Error', message: res?.error || "Failed to change your plan." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Error', message: "Failed to change your plan." });
+    } finally {
+      setTierChangeState("idle");
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setIsOpeningBillingPortal(true);
+    try {
+      window.location.href = "/api/billing-portal";
+    } finally {
+      // Navigation is about to replace the page; this only matters if it fails.
+      setIsOpeningBillingPortal(false);
+    }
+  };
+
   const handleExportData = async () => {
     setIsExporting(true);
     try {
@@ -267,10 +304,11 @@ export default function SettingsModal({ isOpen, onClose }) {
         });
       }
     } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "data-export-download" } });
       showToast({
         type: "error",
         title: "Export Failed",
-        message: err.message || "An unexpected error occurred.",
+        message: "Something went wrong — please try again.",
       });
     } finally {
       setIsExporting(false);
@@ -287,7 +325,8 @@ export default function SettingsModal({ isOpen, onClose }) {
           : { type: "error", title: "Export Failed", message: res?.error || "Could not email the export." }
       );
     } catch (err) {
-      showToast({ type: "error", title: "Export Failed", message: err.message || "An unexpected error occurred." });
+      Sentry.captureException(err, { tags: { scope: "data-export-email" } });
+      showToast({ type: "error", title: "Export Failed", message: "Something went wrong — please try again." });
     } finally {
       setIsEmailingExport(false);
     }
@@ -323,10 +362,11 @@ export default function SettingsModal({ isOpen, onClose }) {
         });
       }
     } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "account-deletion" } });
       showToast({
         type: "error",
         title: "Deletion Failed",
-        message: err.message || "Something went wrong.",
+        message: "Something went wrong — please try again.",
       });
     } finally {
       setIsDeleting(false);
@@ -406,18 +446,65 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <Crown size={14} className="text-amber-500" />
                 <span className="text-xs text-[#5B6D7F]">Plan:</span>
                 <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-[#2C3E50]">
-                  {profile?.tier || "Free"}
+                  {TIER_NAMES[profile?.tier] || "Free"}
                 </span>
               </div>
-              <Link
-                href="/pricing"
-                onClick={onClose}
-                className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors flex items-center gap-0.5"
-              >
-                Change Plan <ChevronRight size={12} />
-              </Link>
+              {!ACTIVE_SUBSCRIPTION_TIERS.includes(profile?.tier) && (
+                <Link
+                  href="/pricing"
+                  onClick={onClose}
+                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors flex items-center gap-0.5"
+                >
+                  Change Plan <ChevronRight size={12} />
+                </Link>
+              )}
             </div>
-            
+
+            {/* Credit balance (shop top-ups, spent after the plan's own quota) */}
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-[#5B6D7F]">Credits:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[#2C3E50]">{profile?.creditBalance ?? 0}</span>
+                <Link
+                  href="/shop"
+                  onClick={onClose}
+                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors"
+                >
+                  Buy more
+                </Link>
+              </div>
+            </div>
+
+            {ACTIVE_SUBSCRIPTION_TIERS.includes(profile?.tier) && (
+              <div className="mt-3 pt-3 border-t border-black/5 flex items-center gap-2">
+                {profile.tier === TIERS.STANDARD && (
+                  <button
+                    onClick={() => handleChangeTier(TIERS.PREMIUM)}
+                    disabled={tierChangeState === "changing"}
+                    className="flex-1 py-1.5 px-2 rounded bg-[#2C3E50] text-white text-[11px] font-medium transition-colors disabled:opacity-50"
+                  >
+                    {tierChangeState === "changing" ? "Upgrading…" : "Upgrade to Pro"}
+                  </button>
+                )}
+                {profile.tier === TIERS.PREMIUM && (
+                  <button
+                    onClick={() => handleChangeTier(TIERS.STANDARD)}
+                    disabled={tierChangeState === "changing"}
+                    className="flex-1 py-1.5 px-2 rounded border border-black/10 text-[#5B6D7F] text-[11px] font-medium transition-colors hover:border-black/20 disabled:opacity-50"
+                  >
+                    {tierChangeState === "changing" ? "Switching…" : "Switch to Standard"}
+                  </button>
+                )}
+                <button
+                  onClick={handleManageBilling}
+                  disabled={isOpeningBillingPortal}
+                  className="flex-1 py-1.5 px-2 rounded border border-black/10 text-[#5B6D7F] text-[11px] font-medium transition-colors hover:border-black/20 disabled:opacity-50"
+                >
+                  Manage Billing
+                </button>
+              </div>
+            )}
+
             {profile?.tier === TIERS.STANDARD && (
               <div className="mt-3 pt-3 border-t border-black/5">
                 <label className="text-xs text-[#5B6D7F] block mb-2">Scan Pacing</label>
@@ -757,7 +844,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                 await signOutUser();
                 onClose();
               } catch (err) {
-                showToast({ type: 'error', title: 'Sign Out Failed', message: err.message });
+                Sentry.captureException(err, { tags: { scope: "sign-out" } });
+                showToast({ type: 'error', title: 'Sign Out Failed', message: "Something went wrong — please try again." });
               }
             }}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"

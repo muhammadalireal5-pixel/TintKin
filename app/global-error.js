@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { Outfit, Playfair_Display } from "next/font/google";
+import * as Sentry from "@sentry/nextjs";
 import { AlertOctagon, RotateCcw } from "lucide-react";
 import "./globals.css";
 
@@ -18,6 +20,10 @@ const playfair = Playfair_Display({
 });
 
 export default function GlobalError({ error, reset }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="en" className={`${outfit.variable} ${playfair.variable}`}>
       <head>

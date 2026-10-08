@@ -3,6 +3,7 @@
 import "server-only";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
 import { headers } from "next/headers";
@@ -111,7 +112,7 @@ export async function registerUser({ email, password, name } = {}) {
   // (M21 in AUDIT.md) — the account pre-hijacking exploit this would also
   // guard against is already closed by the Google email_verified check (H1).
   await sendVerificationEmail(newUser).catch((err) => {
-    console.error("Failed to send verification email:", err);
+    Sentry.captureException(err, { tags: { scope: "verification-email" } });
   });
 
   return { success: true };
@@ -208,7 +209,7 @@ export async function resendVerificationEmail() {
   }
 
   await sendVerificationEmail(user).catch((err) => {
-    console.error("Failed to send verification email:", err);
+    Sentry.captureException(err, { tags: { scope: "verification-email" } });
   });
   return { success: true };
 }
@@ -222,11 +223,11 @@ export async function requestPasswordReset(email) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
-  
-  // Get client IP for rate limiting (will be passed from request context)
-  // For server actions, we use a generic identifier since IP isn't directly available
-  const identifier = `email:${cleanEmail}`;
-  
+
+  // Hashed, not raw — server actions don't have direct IP context, but the
+  // email alone must still never be stored or logged in plaintext.
+  const identifier = getCompositeKey("server-action", cleanEmail);
+
   // Check rate limit (3 per hour per email)
   const rateLimitResult = await checkRateLimit(
     identifier,
@@ -234,10 +235,10 @@ export async function requestPasswordReset(email) {
     RATE_LIMIT_CONFIGS.PASSWORD_RESET.limit,
     RATE_LIMIT_CONFIGS.PASSWORD_RESET.windowMs
   );
-  
+
   if (!rateLimitResult.allowed) {
     // Still return success to prevent enumeration, but don't send email
-    console.warn(`[PASSWORD_RESET] Rate limited for ${cleanEmail}`);
+    console.warn("[PASSWORD_RESET] Rate limited");
     return { success: true };
   }
 
@@ -299,7 +300,7 @@ export async function requestPasswordReset(email) {
       });
     }
   } catch (err) {
-    console.error("Failed to send reset email:", err);
+    Sentry.captureException(err, { tags: { scope: "password-reset-email" } });
   }
 
   return { success: true };

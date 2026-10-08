@@ -37,9 +37,9 @@ export async function exchangeResetToken(formData) {
       // still matches here (just the $gt check fails), while a token that's
       // been superseded by a newer request (or already used) matches nothing
       // at all.
-      const staleMatch = await User.findOne({ passwordResetToken: hashedToken }).select("email passwordResetExpires");
+      const staleMatch = await User.findOne({ passwordResetToken: hashedToken }).select("_id passwordResetExpires");
       if (staleMatch) {
-        console.warn(`[RESET_EXCHANGE] Token for ${staleMatch.email} expired at ${staleMatch.passwordResetExpires?.toISOString()}`);
+        console.warn(`[RESET_EXCHANGE] Token for user ${staleMatch._id} expired at ${staleMatch.passwordResetExpires?.toISOString()}`);
       } else {
         console.warn("[RESET_EXCHANGE] No user holds this token — already used, or superseded by a newer reset request.");
       }

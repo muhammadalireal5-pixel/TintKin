@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { fetchAdminData } from "@/lib/services/admin-users";
@@ -59,7 +60,24 @@ export default async function AdminPage() {
               {session.email}
             </span>
           </div>
-          <LogoutButton />
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Link
+              href="/admin/shop"
+              style={{
+                padding: "8px 16px",
+                background: "transparent",
+                border: "1px solid var(--tk-border-solid)",
+                borderRadius: "10px",
+                color: "var(--tk-text-primary)",
+                fontSize: "13px",
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              Shop
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 

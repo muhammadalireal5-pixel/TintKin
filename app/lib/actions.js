@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
 import { revalidatePath } from "next/cache";
@@ -15,7 +16,7 @@ import {
   getCloudinaryPublicId,
   applyFaceCropToCloudinary,
   signCloudinaryUrl,
-  getCloudinaryDeliveryType,
+  deleteCloudinaryAsset as deleteImageFromCloudinary,
 } from "@/lib/utils/cloudinary";
 import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
@@ -29,7 +30,14 @@ import {
   STANDARD_PACING,
   ALLOWED_USER_TIERS,
   ACTIVE_SUBSCRIPTION_TIERS,
+  TIER_PRODUCT_IDS,
 } from "@/lib/constants/tiers";
+import { CREDIT_COST } from "@/lib/constants/credits";
+import { getPolarClient } from "@/lib/utils/polar";
+import { resolveCreditGrant } from "@/lib/utils/shop";
+import { updateSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions";
+import { listOrders, getOrders } from "@polar-sh/sdk/2026-10/services/orders";
+import { createRefunds } from "@polar-sh/sdk/2026-10/services/refunds";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
@@ -65,6 +73,19 @@ const MAX_CUSTOM_MULTIPLIER = 0.95;
 
 function clampString(value, maxLength) {
   return typeof value === "string" ? value.slice(0, maxLength) : undefined;
+}
+
+// Learns the user's real timezone passively from whichever action the client
+// already called with its own Intl timezone (M17 in AUDIT.md) — never prompted
+// for. Best-effort: a failed write here must never break the caller's own flow.
+async function syncUserTimezone(user, timezone) {
+  if (!user || user.timezone === timezone) return;
+  try {
+    await User.findByIdAndUpdate(user._id, { timezone });
+    user.timezone = timezone;
+  } catch {
+    // display falls back to UTC until the next successful write
+  }
 }
 
 // Simulation interventions come from the client and are stored verbatim, so
@@ -164,39 +185,6 @@ async function prepareSimulationSource(imageUrl, userId) {
   }
 }
 
-async function deleteImageFromCloudinary(imageUrl) {
-  const publicId = getCloudinaryPublicId(imageUrl);
-  if (!publicId) return;
-  // Destroy must target the asset's actual delivery type (see M22 in
-  // AUDIT.md) — a type mismatch doesn't error, it just silently destroys
-  // nothing, orphaning the real asset.
-  const deliveryType = getCloudinaryDeliveryType(imageUrl) || "upload";
-
-  try {
-    const timestamp = Math.floor(Date.now() / 1000);
-    // invalidate=true also purges CDN-cached copies of the deleted image.
-    const signature = signCloudinaryParams(`invalidate=true&public_id=${publicId}&timestamp=${timestamp}&type=${deliveryType}`);
-
-    const form = new FormData();
-    form.append("public_id", publicId);
-    form.append("invalidate", "true");
-    form.append("api_key", process.env.CLOUDINARY_API_KEY);
-    form.append("timestamp", timestamp);
-    form.append("type", deliveryType);
-    form.append("signature", signature);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`, {
-      method: "POST",
-      body: form,
-      signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
-    });
-    if (!res.ok) console.warn(`Cloudinary destroy failed (HTTP ${res.status})`);
-  } catch (e) {
-    // Non-blocking cleanup
-    console.warn(`Cloudinary destroy failed: ${e?.message || e}`);
-  }
-}
-
 // The Selfie schema requires recommendedProducts to be empty or exactly 3 valid
 // items. The AI advice call doesn't always honor that shape (missing fields,
 // wrong count, an off-enum type string), which previously threw a Mongoose
@@ -225,9 +213,9 @@ export async function uploadSelfieServerAction(formData) {
   try {
     decoded = await getAuthenticatedUser();
   } catch (e) {
-    return { success: false, error: "Unauthorized" };
+    return { success: false, error: "Please sign in again to continue." };
   }
-  if (!decoded) return { success: false, error: "Unauthorized" };
+  if (!decoded) return { success: false, error: "Please sign in again to continue." };
 
   const rateCheck = await checkRateLimit(decoded.uid, "upload", 5, 60000);
   if (!rateCheck.allowed) {
@@ -236,7 +224,7 @@ export async function uploadSelfieServerAction(formData) {
 
   try {
     const file = formData.get("file");
-    if (!file) return { success: false, error: "No file provided" };
+    if (!file) return { success: false, error: "Please choose a photo first." };
 
     const fileValidation = validateImageFile(file);
     if (!fileValidation.isValid) {
@@ -253,7 +241,7 @@ export async function uploadSelfieServerAction(formData) {
     // type=authenticated (not the default "upload") makes the asset require a
     // valid signature to be served at all — see M22 in AUDIT.md.
     const signedParams = `public_id=${publicId}&timestamp=${timestamp}${isFlipped ? "&transformation=a_hflip" : ""}&type=authenticated`;
-    const signature = crypto.createHash("sha1").update(`${signedParams}${process.env.CLOUDINARY_API_SECRET}`).digest("hex");
+    const signature = signCloudinaryParams(signedParams);
 
     const cloudinaryForm = new FormData();
     cloudinaryForm.append("file", file);
@@ -325,6 +313,7 @@ export async function checkOnboardingStatus() {
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
+  await syncUserTimezone(user, timezone);
 
   const rateCheck = await checkRateLimit(user._id.toString(), "analyze", 3, 60000);
   if (!rateCheck.allowed) {
@@ -336,6 +325,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   }
 
   let extraScanConsumed = false;
+  let creditsConsumed = false;
   let reservedScanSlot = null;
   let selfieCreated = false;
   try {
@@ -343,7 +333,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "Please accept the terms and choose your photo privacy option first.", { error: "CONSENT_REQUIRED" });
     }
     if (!imageUrl || !isOwnedUserUpload(imageUrl, user._id.toString())) {
-      return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
+      return errorResult(ERROR_CODES.VALIDATION_ERROR, "That image couldn't be used — please upload a new photo.", { error: "That image couldn't be used — please upload a new photo." });
     }
 
     const { daysInMonth } = getLocalMonthStart(timezone);
@@ -383,14 +373,22 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         { _id: user._id, extraScans: { $gt: 0 } },
         { $inc: { extraScans: -1 } }
       );
-      if (!consumed) {
-        let msg = "You've reached your scan limit.";
-        if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
-        if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
-        if (scanDenialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
-        return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
+      if (consumed) {
+        extraScanConsumed = true;
+      } else {
+        const paidWithCredits = await User.findOneAndUpdate(
+          { _id: user._id, creditBalance: { $gte: CREDIT_COST.scan } },
+          { $inc: { creditBalance: -CREDIT_COST.scan } }
+        );
+        if (!paidWithCredits) {
+          let msg = "You've reached your scan limit.";
+          if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
+          if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
+          if (scanDenialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
+          return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
+        }
+        creditsConsumed = true;
       }
-      extraScanConsumed = true;
     }
 
     const now = new Date();
@@ -647,6 +645,9 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     if (extraScanConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
     }
+    if (creditsConsumed) {
+      await User.findByIdAndUpdate(user._id, { $inc: { creditBalance: CREDIT_COST.scan } }).catch(() => {});
+    }
     if (reservedScanSlot) {
       await releaseScanSlot(user._id, reservedScanSlot.dayKey, reservedScanSlot.monthKey);
     }
@@ -704,9 +705,13 @@ function computeDisplayStreak(user, timezone) {
 // and first-scan values depend on the full history, so they're always read via
 // separate exact queries (totalSelfieCount/firstSelfie) rather than derived from
 // the capped array.
-export async function getLatestData(timezone = "UTC", options = {}) {
-  timezone = normalizeTimezone(timezone);
+export async function getLatestData(timezone = null, options = {}) {
   const user = await getDbUser();
+  // No explicit override: use the timezone learned passively from the user's
+  // own browser (see syncUserTimezone) instead of defaulting to UTC, or
+  // "today's routine" reads a different day boundary than the one it was
+  // written against (M17 in AUDIT.md).
+  timezone = normalizeTimezone(timezone || user.timezone);
   // Display-only: never persisted, so the stored streak is untouched until
   // the user's next scan recomputes it for real.
   user.currentStreak = computeDisplayStreak(user, timezone);
@@ -861,6 +866,7 @@ export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
 export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
   timezone = normalizeTimezone(timezone);
   const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+  await syncUserTimezone(user, timezone);
 
   const rateCheck = await checkRateLimit(user._id.toString(), "simulate", 5, 60000);
   if (!rateCheck.allowed) {
@@ -873,10 +879,11 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
 
   const sourceImageUrl = customImageUrl || latestSelfie?.imageUrl;
   if (customImageUrl && !isOwnedUserUpload(customImageUrl, user._id.toString())) {
-    return errorResult(ERROR_CODES.VALIDATION_ERROR, "Invalid or untrusted image URL.", { error: "Invalid or untrusted image URL." });
+    return errorResult(ERROR_CODES.VALIDATION_ERROR, "That image couldn't be used — please upload a new photo.", { error: "That image couldn't be used — please upload a new photo." });
   }
 
   let extraSimConsumed = false;
+  let creditsConsumed = false;
   let reservedSimSlot = null;
   let simSourceUrl = null;
   try {
@@ -894,21 +901,32 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         { _id: user._id, extraSimulations: { $gt: 0 } },
         { $inc: { extraSimulations: -1 } }
       );
-      if (!consumed) {
-        return errorResult(
-          ERROR_CODES.SIM_LIMIT,
-          simLimit === 1 && user.tier === 'free'
-            ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro for more!"
-            : `You've used all ${simLimit} simulations for this month.`,
-          { error: "SIM_LIMIT" }
+      if (consumed) {
+        extraSimConsumed = true;
+      } else {
+        const paidWithCredits = await User.findOneAndUpdate(
+          { _id: user._id, creditBalance: { $gte: CREDIT_COST.simulation } },
+          { $inc: { creditBalance: -CREDIT_COST.simulation } }
         );
+        if (!paidWithCredits) {
+          return errorResult(
+            ERROR_CODES.SIM_LIMIT,
+            simLimit === 1 && user.tier === 'free'
+              ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro, or buy credits, for more!"
+              : `You've used all ${simLimit} simulations for this month.`,
+            { error: "SIM_LIMIT" }
+          );
+        }
+        creditsConsumed = true;
       }
-      extraSimConsumed = true;
     }
 
     const rollbackSimQuota = async () => {
       if (extraSimConsumed) {
         await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
+      }
+      if (creditsConsumed) {
+        await User.findByIdAndUpdate(user._id, { $inc: { creditBalance: CREDIT_COST.simulation } }).catch(() => {});
       }
       if (reservedSimSlot) {
         await releaseSimulationSlot(user._id, reservedSimSlot.monthKey);
@@ -1051,6 +1069,9 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     if (extraSimConsumed) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraSimulations: 1 } }).catch(() => {});
     }
+    if (creditsConsumed) {
+      await User.findByIdAndUpdate(user._id, { $inc: { creditBalance: CREDIT_COST.simulation } }).catch(() => {});
+    }
     if (reservedSimSlot) {
       await releaseSimulationSlot(user._id, reservedSimSlot.monthKey).catch(() => {});
     }
@@ -1069,13 +1090,13 @@ export async function updateSimulationPrivacy(simId, keepPhoto) {
   try {
     await connectDb();
     const decoded = await getAuthenticatedUser();
-    if (!decoded) return { success: false, error: "Unauthorized" };
+    if (!decoded) return { success: false, error: "Please sign in again to continue." };
     
     const user = await findSessionUser(decoded);
-    if (!user) return { success: false, error: "User not found" };
+    if (!user) return { success: false, error: "We couldn't find your account. Try signing in again." };
 
     if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
-      return { success: false, error: "Invalid simulation ID" };
+      return { success: false, error: "We couldn't find that simulation." };
     }
 
     const sim = await Simulation.findOne({ _id: simId, userId: user._id });
@@ -1189,7 +1210,7 @@ export async function acceptScanConsent(photoPrivacy) {
   try {
     const user = await getDbUser();
     if (!ALLOWED_PHOTO_PRIVACY.includes(photoPrivacy)) {
-      return { success: false, error: "Invalid photo privacy option" };
+      return { success: false, error: "That privacy option isn't valid — please refresh and try again." };
     }
     const update = { photoPrivacy };
     if (!user.termsAcceptedAt) update.termsAcceptedAt = new Date();
@@ -1204,14 +1225,14 @@ export async function updatePrivacySettings(photoPrivacy) {
   try {
     await connectDb();
     const decoded = await getAuthenticatedUser();
-    if (!decoded) return { success: false, error: "Unauthorized" };
+    if (!decoded) return { success: false, error: "Please sign in again to continue." };
 
     if (!ALLOWED_PHOTO_PRIVACY.includes(photoPrivacy)) {
-      return { success: false, error: "Invalid photo privacy option" };
+      return { success: false, error: "That privacy option isn't valid — please refresh and try again." };
     }
 
     const user = await findSessionUser(decoded);
-    if (!user) return { success: false, error: "User not found" };
+    if (!user) return { success: false, error: "We couldn't find your account. Try signing in again." };
 
     const switchingToDelete = photoPrivacy === "delete" && user.photoPrivacy !== "delete";
 
@@ -1263,6 +1284,8 @@ export async function getUsageQuotas(timezone = "UTC") {
   const simLimit = getTierSimLimit(user.tier);
 
   const extraScans = user.extraScans || 0;
+  const extraSimulations = user.extraSimulations || 0;
+  const creditBalance = user.creditBalance || 0;
 
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
@@ -1288,15 +1311,18 @@ export async function getUsageQuotas(timezone = "UTC") {
      wouldBeDenied = true;
   }
 
-  // If they would be denied but have extra scans, allow them
-  if (wouldBeDenied && extraScans > 0) {
+  // If they would be denied but have extra scans or enough credits, allow them
+  if (wouldBeDenied && (extraScans > 0 || creditBalance >= CREDIT_COST.scan)) {
      canScanToday = true;
      scanDenialReason = "";
   }
 
+  const simWouldBeDenied = simsThisMonth >= simLimit;
+  const canSimulate = !simWouldBeDenied || extraSimulations > 0 || creditBalance >= CREDIT_COST.simulation;
+
   return {
-    scans: { 
-      usedToday: scansToday, 
+    scans: {
+      usedToday: scansToday,
       usedMonth: scansThisMonth,
       dailyLimit: scanDailyLimit,
       monthlyLimit: scanMonthlyLimit,
@@ -1304,7 +1330,8 @@ export async function getUsageQuotas(timezone = "UTC") {
       denialReason: scanDenialReason,
       wouldBeDenied
     },
-    simulations: { used: simsThisMonth, limit: simLimit }
+    simulations: { used: simsThisMonth, limit: simLimit, canSimulate, wouldBeDenied: simWouldBeDenied },
+    creditBalance,
   };
 }
 
@@ -1336,7 +1363,7 @@ export async function deleteSavedSimulation(simId) {
   try {
     const user = await getDbUser();
     if (!simId || !mongoose.Types.ObjectId.isValid(simId)) {
-      return { success: false, error: "Invalid simulation ID" };
+      return { success: false, error: "We couldn't find that simulation." };
     }
 
     const sim = await Simulation.findOne({ _id: simId, userId: user._id });
@@ -1358,7 +1385,7 @@ export async function getWeeklyHistory() {
   try {
     const user = await getDbUser();
     if (!user) {
-      return errorResult(ERROR_CODES.UNAUTHORIZED, "Unauthorized");
+      return errorResult(ERROR_CODES.UNAUTHORIZED, "Please sign in again to continue.");
     }
     // Only the most recent 12 weeks are ever displayed (see .slice(0, 12)
     // below), but this used to load the user's entire scan history —
@@ -1429,7 +1456,7 @@ export async function getWeeklyHistory() {
 export async function analyzeProductImage(base64Image) {
   try {
     const authUser = await getAuthenticatedUser();
-    if (!authUser) throw new Error("Unauthorized");
+    if (!authUser) throw new Error("Please sign in again to continue.");
 
     const rateCheck = await checkRateLimit(authUser.uid, "product_ocr", 3, 60000);
     if (!rateCheck.allowed) {
@@ -1453,7 +1480,7 @@ export async function analyzeProductImage(base64Image) {
 export async function requestUpgrade(tier) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
     
     if (!['standard', 'premium'].includes(tier)) {
       return { success: false, error: "Invalid tier requested." };
@@ -1469,10 +1496,272 @@ export async function requestUpgrade(tier) {
   }
 }
 
+// Our real per-unit cost (YouCam's own 500-credits-for-$24 rate: $0.048/credit,
+// 9 credits/scan, 4/simulation — see lib/constants/credits.js), used only to
+// protect margin when a refund is issued; has nothing to do with retail pricing.
+const YOUCAM_COST_PER_SCAN = 0.432;
+const YOUCAM_COST_PER_SIMULATION = 0.192;
+
+/**
+ * Upgrades or downgrades an existing Polar subscription in place. Upgrade
+ * charges the prorated difference immediately; downgrade applies at the next
+ * renewal with no immediate charge (the user only specified upgrade behavior
+ * explicitly — downgrade's "no charge now" default is ours).
+ * Does not write user.tier itself: onSubscriptionUpdated (the billing
+ * webhook) is the single source of truth for that, same as every other tier
+ * write in this file.
+ */
+export async function changeSubscriptionTier(newTier) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Please sign in again to continue." };
+
+    if (!ACTIVE_SUBSCRIPTION_TIERS.includes(newTier)) {
+      return { success: false, error: "Invalid plan." };
+    }
+    if (newTier === user.tier) {
+      return { success: false, error: "You're already on this plan." };
+    }
+    if (!ACTIVE_SUBSCRIPTION_TIERS.includes(user.tier) || !user.polarSubscriptionId) {
+      return { success: false, error: "You don't have an active subscription to change. Choose a plan from Pricing instead." };
+    }
+
+    const productId = TIER_PRODUCT_IDS[newTier];
+    if (!productId || !process.env.POLAR_ACCESS_TOKEN) {
+      return { success: false, error: "Plan changes aren't available right now. Please try again later." };
+    }
+
+    const isUpgrade = newTier === TIERS.PREMIUM;
+    const polar = getPolarClient();
+    await updateSubscriptions(polar)(user.polarSubscriptionId, {
+      product_id: productId,
+      proration_behavior: isUpgrade ? "invoice" : "next_period",
+    });
+
+    return { success: true };
+  } catch (err) {
+    console.error("[CHANGE_SUBSCRIPTION_TIER]", err);
+    return { success: false, error: "Failed to change your plan. Please try again." };
+  }
+}
+
+/**
+ * Shared by previewRefund/adminIssueRefund: looks up the user's latest
+ * subscription order and computes the suggested refund (its net amount minus
+ * what this period's scans/simulations already cost us at our real YouCam
+ * rate, floored at 0).
+ */
+async function computeSuggestedRefund(user) {
+  const tz = normalizeTimezone(user.timezone);
+  const monthKey = getLocalMonthKey(tz);
+  const scansUsed = resolvePeriod(user.scanUsage?.monthKey, user.scanUsage?.monthCount, monthKey).count;
+  const simsUsed = resolvePeriod(user.simUsage?.monthKey, user.simUsage?.monthCount, monthKey).count;
+  const usageCostCents = Math.round((scansUsed * YOUCAM_COST_PER_SCAN + simsUsed * YOUCAM_COST_PER_SIMULATION) * 100);
+
+  const polar = getPolarClient();
+  const orders = await listOrders(polar)({
+    external_customer_id: user._id.toString(),
+    subscription_id: user.polarSubscriptionId,
+    limit: 1,
+    sorting: ["-created_at"],
+  });
+  const order = orders?.items?.[0];
+  if (!order) return { error: "No billing order found for this user's subscription." };
+
+  return { order, suggestedAmountCents: Math.max(0, order.net_amount - usageCostCents), scansUsed, simsUsed };
+}
+
+/**
+ * Admin-only, read-only. Returns the suggested refund amount for a user
+ * without touching Polar's refund API — the admin UI shows this and lets the
+ * admin confirm (optionally overriding the amount) before adminIssueRefund
+ * actually issues anything.
+ * @param {string} userId
+ */
+export async function previewRefund(userId) {
+  try {
+    const session = await verifyAdminSession();
+    if (!session) return { success: false, error: "Please sign in again to continue." };
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return { success: false, error: "Invalid user ID" };
+    }
+
+    await connectDb();
+    const user = await User.findById(userId);
+    if (!user) return { success: false, error: "User not found." };
+    if (!user.polarSubscriptionId) {
+      return { success: false, error: "This user has no subscription on file to refund against." };
+    }
+
+    const result = await computeSuggestedRefund(user);
+    if (result.error) return { success: false, error: result.error };
+
+    return { success: true, suggestedAmountCents: result.suggestedAmountCents, scansUsed: result.scansUsed, simsUsed: result.simsUsed };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "preview-refund" } });
+    return { success: false, error: "Failed to compute refund preview." };
+  }
+}
+
+/**
+ * Admin-only. Issues a refund via Polar for the amount the admin confirmed
+ * (defaults to the computed suggestion from previewRefund if omitted). Never
+ * triggered automatically; cancellation itself carries no refund (confirmed
+ * product policy) — this is only for a manual, admin-confirmed case.
+ * @param {string} userId
+ * @param {{ reason?: string, amountCents?: number }} [options]
+ */
+export async function adminIssueRefund(userId, options = {}) {
+  try {
+    const session = await verifyAdminSession();
+    if (!session) return { success: false, error: "Please sign in again to continue." };
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return { success: false, error: "Invalid user ID" };
+    }
+
+    await connectDb();
+    const user = await User.findById(userId);
+    if (!user) return { success: false, error: "User not found." };
+    if (!user.polarSubscriptionId) {
+      return { success: false, error: "This user has no subscription on file to refund against." };
+    }
+
+    const result = await computeSuggestedRefund(user);
+    if (result.error) return { success: false, error: result.error };
+
+    const amountCents = Number.isFinite(options.amountCents) ? Math.round(options.amountCents) : result.suggestedAmountCents;
+    if (amountCents <= 0) {
+      return {
+        success: false,
+        error: "Computed refund is zero or negative — this period's usage already covers what they paid.",
+        suggestedAmountCents: result.suggestedAmountCents,
+        scansUsed: result.scansUsed,
+        simsUsed: result.simsUsed,
+      };
+    }
+
+    const polar = getPolarClient();
+    const refund = await createRefunds(polar)({
+      order_id: result.order.id,
+      reason: options.reason || "customer_request",
+      amount: amountCents,
+    });
+
+    return { success: true, refundId: refund.id, amountCents, suggestedAmountCents: result.suggestedAmountCents, scansUsed: result.scansUsed, simsUsed: result.simsUsed };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "admin-issue-refund" } });
+    return { success: false, error: "Failed to issue refund." };
+  }
+}
+
+/**
+ * Admin-only, read-only. Lists a user's one-time credit purchases (fixed
+ * packs or a custom amount) that still have something left to refund
+ * (Polar's `refundable_amount` already accounts for any prior partial
+ * refund). Subscription orders are excluded — those go through
+ * previewRefund/adminIssueRefund instead.
+ * @param {string} userId
+ */
+export async function listCreditOrders(userId) {
+  try {
+    const session = await verifyAdminSession();
+    if (!session) return { success: false, error: "Please sign in again to continue." };
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return { success: false, error: "Invalid user ID" };
+    }
+
+    await connectDb();
+    const user = await User.findById(userId);
+    if (!user) return { success: false, error: "User not found." };
+
+    const polar = getPolarClient();
+    const orders = await listOrders(polar)({
+      external_customer_id: user._id.toString(),
+      limit: 20,
+      sorting: ["-created_at"],
+    });
+
+    const candidates = orders?.items || [];
+    const grants = await Promise.all(candidates.map((order) => resolveCreditGrant(order)));
+    const creditOrders = candidates
+      .map((order, i) => ({ order, grant: grants[i] }))
+      .filter(({ order, grant }) => grant && grant.credits > 0 && order.refundable_amount > 0)
+      .map(({ order, grant }) => ({
+        orderId: order.id,
+        credits: grant.credits,
+        refundableAmountCents: order.refundable_amount,
+        createdAt: order.created_at,
+      }));
+
+    return { success: true, orders: creditOrders };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "list-credit-orders" } });
+    return { success: false, error: "Failed to load credit purchases." };
+  }
+}
+
+/**
+ * Admin-only. Refunds a single one-time credit order (fixed pack or custom
+ * amount) in full via Polar, then claws back the credits it granted. Credits
+ * pool together once granted, so this can't know how many of *this* order's
+ * credits are still unspent — it claws back min(order's credits, current
+ * balance) as the closest approximation, same spirit as the usage-aware
+ * subscription refund above.
+ * @param {string} userId
+ * @param {string} orderId
+ */
+export async function adminIssueCreditRefund(userId, orderId) {
+  try {
+    const session = await verifyAdminSession();
+    if (!session) return { success: false, error: "Please sign in again to continue." };
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return { success: false, error: "Invalid user ID" };
+    }
+    if (!orderId) return { success: false, error: "Invalid order ID" };
+
+    await connectDb();
+    const user = await User.findById(userId);
+    if (!user) return { success: false, error: "User not found." };
+
+    const polar = getPolarClient();
+    const order = await getOrders(polar)(orderId);
+    if (!order || order.customer?.external_id !== user._id.toString()) {
+      return { success: false, error: "Order does not belong to this user." };
+    }
+    const grant = await resolveCreditGrant(order);
+    if (!grant || !grant.credits) {
+      return { success: false, error: "This order is not a refundable credit purchase." };
+    }
+    if (!(order.refundable_amount > 0)) {
+      return { success: false, error: "This order has already been fully refunded." };
+    }
+
+    const refund = await createRefunds(polar)({
+      order_id: order.id,
+      reason: "customer_request",
+      amount: order.refundable_amount,
+    });
+
+    const creditsClawedBack = Math.min(grant.credits, user.creditBalance || 0);
+    if (creditsClawedBack > 0) {
+      await User.updateOne({ _id: user._id }, { $inc: { creditBalance: -creditsClawedBack } });
+    }
+
+    return { success: true, refundId: refund.id, amountCents: order.refundable_amount, creditsClawedBack };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "admin-issue-credit-refund" } });
+    return { success: false, error: "Failed to issue refund." };
+  }
+}
+
 export async function saveLocation(locationData) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
     
     let { lat, lng, city, country, countryCode } = locationData || {};
 
@@ -1526,7 +1815,7 @@ export async function saveLocation(locationData) {
     await User.findByIdAndUpdate(user._id, { location: updatedLocation });
     return { success: true, location: updatedLocation };
   } catch {
-    return { success: false, error: "Internal server error" };
+    return { success: false, error: "Something went wrong on our end. Please try again shortly." };
   }
 }
 
@@ -1546,6 +1835,8 @@ export async function getUserProfile() {
         lng: user.location.lng || null,
       } : null,
       tier: user.tier || "free",
+      isSubscribed: Boolean(user.isSubscribed),
+      creditBalance: user.creditBalance || 0,
       skinType: user.skinType || null,
       optInComparison: user.optInComparison || false,
       standardPlanFrequency: user.standardPlanFrequency || "flexible",
@@ -1560,7 +1851,7 @@ export async function getUserProfile() {
 export async function updateUserSettings(settings) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
 
     const validation = validateUserSettings(settings);
     if (!validation.isValid) {
@@ -1579,9 +1870,9 @@ export async function updateUserSettings(settings) {
 export async function updateUserTier(tier, standardPlanFrequency = STANDARD_PACING.FLEXIBLE) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
 
-    if (!ALLOWED_USER_TIERS.includes(tier)) return { success: false, error: "Invalid tier" };
+    if (!ALLOWED_USER_TIERS.includes(tier)) return { success: false, error: "That plan isn't available." };
 
     // In production, direct client-side upgrading can be locked down
     const demoMode = process.env.ENABLE_DEMO_TIER_SWITCHING === "true";
@@ -1608,7 +1899,7 @@ export async function updateUserTier(tier, standardPlanFrequency = STANDARD_PACI
 export async function adminAddExtraScans(userId, amount = 1) {
   try {
     const session = await verifyAdminSession();
-    if (!session) return { success: false, error: "Unauthorized" };
+    if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return { success: false, error: "Invalid user ID" };
@@ -1624,7 +1915,7 @@ export async function adminAddExtraScans(userId, amount = 1) {
       { $inc: { extraScans: delta } },
       { new: true }
     ).select("extraScans");
-    if (!updated) return { success: false, error: "User not found" };
+    if (!updated) return { success: false, error: "We couldn't find your account. Try signing in again." };
 
     return { success: true, extraScans: updated.extraScans };
   } catch {
@@ -1676,7 +1967,7 @@ async function renamePublicIdToAuthenticated(publicId) {
  */
 export async function migrateImagesToAuthenticated({ dryRun = true, limit = 25 } = {}) {
   const session = await verifyAdminSession();
-  if (!session) return { success: false, error: "Unauthorized" };
+  if (!session) return { success: false, error: "Please sign in again to continue." };
 
   const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
   await connectDb();
@@ -1750,6 +2041,7 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
   try {
     const user = await getDbUser();
     if (!user) return { success: false };
+    await syncUserTimezone(user, timezone);
 
     // Whitelist against the routine actually recommended to this user, rather
     // than trusting a client-supplied string verbatim (M18 in AUDIT.md) — also
@@ -1803,7 +2095,7 @@ export async function getPercentileRank() {
     if (!user || !user.optInComparison) return { success: false };
     
     const age = user.birthDate ? calculateAge(user.birthDate) : null;
-    if (!age) return { success: false, error: "Age unknown" };
+    if (!age) return { success: false, error: "We don't have your birth date on file yet." };
 
     const minAgeDate = new Date(new Date().setFullYear(new Date().getFullYear() - (age + 5)));
     const maxAgeDate = new Date(new Date().setFullYear(new Date().getFullYear() - (age - 5)));
@@ -1917,7 +2209,7 @@ export async function getReportStatus() {
 export async function generateReport(prevState, formData) {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
 
     const now = new Date();
 
@@ -2061,7 +2353,7 @@ export async function getUserReports() {
 export async function getLeaderboard(scope = 'city') {
   try {
     const user = await getDbUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Please sign in again to continue." };
 
     const rawCity = user.location?.city || "";
     const rawCountry = user.location?.country || "";

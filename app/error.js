@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
 
 export default function Error({ error, reset }) {
   useEffect(() => {
+    Sentry.captureException(error);
   }, [error]);
 
   return (
@@ -20,7 +22,7 @@ export default function Error({ error, reset }) {
         </h1>
         
         <p className="text-muted leading-relaxed mb-8 tk-anim-4">
-          Don't worry — your data is safe. We encountered a technical issue while loading this page.
+          Don&apos;t worry — your data is safe. We encountered a technical issue while loading this page.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full tk-anim-5">

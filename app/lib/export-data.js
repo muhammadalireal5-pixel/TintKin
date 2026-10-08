@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { zipSync, strToU8 } from "fflate";
 import { Resend } from "resend";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
@@ -30,7 +31,7 @@ const MAX_EMAILABLE_EXPORT_BYTES = 20 * 1024 * 1024;
 export async function exportUserData() {
   const authUser = await getAuthenticatedUser();
   if (!authUser?.uid) {
-    return { success: false, error: "Unauthorized" };
+    return { success: false, error: "Please sign in again to continue." };
   }
 
   await connectDb();
@@ -41,7 +42,7 @@ export async function exportUserData() {
     .lean();
 
   if (!user) {
-    return { success: false, error: "User not found" };
+    return { success: false, error: "We couldn't find your account. Try signing in again." };
   }
 
   try {
@@ -188,7 +189,7 @@ export async function exportUserData() {
 export async function emailUserDataExport() {
   const authUser = await getAuthenticatedUser();
   if (!authUser?.uid) {
-    return { success: false, error: "Unauthorized" };
+    return { success: false, error: "Please sign in again to continue." };
   }
 
   const rateCheck = await checkRateLimit(authUser.uid, "export", RATE_LIMIT_CONFIGS.DATA_EXPORT.limit, RATE_LIMIT_CONFIGS.DATA_EXPORT.windowMs);
@@ -198,7 +199,7 @@ export async function emailUserDataExport() {
 
   const resend = getResendClient();
   if (!resend) {
-    return { success: false, error: "Email delivery isn't configured. Please use the direct download instead." };
+    return { success: false, error: "We can't email it right now — please use the direct download instead." };
   }
 
   await connectDb();
@@ -244,7 +245,7 @@ export async function emailUserDataExport() {
     });
     return { success: true };
   } catch (err) {
-    console.error("Failed to email data export:", err);
+    Sentry.captureException(err, { tags: { scope: "data-export-email" } });
     return { success: false, error: "Failed to send the export email. Please try again." };
   }
 }

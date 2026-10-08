@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData("UTC", { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
     const reportStatus = await getReportStatus();
 

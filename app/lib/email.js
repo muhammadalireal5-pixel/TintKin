@@ -1,4 +1,5 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { getBaseUrl } from "./url";
 
@@ -58,7 +59,7 @@ export async function sendReportReadyEmail({ email, name, scanCount }) {
     });
     return true;
   } catch (err) {
-    console.error("Failed to send report-ready email:", err);
+    Sentry.captureException(err, { tags: { scope: "report-ready-email" } });
     return false;
   }
 }

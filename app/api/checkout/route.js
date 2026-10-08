@@ -1,24 +1,25 @@
 import { NextResponse } from "next/server";
-import { createPolarCore } from "@polar-sh/sdk/2026-10";
+import * as Sentry from "@sentry/nextjs";
 import { createCheckouts } from "@polar-sh/sdk/2026-10/services/checkouts";
 import { connectDb } from "@/app/lib/mongoose";
 import { getAuthenticatedUser, findSessionUser } from "@/app/lib/auth-server";
-import { TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
+import { ACTIVE_SUBSCRIPTION_TIERS, TIER_PRODUCT_IDS } from "@/lib/constants/tiers";
+import { getPolarClient } from "@/lib/utils/polar";
 
-// Maps a paid tier to its Polar product id. The pricing page links here as
-// /api/checkout?tier=standard|premium instead of calling Polar directly, so
-// we can attach the signed-in user before handing off to Polar's checkout.
-const PRODUCT_IDS = {
-  [TIERS.STANDARD]: process.env.POLAR_PRODUCT_ID_STANDARD,
-  [TIERS.PREMIUM]: process.env.POLAR_PRODUCT_ID_PREMIUM,
-};
-
+// The pricing page links here as /api/checkout?tier=standard|premium instead
+// of calling Polar directly, so we can attach the signed-in user before
+// handing off to Polar's checkout.
 export async function GET(request) {
   const tier = request.nextUrl.searchParams.get("tier");
-  const productId = ACTIVE_SUBSCRIPTION_TIERS.includes(tier) ? PRODUCT_IDS[tier] : null;
+  const productId = ACTIVE_SUBSCRIPTION_TIERS.includes(tier) ? TIER_PRODUCT_IDS[tier] : null;
 
   if (!productId || !process.env.POLAR_ACCESS_TOKEN) {
-    return NextResponse.json({ error: "Billing is not configured for this plan" }, { status: 503 });
+    // Don't tell the customer *why* — "billing isn't configured" is an
+    // internal deployment detail, not something a shopper should see.
+    if (ACTIVE_SUBSCRIPTION_TIERS.includes(tier)) {
+      Sentry.captureMessage(`Missing product id or access token for tier "${tier}"`, { tags: { scope: "polar-checkout" } });
+    }
+    return NextResponse.redirect(new URL("/pricing?error=checkout_failed", request.url));
   }
 
   await connectDb();
@@ -37,10 +38,7 @@ export async function GET(request) {
   const successUrl = new URL("/dashboard", request.url);
   successUrl.searchParams.set("checkout_id", "{CHECKOUT_ID}");
 
-  const polar = createPolarCore({
-    accessToken: process.env.POLAR_ACCESS_TOKEN,
-    environment: process.env.POLAR_ENVIRONMENT === "production" ? "production" : "sandbox",
-  });
+  const polar = getPolarClient();
 
   try {
     const checkout = await createCheckouts(polar)({
@@ -51,7 +49,7 @@ export async function GET(request) {
     });
     return NextResponse.redirect(checkout.url);
   } catch (error) {
-    console.error("[POLAR_CHECKOUT]", error);
+    Sentry.captureException(error, { tags: { scope: "polar-checkout" } });
     return NextResponse.redirect(new URL("/pricing?error=checkout_failed", request.url));
   }
 }

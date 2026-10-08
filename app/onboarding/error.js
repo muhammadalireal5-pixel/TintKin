@@ -1,8 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, RotateCcw } from "lucide-react";
 
-export default function OnboardingError({ reset }) {
+export default function OnboardingError({ error, reset }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] p-6">
       <div className="tk-glass p-10 md:p-14 rounded-3xl flex flex-col items-center text-center max-w-lg w-full tk-anim-1">

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import * as Sentry from "@sentry/nextjs";
 import { Download, Share2, Clock, Sparkles, TrendingUp, TrendingDown, Minus, Loader2, Image as ImageIcon, Copy, MessageCircle, FileText } from "lucide-react";
 import AnimatedModal from "@/app/components/AnimatedModal";
 import { useToast } from "@/app/components/ToastProvider";
@@ -181,7 +182,7 @@ export default function ReportCard({ report, userName }) {
       await task();
     } catch (err) {
       if (err?.name !== "AbortError") {
-        console.error(err);
+        Sentry.captureException(err, { tags: { scope: "report-export" } });
         showToast({ type: "error", title: "Something went wrong", message: "We couldn't create the file. Please try again." });
       }
     } finally {

@@ -90,20 +90,9 @@ async function pollTask(taskType, taskId) {
   throw new Error("YouCam task timeout");
 }
 
-/**
- * Extracts normalized score info from the YouCam API response.
- * Handles two response shapes:
- *
- * 1. Inline JSON (when format: "json" is sent):
- *    data.output = [{ type: "wrinkle", ui_score, raw_score, mask_urls }, ...]
- *
- * 2. ZIP URL (fallback when API returns a download link):
- *    data.url = "https://...score_info.zip"
- *    The ZIP contains skinanalysisResult/score_info.json with per-key objects.
- *
- * Returns: { wrinkle, firmness, age_spot, radiance, all, skin_age }
- *          where each concern key is { ui_score, raw_score }.
- */
+// YouCam returns either inline output[] (format: "json") or a score_info.zip
+// download link as a fallback; normalizes both into the same
+// { wrinkle, firmness, age_spot, radiance, all, skin_age } shape.
 export async function extractScoreInfo(data) {
   if (Array.isArray(data.output)) {
     const result = {};
@@ -243,14 +232,7 @@ export async function analyzeSkin(imageUrl) {
   throw lastError || new Error("Failed to analyze skin photo.");
 }
 
-
-
-/**
- * AI Skin Simulation API: Visualizes treatment progress by enhancing specific skin concerns.
- * @param {string} imageUrl - The source image URL
- * @param {Object} intensities - Map of skin concerns to their improvement intensity (0.0 to 1.0)
- *                               e.g., { wrinkle: 0.5, age_spot: 0.8, radiance: 0.4 }
- */
+// intensities: concern -> 0.0-1.0 improvement strength, e.g. { wrinkle: 0.5, age_spot: 0.8 }
 export async function simulateSkin(imageUrl, intensities = {}) {
   const payloadIntensities = { ...intensities };
   if (Object.values(payloadIntensities).length === 0 || Object.values(payloadIntensities).every(v => !v || v === 0)) {

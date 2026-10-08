@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   Users, Activity, Clock, Crown, Eye, BarChart3, Search,
-  ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle, Plus
+  ChevronDown, ChevronUp, Sparkles, Calendar, Target, AlertCircle, Plus, Undo2, CreditCard
 } from 'lucide-react';
-import { adminAddExtraScans, migrateImagesToAuthenticated } from "@/app/lib/actions";
+import { adminAddExtraScans, migrateImagesToAuthenticated, previewRefund, adminIssueRefund, listCreditOrders, adminIssueCreditRefund } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
 
 const formatRelativeTime = (dateString) => {
@@ -176,6 +176,9 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
   const [filter, setFilter] = useState('All');
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [togglingMap, setTogglingMap] = useState({});
+  const [refundPreview, setRefundPreview] = useState({}); // userId -> { suggestedAmountCents, scansUsed, simsUsed } | null
+  const [creditOrders, setCreditOrders] = useState({}); // userId -> [{ orderId, credits, refundableAmountCents, createdAt }] | undefined
+  const [creditOrdersLoading, setCreditOrdersLoading] = useState({}); // userId|orderId -> bool
 
   const toggleExpand = (userId) => {
     setExpandedRows(prev => {
@@ -241,6 +244,78 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
       showToast({ type: 'error', title: 'Action Failed', message: "Failed to add extra scans." });
     } finally {
       setTogglingMap(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handlePreviewRefund = async (userId) => {
+    if (togglingMap[userId]) return;
+    setTogglingMap(prev => ({ ...prev, [userId]: true }));
+    try {
+      const res = await previewRefund(userId);
+      if (res?.success) {
+        setRefundPreview(prev => ({ ...prev, [userId]: res }));
+      } else {
+        showToast({ type: 'error', title: 'Preview Failed', message: res?.error || "Failed to compute refund." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Preview Failed', message: "Failed to compute refund." });
+    } finally {
+      setTogglingMap(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleConfirmRefund = async (userId) => {
+    if (togglingMap[userId]) return;
+    const preview = refundPreview[userId];
+    if (!preview) return;
+    setTogglingMap(prev => ({ ...prev, [userId]: true }));
+    try {
+      const res = await adminIssueRefund(userId, { amountCents: preview.suggestedAmountCents });
+      if (res?.success) {
+        showToast({ type: 'success', title: 'Refund Issued', message: `Refunded $${(res.amountCents / 100).toFixed(2)}.` });
+        setRefundPreview(prev => ({ ...prev, [userId]: null }));
+      } else {
+        showToast({ type: 'error', title: 'Refund Failed', message: res?.error || "Failed to issue refund." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Refund Failed', message: "Failed to issue refund." });
+    } finally {
+      setTogglingMap(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleLoadCreditOrders = async (userId) => {
+    if (creditOrdersLoading[userId]) return;
+    setCreditOrdersLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      const res = await listCreditOrders(userId);
+      if (res?.success) {
+        setCreditOrders(prev => ({ ...prev, [userId]: res.orders }));
+      } else {
+        showToast({ type: 'error', title: 'Lookup Failed', message: res?.error || "Failed to load credit purchases." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Lookup Failed', message: "Failed to load credit purchases." });
+    } finally {
+      setCreditOrdersLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleRefundCreditOrder = async (userId, orderId) => {
+    if (creditOrdersLoading[orderId]) return;
+    setCreditOrdersLoading(prev => ({ ...prev, [orderId]: true }));
+    try {
+      const res = await adminIssueCreditRefund(userId, orderId);
+      if (res?.success) {
+        showToast({ type: 'success', title: 'Refund Issued', message: `Refunded $${(res.amountCents / 100).toFixed(2)} (clawed back ${res.creditsClawedBack} credits).` });
+        setCreditOrders(prev => ({ ...prev, [userId]: (prev[userId] || []).filter(o => o.orderId !== orderId) }));
+      } else {
+        showToast({ type: 'error', title: 'Refund Failed', message: res?.error || "Failed to issue refund." });
+      }
+    } catch {
+      showToast({ type: 'error', title: 'Refund Failed', message: "Failed to issue refund." });
+    } finally {
+      setCreditOrdersLoading(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -430,13 +505,82 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                     </div>
                                   </div>
                                   <div className="pt-2">
-                                    <button 
+                                    <button
                                       onClick={() => handleAddExtraScans(user._id, 1)}
                                       disabled={togglingMap[user._id]}
                                       className="w-full flex items-center justify-center gap-2 py-2 bg-sage/10 hover:bg-sage/20 text-sage text-sm font-semibold rounded-lg transition-colors border border-sage/20 disabled:opacity-50"
                                     >
                                       <Plus size={16} /> Add Extra Scan
                                     </button>
+                                  </div>
+                                  {user.isSubscribed && (
+                                    <div className="pt-2">
+                                      {refundPreview[user._id] ? (
+                                        <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                                          <p className="text-xs text-[var(--tk-text-muted)]">
+                                            Suggested refund (order total minus {refundPreview[user._id].scansUsed} scans + {refundPreview[user._id].simsUsed} sims used this period, at our YouCam cost):
+                                          </p>
+                                          <p className="text-lg font-semibold text-[var(--tk-text-primary)]">
+                                            ${(refundPreview[user._id].suggestedAmountCents / 100).toFixed(2)}
+                                          </p>
+                                          <div className="flex gap-2">
+                                            <button
+                                              onClick={() => handleConfirmRefund(user._id)}
+                                              disabled={togglingMap[user._id] || refundPreview[user._id].suggestedAmountCents <= 0}
+                                              className="flex-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-xs font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                            >
+                                              Confirm Refund
+                                            </button>
+                                            <button
+                                              onClick={() => setRefundPreview(prev => ({ ...prev, [user._id]: null }))}
+                                              className="flex-1 py-1.5 bg-black/5 hover:bg-black/10 text-[var(--tk-text-muted)] text-xs font-semibold rounded-lg transition-colors"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => handlePreviewRefund(user._id)}
+                                          disabled={togglingMap[user._id]}
+                                          className="w-full flex items-center justify-center gap-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-sm font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                        >
+                                          <Undo2 size={16} /> Issue Refund
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="pt-2">
+                                    {creditOrders[user._id] === undefined ? (
+                                      <button
+                                        onClick={() => handleLoadCreditOrders(user._id)}
+                                        disabled={creditOrdersLoading[user._id]}
+                                        className="w-full flex items-center justify-center gap-2 py-2 bg-black/5 hover:bg-black/10 text-[var(--tk-text-primary)] text-sm font-semibold rounded-lg transition-colors border border-[var(--tk-border-solid)] disabled:opacity-50"
+                                      >
+                                        <CreditCard size={16} /> {creditOrdersLoading[user._id] ? "Checking…" : "Check Credit Purchases"}
+                                      </button>
+                                    ) : creditOrders[user._id].length === 0 ? (
+                                      <p className="text-xs text-[var(--tk-text-muted)] text-center">No refundable credit purchases.</p>
+                                    ) : (
+                                      <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                                        <p className="text-xs text-[var(--tk-text-muted)]">Refundable credit purchases:</p>
+                                        {creditOrders[user._id].map((order) => (
+                                          <div key={order.orderId} className="flex items-center justify-between gap-2 py-1">
+                                            <div className="text-xs text-[var(--tk-text-primary)]">
+                                              <span className="font-semibold">{order.credits} credits</span> — ${(order.refundableAmountCents / 100).toFixed(2)}
+                                              <span className="block text-[var(--tk-text-faint)]">{formatDate(order.createdAt)}</span>
+                                            </div>
+                                            <button
+                                              onClick={() => handleRefundCreditOrder(user._id, order.orderId)}
+                                              disabled={creditOrdersLoading[order.orderId]}
+                                              className="shrink-0 py-1.5 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-xs font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                            >
+                                              Refund
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
 

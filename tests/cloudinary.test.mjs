@@ -19,7 +19,7 @@ const { signCloudinaryUrl } = await import("../lib/utils/cloudinary-sign.js");
 
 const BASE = "https://res.cloudinary.com/demo-cloud/image/upload";
 const AUTH_BASE = "https://res.cloudinary.com/demo-cloud/image/authenticated";
-const CROP = "c_thumb,g_face,z_1.05,w_1200,h_1200";
+const CROP = "c_thumb,g_face,z_1.05,w_1200,h_1200,q_auto:good,e_sharpen:50";
 
 function expectedSig(toSign) {
   return crypto.createHash("sha1").update(toSign + "test-secret").digest("base64")

@@ -43,9 +43,12 @@ const connectWithRetry = async () => {
                 Sentry.captureException(error, { tags: { scope: "mongoose-connect" } });
                 throw error;
             }
+            // Never log error.message here: some MongoDB driver errors (e.g. a
+            // malformed URI) embed the full connection string, credentials
+            // included. Name/code only; the full error still reaches Sentry
+            // on final failure below.
             console.warn(
-                `[MONGOOSE] connect attempt ${attempt + 1} failed, retrying in ${CONNECT_RETRY_DELAYS_MS[attempt]}ms:`,
-                error?.message || error
+                `[MONGOOSE] connect attempt ${attempt + 1} failed, retrying in ${CONNECT_RETRY_DELAYS_MS[attempt]}ms (${error?.name || error?.code || "unknown error"})`
             );
             await new Promise(resolve => setTimeout(resolve, CONNECT_RETRY_DELAYS_MS[attempt]));
         }
@@ -123,6 +126,16 @@ const UserSchema = new mongoose.Schema({
     currentPeriodStart: { type: Date, default: Date.now },
     currentPeriodEnd: { type: Date, default: null },
     extraScans: { type: Number, default: 0 },
+    // Polar's own subscription id, needed to call updateSubscriptions(id, ...)
+    // for upgrade/downgrade without an extra list-by-customer lookup.
+    polarSubscriptionId: { type: String, default: null },
+    // Purchased via the credit shop (lib/constants/credits.js), spent as a
+    // fallback once the subscription's own quota + admin-granted extras are
+    // exhausted. Priced against YouCam's own real credit cost ($0.048/credit).
+    creditBalance: { type: Number, default: 0 },
+    // Polar order ids already applied to creditBalance, so a retried
+    // onOrderPaid webhook delivery for the same order can't double-credit.
+    creditedOrderIds: [{ type: String }],
     // Set when the user reaches SCANS_PER_REPORT new scans (and the "report
     // ready" email went out); cleared when they generate that report.
     reportReadyAt: { type: Date, default: null },
@@ -157,7 +170,12 @@ const UserSchema = new mongoose.Schema({
     },
     photoPrivacy: { type: String, enum: ['store', 'delete'], default: 'store' },
     baselineSelfie: { type: String, default: null },
-    locationPromptDismissed: { type: Boolean, default: false }
+    locationPromptDismissed: { type: Boolean, default: false },
+    // IANA zone (e.g. "Australia/Sydney"), learned passively from the browser
+    // timezone already sent by analyzeAndSaveSelfie/runWhatIfSim/saveRoutineCompletion
+    // — never prompted for. Lets server-rendered reads (getLatestData's "today's
+    // routine") use the user's real day boundary instead of defaulting to UTC.
+    timezone: { type: String, default: null }
 }, { strict: true });
 
 const SelfieSchema = new mongoose.Schema({
@@ -279,4 +297,35 @@ const AdminAuthStateSchema = new mongoose.Schema({
 }, { strict: true });
 
 export const AdminAuthState = mongoose.models.AdminAuthState || mongoose.model('AdminAuthState', AdminAuthStateSchema);
+
+// A purchasable credit pack shown on /shop. `polarProductId` is a one-time,
+// fixed-price Polar product created/updated by the admin shop manager
+// (app/lib/shop-actions.js) — never hand-edited. Packs are archived
+// (active: false) rather than deleted so the webhook and refund lookups can
+// still resolve credits for orders placed against a retired pack.
+const CreditPackSchema = new mongoose.Schema({
+    label: { type: String, required: true, trim: true },
+    description: { type: String, default: '', trim: true },
+    credits: { type: Number, required: true, min: 1 },
+    priceCents: { type: Number, required: true, min: 1 },
+    polarProductId: { type: String, required: true, index: true },
+    active: { type: Boolean, default: true },
+    sortOrder: { type: Number, default: 0 },
+}, { strict: true, timestamps: true });
+
+export const CreditPack = mongoose.models.CreditPack || mongoose.model('CreditPack', CreditPackSchema);
+
+// Singleton doc backing the shop's "custom amount" purchase: a per-credit
+// price used both to show a live quote on /shop and to price the Polar
+// unit-based product (`customProductPolarId`) that checkout actually buys
+// against. pricePerCreditCents can carry a fractional cent (e.g. 4.8).
+const ShopSettingsSchema = new mongoose.Schema({
+    _id: { type: String, default: "singleton" },
+    pricePerCreditCents: { type: Number, required: true },
+    minCustomCredits: { type: Number, default: 50 },
+    maxCustomCredits: { type: Number, default: 5000 },
+    customProductPolarId: { type: String, default: null },
+}, { strict: true, timestamps: true });
+
+export const ShopSettings = mongoose.models.ShopSettings || mongoose.model('ShopSettings', ShopSettingsSchema);
 
