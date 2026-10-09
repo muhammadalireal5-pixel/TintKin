@@ -46,14 +46,30 @@ export async function registerUser({ email, password, name } = {}) {
 
   const requestHeaders = await headers();
   const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
-  const rateCheck = await checkRateLimit(
-    getCompositeKey(ip),
+
+  // Two checks, not one: a tight per-identity cap (same shape as LOGIN) stops
+  // repeated attempts against one email, and a looser per-IP-only backstop
+  // stops mass account creation from a single source — without the per-IP
+  // cap alone blocking many distinct real users behind one shared IP
+  // (school/office WiFi, mobile carrier NAT).
+  const identityRateCheck = await checkRateLimit(
+    getCompositeKey(ip, cleanEmail),
     "register",
     RATE_LIMIT_CONFIGS.REGISTER.limit,
     RATE_LIMIT_CONFIGS.REGISTER.windowMs
   );
-  if (!rateCheck.allowed) {
-    return { success: false, error: `Too many sign-up attempts. Please try again in ${Math.ceil(rateCheck.retryAfter / 60)} minutes.` };
+  if (!identityRateCheck.allowed) {
+    return { success: false, error: `Too many sign-up attempts. Please try again in ${Math.ceil(identityRateCheck.retryAfter / 60)} minutes.` };
+  }
+
+  const ipRateCheck = await checkRateLimit(
+    getCompositeKey(ip),
+    "register-ip",
+    RATE_LIMIT_CONFIGS.REGISTER_IP.limit,
+    RATE_LIMIT_CONFIGS.REGISTER_IP.windowMs
+  );
+  if (!ipRateCheck.allowed) {
+    return { success: false, error: `Too many sign-up attempts from this network. Please try again in ${Math.ceil(ipRateCheck.retryAfter / 60)} minutes.` };
   }
 
   // Check against breached passwords via HIBP API (fail open on error)

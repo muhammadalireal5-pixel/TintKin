@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, RotateCcw } from "lucide-react";
 
 export class ComponentErrorFallback extends React.Component {
@@ -13,7 +14,8 @@ export class ComponentErrorFallback extends React.Component {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error) {
+    Sentry.captureException(error);
   }
 
   render() {

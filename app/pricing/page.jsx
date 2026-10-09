@@ -113,7 +113,9 @@ export default async function PricingPage() {
                         Choose your <span className="italic text-sage">Journey</span>
                     </h1>
                     <p className="text-muted text-sm sm:text-base max-w-xl mx-auto px-2">
-                        Select the plan that fits your skin goals. Early access preview — all tiers are unlocked for testing!
+                        {process.env.ENABLE_DEMO_TIER_SWITCHING === "true"
+                            ? "Select the plan that fits your skin goals. Early access preview — all tiers are unlocked for testing!"
+                            : "Select the plan that fits your skin goals. Standard and Pro are paid plans and will take you to checkout."}
                     </p>
                 </div>
 

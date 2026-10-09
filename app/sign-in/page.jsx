@@ -20,6 +20,14 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const errorParam = searchParams.get("error");
+  const activeErrorMessage =
+    error ||
+    (errorParam === "AccessDenied"
+      ? "That Google account can't be linked to this sign-in. If you already have an account, try signing in with your email and password instead."
+      : errorParam
+      ? "We couldn't sign you in. Please try again."
+      : "");
   const noticeParam = searchParams.get("notice");
   const [successMessage, setSuccessMessage] = useState("");
   const activeSuccessMessage =
@@ -60,10 +68,13 @@ function SignInForm() {
       });
 
       if (res?.error) {
-        if (res.error === "CredentialsSignin" || res.code === "credentials") {
-          setError("Invalid email or password. Please check your credentials or reset your password.");
+        if (res.code === "rate_limited") {
+          setError("Too many sign-in attempts. Please wait a few minutes and try again.");
         } else {
-          setError(res.error || "Invalid email or password.");
+          // Covers "invalid_credentials", the legacy "credentials" code, and
+          // any other CredentialsSignin code — never show a raw NextAuth
+          // error type (e.g. "Configuration") to the user.
+          setError("Invalid email or password. Please check your credentials or reset your password.");
         }
         setLoading(false);
         return;
@@ -136,9 +147,9 @@ function SignInForm() {
           </p>
         </div>
 
-        {error && (
+        {activeErrorMessage && (
           <div className="p-3.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl">
-            {error}
+            {activeErrorMessage}
           </div>
         )}
 

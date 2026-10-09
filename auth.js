@@ -1,10 +1,24 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
 import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
+
+// Auth.js only sends the real error `type` to the client for a small
+// allow-list of error classes (CredentialsSignin among them) — anything else,
+// including a plain `new Error(...)` thrown from `authorize`, gets replaced
+// with the generic type "Configuration" before it reaches the browser. These
+// subclasses keep our messages intact end to end: `authorize` throws one of
+// these, `signIn()` on the client gets back `{ error: "CredentialsSignin",
+// code }`, and the code below picks the matching friendly string.
+class InvalidCredentialsSignin extends CredentialsSignin {
+  code = "invalid_credentials";
+}
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 // Track failed attempts for progressive delay (stored in DB via rate limit collection).
 // RATE_LIMIT_CONFIGS.LOGIN already hard-caps at 5/hour, so only indices 1-5
@@ -36,7 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       authorize: async (credentials, req) => {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          throw new InvalidCredentialsSignin();
         }
 
         // Get client IP for rate limiting
@@ -57,9 +71,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!rateLimitResult.allowed) {
           // Check if this is a hard lockout scenario (7+ attempts)
           if (rateLimitResult.retryAfter && rateLimitResult.retryAfter > 3600) {
-            throw new Error("Too many failed attempts. Account temporarily locked. Try again in 15 minutes.");
+            throw new RateLimitedSignin("Too many failed attempts. Account temporarily locked. Try again in 15 minutes.");
           }
-          throw new Error(`Too many failed attempts. Please try again in ${Math.ceil(rateLimitResult.retryAfter / 60)} minutes.`);
+          throw new RateLimitedSignin(`Too many failed attempts. Please try again in ${Math.ceil(rateLimitResult.retryAfter / 60)} minutes.`);
         }
 
         await connectDb();
@@ -69,7 +83,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // Spend the same bcrypt time as a real check so response timing
           // doesn't reveal which emails have accounts.
           await bcrypt.compare(credentials.password.toString(), await getDummyHash());
-          throw new Error("Invalid credentials");
+          throw new InvalidCredentialsSignin();
         }
 
         const isMatch = await bcrypt.compare(credentials.password.toString(), user.passwordHash);
@@ -83,7 +97,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
 
-          throw new Error("Invalid credentials");
+          throw new InvalidCredentialsSignin();
         }
 
         user.lastLoginAt = new Date();

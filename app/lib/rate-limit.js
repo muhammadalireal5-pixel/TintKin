@@ -106,7 +106,12 @@ export function getCompositeKey(ip, email = null) {
  */
 export const RATE_LIMIT_CONFIGS = {
   LOGIN: { limit: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+  // Per IP+email: caps repeated signup attempts against one identity (same as LOGIN).
   REGISTER: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
+  // Per IP only, deliberately looser: a backstop against mass account creation
+  // from one source, without penalizing many distinct real users behind one
+  // shared IP (school/office WiFi, mobile carrier NAT).
+  REGISTER_IP: { limit: 20, windowMs: 60 * 60 * 1000 }, // 20 per hour
   PASSWORD_RESET: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
   DATA_EXPORT: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour — builds a ZIP and sends an email, both non-trivial cost
 };

@@ -281,9 +281,15 @@ async function DashboardContent() {
 
                     {/* Recommended Products + What-If CTA */}
                     <StaggerItem className="space-y-6">
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted">Recommended Products</p>
+                        <p className="text-xs font-semibold tracking-widest uppercase text-muted">
+                            {hasPersonalizedProducts ? "Recommended Products" : "Starter Kit"}
+                        </p>
                         <div className="text-sm text-muted">
-                            <p>Your routine for 30 days (consider a 1-month supply).</p>
+                            <p>
+                                {hasPersonalizedProducts
+                                    ? "Your routine for 30 days (consider a 1-month supply)."
+                                    : "A general starting routine — scan again to get picks personalized to your results."}
+                            </p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {products.map((prod, idx) => (
