@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { RadarChartClient, ProgressChart } from "./LazyCharts";
 import ScoreCarousel from "./ScoreCarousel";
 import Link from "next/link";
-import ProductImage from "./ProductImage";
+import ProductGuideCard from "./ProductGuideCard";
 import { Sparkles, ArrowRight, Dumbbell, Flame, Share2, Trophy as TrophyIcon, LineChart } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
@@ -34,6 +34,8 @@ async function DashboardContent() {
     const hasRealAge = typeof realAge === "number";
     const skinOlder = hasSkinAge && hasRealAge && skinAge > realAge;
     const ageDelta = hasSkinAge && hasRealAge ? Math.abs(skinAge - realAge) : null;
+
+    const firstName = (user?.displayName || "").trim().split(/\s+/)[0] || "";
 
     const hasPersonalizedProducts = Array.isArray(latestSelfie?.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
     const products = hasPersonalizedProducts
@@ -70,7 +72,7 @@ async function DashboardContent() {
                 <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
                     <div>
                         <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
-                            Your Skin Journal
+                            {firstName ? `Hi ${firstName}, welcome back` : "Your Skin Journal"}
                         </p>
                         <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
                             Today&apos;s <span className="italic text-sage">Insight</span>
@@ -92,17 +94,8 @@ async function DashboardContent() {
 
                 <StaggerContainer className="flex flex-col gap-5 sm:gap-6">
 
-                    {/* Today's action, first */}
-                    <StaggerItem>
-                        <RoutineChecklist
-                            amRoutine={amRoutine}
-                            pmRoutine={pmRoutine}
-                            completedAm={todayRoutineLog?.amCompleted || []}
-                            completedPm={todayRoutineLog?.pmCompleted || []}
-                        />
-                    </StaggerItem>
-
-                    {/* Overall Harmony — hero score */}
+                    {/* Overall Harmony — hero score, shown first so the opening moment is
+                        an affirming read on her skin rather than a to-do list */}
                     <StaggerItem>
                         <div className="tk-glass p-6 sm:p-7 flex flex-col relative">
                             <div className="flex justify-between items-start mb-1.5">
@@ -169,6 +162,16 @@ async function DashboardContent() {
                                 </p>
                             </div>
                         </div>
+                    </StaggerItem>
+
+                    {/* Today's action, second — once she's seen an affirming read on her skin */}
+                    <StaggerItem>
+                        <RoutineChecklist
+                            amRoutine={amRoutine}
+                            pmRoutine={pmRoutine}
+                            completedAm={todayRoutineLog?.amCompleted || []}
+                            completedPm={todayRoutineLog?.pmCompleted || []}
+                        />
                     </StaggerItem>
 
                     {/* Insights strip — swipeable on mobile, grid on desktop */}
@@ -293,14 +296,12 @@ async function DashboardContent() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {products.map((prod, idx) => (
-                                <div key={idx} className="tk-glass p-6 rounded-3xl flex flex-col items-center text-center relative overflow-hidden">
-                                    <div className="relative w-32 h-32 rounded-full overflow-hidden mb-6 shadow-md border-2 border-white/50">
-                                        <ProductImage type={prod.type} alt={prod.type} className="object-cover" />
-                                    </div>
-                                    <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-1">{prod.type}</p>
-                                    <h3 className="text-lg font-display text-primary mb-3">{prod.formula}</h3>
-                                    <p className="text-sm text-muted leading-relaxed">{prod.description}</p>
-                                </div>
+                                <ProductGuideCard
+                                    key={idx}
+                                    type={prod.type}
+                                    formula={prod.formula}
+                                    description={prod.description}
+                                />
                             ))}
                         </div>
 

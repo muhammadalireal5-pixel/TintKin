@@ -16,9 +16,15 @@ const authPaths = [
 ];
 
 function buildCsp(nonce) {
+  // Dev-mode React/Turbopack HMR uses eval() for debugging (stack remapping,
+  // fast refresh); production React never calls eval(), so this is dev-only.
+  const scriptSrc = process.env.NODE_ENV === "production"
+    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https://res.cloudinary.com https://yce-us.s3-accelerate.amazonaws.com data: blob:",
     "font-src 'self' data:",
