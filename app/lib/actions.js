@@ -1004,19 +1004,21 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
       // A 1-year projection moves scores by only a point or two, too faint to
-      // see on a raw 0-1 scale. The scores shown stay the honest projection;
-      // only the *illustration* is boosted, into 0.5-1.0 for every concern the
-      // routine slows down relative to doing nothing.
-      const getIntensity = (none, projected) => {
+      // see on a raw 0-1 scale, so the *illustration* is boosted — but each
+      // concern has its own ceiling. High values look unnatural: radiance
+      // simply brightens/whitens the skin (blotchy, washed-out patches,
+      // especially on medium-to-dark skin tones) and a high age_spot erases
+      // features into smeared patches. Scores shown stay the honest projection.
+      const getIntensity = (none, projected, { min, max }) => {
         const improvement = projected - none;
         if (improvement <= 0) return 0.0;
-        return Math.min(1.0, 0.5 + improvement / 4);
+        return Math.min(max, min + improvement / 8);
       };
 
       const intensities = {
-        wrinkle: getIntensity(projNone.scores.wrinkles, proj.scores.wrinkles),
-        age_spot: getIntensity(projNone.scores.spots, proj.scores.spots),
-        radiance: getIntensity(projNone.scores.radiance, proj.scores.radiance),
+        wrinkle: getIntensity(projNone.scores.wrinkles, proj.scores.wrinkles, { min: 0.3, max: 0.6 }),
+        age_spot: getIntensity(projNone.scores.spots, proj.scores.spots, { min: 0.25, max: 0.5 }),
+        radiance: getIntensity(projNone.scores.radiance, proj.scores.radiance, { min: 0.1, max: 0.2 }),
       };
       
       let finalUrl = simSourceUrl;
@@ -1028,7 +1030,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       if (interventions.length > 0) {
         // Ensure at least minor simulation intensity so YouCam API requirement is satisfied
         if (Object.values(intensities).every(v => v === 0)) {
-          intensities.radiance = 0.3;
+          intensities.radiance = 0.05;
         }
 
         // simSourceUrl is Cloudinary's raw (unsigned) upload response; YouCam
