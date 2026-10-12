@@ -69,14 +69,13 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
       retryAfter: null,
     };
   } catch (error) {
-    console.error("Rate limit check failed (failing open):", error);
     // Fail open: allow request if DB is unavailable to prevent DoS.
     // Report to Sentry since a silent fail-open here means rate limiting
     // is effectively disabled until the DB is reachable again.
     Sentry.captureException(error, {
       tags: { scope: "rate-limit-fail-open", action },
+      extra: { identifier },
     });
-    console.warn(`[RATE_LIMIT] DB unavailable, failing open for ${identifier}:${action}`);
     return {
       allowed: true,
       remaining: limit,

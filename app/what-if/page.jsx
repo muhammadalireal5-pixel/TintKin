@@ -10,6 +10,7 @@ import AnimatedModal from "@/app/components/AnimatedModal";
 import ProductScanModal from "./ProductScanModal";
 import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight, Plus, Lock, X } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -85,6 +86,7 @@ export default function WhatIfPage() {
           setProductScanError(res.error || "Failed to analyze product.");
         }
       } catch (err) {
+        Sentry.captureException(err, { tags: { scope: "whatif-analyze-product-image" } });
         setProductScanError("Error analyzing product.");
       } finally {
         setIsAnalyzingProduct(false);
@@ -110,6 +112,7 @@ export default function WhatIfPage() {
         setError(res.error || "Failed to upload photo.");
       }
     } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "whatif-upload-custom-photo" } });
       setError("Error uploading photo.");
     } finally {
       setCustomImageUploading(false);
@@ -135,7 +138,8 @@ export default function WhatIfPage() {
           setProducts(d.latestSelfie.recommendedProducts);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        Sentry.captureException(err, { tags: { scope: "whatif-get-latest-data" } });
         setError("Could not load your skin profile data. Please check your connection.");
       });
 
@@ -146,7 +150,9 @@ export default function WhatIfPage() {
     });
 
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    getUsageQuotas(tz).then((data) => setQuotas(data)).catch(() => {});
+    getUsageQuotas(tz).then((data) => setQuotas(data)).catch((err) => {
+      Sentry.captureException(err, { tags: { scope: "whatif-usage-quotas" } });
+    });
   }, []);
 
   useEffect(() => {
@@ -221,6 +227,7 @@ export default function WhatIfPage() {
         setError(res.message || res.error || "Simulation failed. Please try again.");
       }
     } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "whatif-run-simulation-unexpected" } });
       setLoading(false);
       setError("Something went wrong, please try again later.");
     }

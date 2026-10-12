@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { connectDb, User } from "@/app/lib/mongoose";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -60,10 +61,10 @@ export async function submitNewPassword(newPassword) {
           };
         }
       } else {
-        console.warn("[HIBP] API unavailable during password reset, proceeding");
+        Sentry.captureMessage("[HIBP] API unavailable during password reset, proceeding", "warning");
       }
     } catch (err) {
-      console.warn("[HIBP] Check failed during password reset:", err.message);
+      Sentry.captureException(err, { tags: { scope: "hibp-check-password-reset" } });
     }
 
     await connectDb();
@@ -87,7 +88,7 @@ export async function submitNewPassword(newPassword) {
 
     return { success: true };
   } catch (error) {
-    console.error("[PASSWORD_RESET] Error:", error);
+    Sentry.captureException(error, { tags: { scope: "password-reset-submit" } });
     return { success: false, error: "An unexpected error occurred. Please try again." };
   }
 }

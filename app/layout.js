@@ -1,10 +1,12 @@
 import { AuthProvider } from "./context/AuthContext";
+import { PwaProvider } from "./context/PwaContext";
 import { HeaderAuth } from "./components/HeaderAuth";
 import { Outfit, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { ToastProvider } from "./components/ToastProvider";
 import PageTransition from "./components/PageTransition";
+import TestBuildBanner from "./components/TestBuildBanner";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -111,8 +113,10 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" dir="ltr" className={`${outfit.variable} ${playfair.variable} h-full`}>
       <body className="tk-body min-h-screen min-h-[100dvh] flex flex-col">
+        <PwaProvider>
         <AuthProvider>
           <ToastProvider>
+            <TestBuildBanner />
             <header className="sticky top-0 z-50 bg-[#FDFBF7] border-b border-[rgba(44,62,80,0.08)] transition-all duration-300 shrink-0">
               <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
 
@@ -136,7 +140,7 @@ export default async function RootLayout({ children }) {
                 <div className="flex items-center gap-6">
                   <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy Policy</Link>
                   <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms of Service</Link>
-                  <a href="mailto:support@tintkin.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
+                  <a href="mailto:muhammad0alire@gmail.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
                 </div>
               </div>
             </footer>
@@ -150,6 +154,7 @@ export default async function RootLayout({ children }) {
             />
           </ToastProvider>
         </AuthProvider>
+        </PwaProvider>
       </body>
     </html>
   );

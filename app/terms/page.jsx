@@ -62,7 +62,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-xl font-display font-medium mb-3">8. Contact Us</h2>
-            <p>If you have any questions about these Terms, please contact us at <a href="mailto:support@tintkin.com" className="text-sage hover:underline">support@tintkin.com</a>.</p>
+            <p>If you have any questions about these Terms, please contact us at <a href="mailto:muhammad0alire@gmail.com" className="text-sage hover:underline">muhammad0alire@gmail.com</a>.</p>
           </section>
         </div>
       </div>

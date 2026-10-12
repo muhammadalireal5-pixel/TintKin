@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { connectDb, User } from "@/app/lib/mongoose";
 import crypto from "crypto";
 import { cookies } from "next/headers";
@@ -63,7 +64,7 @@ export async function exchangeResetToken(formData) {
       });
     }
   } catch (error) {
-    console.error("[RESET_EXCHANGE] Error:", error?.message || error);
+    Sentry.captureException(error, { tags: { scope: "reset-password-exchange" } });
     redirect("/reset-password/exchange?status=error");
   }
 

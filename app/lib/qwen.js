@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import * as Sentry from "@sentry/nextjs";
 import { sanitizeForPrompt } from "@/lib/utils/sanitize";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
@@ -104,7 +105,7 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
       products: Array.isArray(result.products) ? result.products : []
     });
   } catch (err) {
-    console.error("[ai-advice] generation failed:", err?.status ?? "", err?.message ?? err);
+    Sentry.captureException(err, { tags: { scope: "ai-advice-generation" }, extra: { status: err?.status } });
     return errorResult(
       ERROR_CODES.AI_ADVICE_UNAVAILABLE,
       "Personalized AI advice is temporarily unavailable."

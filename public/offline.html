@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>You're offline — TintKin</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #FDFBF7;
+    color: #2C3E50;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem 1.5rem;
+  }
+  .badge {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #E6E6FA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+    font-size: 1.5rem;
+  }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem; }
+  p { font-size: 0.9rem; color: #5B6D7F; max-width: 320px; margin: 0 0 1.5rem; line-height: 1.5; }
+  button {
+    border: none;
+    background: #2C3E50;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.7rem 1.5rem;
+    border-radius: 9999px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">✦</div>
+    <h1>You're offline</h1>
+    <p>TintKin needs a connection to load your skin journal. Reconnect and try again.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>

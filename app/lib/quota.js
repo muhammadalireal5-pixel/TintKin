@@ -1,5 +1,6 @@
 import "server-only";
 import mongoose from "mongoose";
+import * as Sentry from "@sentry/nextjs";
 import { connectDb, User } from "./mongoose";
 import { getLocalDayKey, getLocalMonthKey, normalizeTimezone } from "@/lib/utils/date";
 import { resolvePeriod } from "@/lib/utils/quota-period";
@@ -67,7 +68,7 @@ async function reserveSlot({ userId, field, dayKey, monthKey, dailyLimit, monthl
       granted = true;
     });
   } catch (error) {
-    console.error("[QUOTA] Reservation transaction failed, failing closed:", error?.message || error);
+    Sentry.captureException(error, { tags: { scope: "quota-reservation-failed-closed" }, extra: { userId: userId?.toString?.() ?? String(userId) } });
     return { granted: false, reason: "error", dayKey, monthKey };
   } finally {
     await session.endSession();
@@ -89,7 +90,10 @@ async function releaseSlot({ userId, field, dayKey, monthKey }) {
     }
     await User.updateOne(query, { $inc: dec });
   } catch (error) {
-    console.error("[QUOTA] Failed to release slot:", error);
+    // A silently un-released slot costs the user a scan/sim they didn't
+    // actually get — worth knowing about even though nothing user-facing
+    // depends on this succeeding.
+    Sentry.captureException(error, { tags: { scope: "quota-release-slot-failed" }, extra: { userId: userId?.toString?.() ?? String(userId) } });
   }
 }
 

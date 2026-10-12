@@ -92,11 +92,11 @@ export async function registerUser({ email, password, name } = {}) {
       }
     } else {
       // HIBP API unavailable - log warning but proceed (fail open)
-      console.warn("[HIBP] API unavailable, proceeding with registration");
+      Sentry.captureMessage("[HIBP] API unavailable, proceeding with registration", "warning");
     }
   } catch (err) {
     // Network error or timeout - fail open to prevent DoS
-    console.warn("[HIBP] Check failed, proceeding with registration:", err.message);
+    Sentry.captureException(err, { tags: { scope: "hibp-check-registration" } });
   }
 
   await connectDb();

@@ -141,7 +141,7 @@ async function uploadUrlToCloudinary(imageUrl, userId) {
     return data.secure_url;
   } catch (e) {
     // Keep the simulation usable, but the YouCam URL may expire later.
-    console.warn(`uploadUrlToCloudinary failed, storing provider URL: ${e?.message || e}`);
+    Sentry.captureException(e, { tags: { scope: "upload-url-to-cloudinary" } });
     return imageUrl;
   }
 }
@@ -180,7 +180,7 @@ async function prepareSimulationSource(imageUrl, userId) {
     if (!res.ok) throw new Error(`upload HTTP ${res.status}`);
     return (await res.json()).secure_url;
   } catch (e) {
-    console.warn(`prepareSimulationSource failed, using original photo: ${e?.message || e}`);
+    Sentry.captureException(e, { tags: { scope: "prepare-simulation-source" } });
     return imageUrl;
   }
 }
@@ -294,6 +294,33 @@ async function getDbUser() {
     redirect("/onboarding");
   }
   return user;
+}
+
+// Same checks as getDbUser(), but returns a status instead of calling
+// redirect(). redirect() only produces a real navigation when thrown during
+// an awaited render; a Server Component that kicks off a fetch and streams
+// the unawaited promise to a Client Component (getWeeklyHistory/
+// getLeaderboard's page.jsx callers) reads the result long after rendering
+// has finished, so a thrown redirect() there would just silently reject the
+// promise with no navigation ever happening. Callers that stream their
+// result this way should use this instead and have the client redirect.
+async function getDbUserOrStatus() {
+  const [, auth] = await Promise.all([
+    connectDb(),
+    getAuthenticatedUser().then(
+      (decoded) => ({ decoded }),
+      () => ({ decoded: null })
+    ),
+  ]);
+  const decoded = auth.decoded;
+  if (!decoded) return { redirectTo: "/sign-in" };
+
+  const user = await findSessionUser(decoded);
+  if (!user) return { redirectTo: SESSION_EXPIRED_PATH };
+
+  if (!user.onboardingComplete) return { redirectTo: "/onboarding" };
+
+  return { user };
 }
 
 export async function checkOnboardingStatus() {
@@ -661,6 +688,10 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     const displayError = (err?.isUserFacing && typeof err.message === "string" && err.message.length > 0)
       ? err.message
       : GENERIC_ANALYSIS_ERROR;
+    Sentry.captureException(err, {
+      tags: { scope: "analyze-and-save-selfie", userFacing: Boolean(err?.isUserFacing) },
+      extra: { userId: user?._id?.toString() },
+    });
     return errorResult(
       ERROR_CODES.ANALYSIS_FAILED,
       displayError,
@@ -1062,7 +1093,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS 
     });
   } catch (err) {
-    console.error(`runWhatIfSim failed for user ${user._id}: ${err?.message || err}`);
+    Sentry.captureException(err, { tags: { scope: "run-what-if-sim" }, extra: { userId: user._id?.toString() } });
     if (simSourceUrl && simSourceUrl !== sourceImageUrl) {
       await deleteImageFromCloudinary(simSourceUrl).catch(() => {});
     }
@@ -1195,8 +1226,15 @@ export async function completeOnboarding(data) {
  */
 export async function getScanConsentStatus() {
   try {
-    const user = await getDbUser();
-    return { needsConsent: !user.termsAcceptedAt };
+    // Deliberately doesn't use getDbUser(): it's called alongside
+    // checkOnboardingStatus() from a Server Component that streams both
+    // results to the client unawaited (app/capture/page.jsx), where a
+    // thrown redirect() would just silently reject the promise instead of
+    // navigating anywhere — see getDbUserOrStatus()'s comment. Onboarding
+    // routing is already handled by checkOnboardingStatus's result.
+    const dbResult = await getDbUserOrStatus();
+    if (dbResult.redirectTo) return { needsConsent: false };
+    return { needsConsent: !dbResult.user.termsAcceptedAt };
   } catch {
     return { needsConsent: false };
   }
@@ -1383,10 +1421,11 @@ export async function deleteSavedSimulation(simId) {
 
 export async function getWeeklyHistory() {
   try {
-    const user = await getDbUser();
-    if (!user) {
-      return errorResult(ERROR_CODES.UNAUTHORIZED, "Please sign in again to continue.");
+    const dbResult = await getDbUserOrStatus();
+    if (dbResult.redirectTo) {
+      return errorResult(ERROR_CODES.UNAUTHORIZED, "Please sign in again to continue.", { redirectTo: dbResult.redirectTo });
     }
+    const user = dbResult.user;
     // Only the most recent 12 weeks are ever displayed (see .slice(0, 12)
     // below), but this used to load the user's entire scan history —
     // unbounded, unprojected and non-lean — to compute it every time (M19 in
@@ -1540,7 +1579,7 @@ export async function changeSubscriptionTier(newTier) {
 
     return { success: true };
   } catch (err) {
-    console.error("[CHANGE_SUBSCRIPTION_TIER]", err);
+    Sentry.captureException(err, { tags: { scope: "change-subscription-tier" } });
     return { success: false, error: "Failed to change your plan. Please try again." };
   }
 }
@@ -2183,7 +2222,7 @@ async function notifyReportReadyIfDue(user) {
     }
     return { ready: true, justUnlocked: Boolean(claimed) };
   } catch (err) {
-    console.error("Report-ready check failed:", err);
+    Sentry.captureException(err, { tags: { scope: "report-ready-check" } });
     return { ready: false, justUnlocked: false };
   }
 }
@@ -2326,7 +2365,7 @@ export async function generateReport(prevState, formData) {
       },
     };
   } catch (err) {
-    console.error('Error generating report:', err);
+    Sentry.captureException(err, { tags: { scope: "generate-report" } });
     return { success: false, error: "Failed to generate report. Please try again." };
   }
 }
@@ -2352,8 +2391,9 @@ export async function getUserReports() {
 
 export async function getLeaderboard(scope = 'city') {
   try {
-    const user = await getDbUser();
-    if (!user) return { success: false, error: "Please sign in again to continue." };
+    const dbResult = await getDbUserOrStatus();
+    if (dbResult.redirectTo) return { success: false, error: "Please sign in again to continue.", redirectTo: dbResult.redirectTo };
+    const user = dbResult.user;
 
     const rawCity = user.location?.city || "";
     const rawCountry = user.location?.country || "";

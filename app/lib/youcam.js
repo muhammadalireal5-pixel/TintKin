@@ -1,4 +1,5 @@
 import { unzipSync, strFromU8 } from "fflate";
+import * as Sentry from "@sentry/nextjs";
 import { applyFaceCropToCloudinary } from "@/lib/utils/cloudinary";
 import { YOUCAM_DST_ACTIONS } from "@/lib/constants/metrics";
 
@@ -291,7 +292,10 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         continue;
       }
 
-      console.error(`simulateSkin failed after ${i + 1}/${candidates.length} candidate(s): ${describeYouCamError(err)}`);
+      Sentry.captureException(err, {
+        tags: { scope: "simulate-skin-exhausted" },
+        extra: { candidatesTried: i + 1, totalCandidates: candidates.length, youcamError: describeYouCamError(err) },
+      });
       throw new Error("Something went wrong, try again later!");
     }
   }

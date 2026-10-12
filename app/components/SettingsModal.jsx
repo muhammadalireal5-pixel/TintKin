@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Mail,
   Bell,
+  MonitorSmartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings, changeSubscriptionTier } from "@/app/lib/actions";
@@ -30,6 +31,7 @@ import { subscribeToPush, unsubscribeFromPush, sendTestNotification } from "@/ap
 import { exportUserData, emailUserDataExport } from "@/app/lib/export-data";
 import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
+import { usePwaInstall } from "../context/PwaContext";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
 import { TIERS, TIER_NAMES, ACTIVE_SUBSCRIPTION_TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
@@ -48,7 +50,9 @@ function urlBase64ToUint8Array(base64String) {
 
 export default function SettingsModal({ isOpen, onClose }) {
   const { user, signOutUser } = useAuthContext();
+  const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
   const { showToast } = useToast();
+  const [installing, setInstalling] = useState(false);
   const [profile, setProfile] = useState(null);
   const [locationMode, setLocationMode] = useState("idle"); // idle | editing | loading | saved
   const [city, setCity] = useState("");
@@ -114,6 +118,18 @@ export default function SettingsModal({ isOpen, onClose }) {
       });
     }
   }, [isOpen]);
+
+  const handleInstallClick = async () => {
+    setInstalling(true);
+    try {
+      const outcome = await promptInstall();
+      if (outcome === "accepted") {
+        showToast({ type: "success", title: "Installed", message: "TintKin has been added to your device." });
+      }
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   const handleResendVerification = async () => {
     if (verifyEmailState === "sending") return;
@@ -635,6 +651,37 @@ export default function SettingsModal({ isOpen, onClose }) {
               </div>
             )}
           </div>
+
+          {/* Install App */}
+          {(canInstall || isInstalled || isIOS) && (
+            <div className="px-6 py-5 border-b border-black/5">
+              <div className="flex items-center gap-2 mb-3">
+                <MonitorSmartphone size={14} className="text-[#8A9A5B]" />
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+                  App
+                </p>
+              </div>
+              {isInstalled ? (
+                <div className="flex items-center gap-2 text-sm text-[#8A9A5B] font-medium">
+                  <Check size={14} /> Installed on this device
+                </div>
+              ) : canInstall ? (
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  disabled={installing}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2C3E50] text-white text-sm font-medium hover:bg-[#2C3E50]/90 transition-colors disabled:opacity-60"
+                >
+                  <Download size={15} />
+                  {installing ? "Opening install prompt…" : "Install TintKin App"}
+                </button>
+              ) : (
+                <p className="text-xs text-[#5B6D7F] leading-relaxed">
+                  Tap <Share2 size={12} className="inline -mt-0.5" /> <strong>Share</strong>, then <strong>&quot;Add to Home Screen&quot;</strong> to install TintKin on this device.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Skin Profile & Preferences */}
           <div className="px-6 py-5 border-b border-black/5">
