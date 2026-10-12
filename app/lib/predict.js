@@ -174,7 +174,12 @@ export function projectTrajectory(
 
         // Apply lifestyle multiplier + compound forward
         let score = baseline;
-        let vel = baseVel * mult;
+        // The multiplier scales how fast skin ages. A decline (negative
+        // velocity) shrinks when mult < 1; but a user whose own scan history
+        // trends UP (noise, better lighting, a good month) must not have that
+        // gain shrunk by a protective routine — that made products look like
+        // they worsen skin. Gains are scaled the opposite way instead.
+        let vel = baseVel < 0 ? baseVel * mult : baseVel * Math.min(1.7, Math.max(0.5, 2 - mult));
         for (let y = 0; y < years; y++) {
           score = Math.max(10, score + vel); // Floor at 10 (can't get worse than that)
           vel *= 1.02; // Aging accelerates ~2%/year biologically

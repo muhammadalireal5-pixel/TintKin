@@ -995,22 +995,28 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     labelA = typeof labelA === "string" ? labelA.slice(0, MAX_SIM_LABEL_LENGTH) : "";
     labelB = typeof labelB === "string" ? labelB.slice(0, MAX_SIM_LABEL_LENGTH) : "";
 
+    // "Do nothing" projection: a routine is judged against this, not against
+    // today's score. Projections normally decline from today (skin ages), so
+    // projected - today was always <= 0 and zeroed every intensity, leaving
+    // the simulated photo essentially unchanged.
+    const projNone = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, [], allSelfies);
+
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
-      // A 1-year projection moves scores by only a few points, which on a raw
-      // 0-1 scale (improvement / 15) is too faint to see. The scores shown
-      // stay the honest projection; only the *illustration* is boosted, into
-      // the 0.5-1.0 range for every concern the routine actually improves.
-      const getIntensity = (base, projected) => {
-        const improvement = projected - base;
+      // A 1-year projection moves scores by only a point or two, too faint to
+      // see on a raw 0-1 scale. The scores shown stay the honest projection;
+      // only the *illustration* is boosted, into 0.5-1.0 for every concern the
+      // routine slows down relative to doing nothing.
+      const getIntensity = (none, projected) => {
+        const improvement = projected - none;
         if (improvement <= 0) return 0.0;
-        return Math.min(1.0, 0.5 + improvement / 30);
+        return Math.min(1.0, 0.5 + improvement / 4);
       };
 
       const intensities = {
-        wrinkle: getIntensity(baseline.wrinkles, proj.scores.wrinkles),
-        age_spot: getIntensity(baseline.spots, proj.scores.spots),
-        radiance: getIntensity(baseline.radiance, proj.scores.radiance),
+        wrinkle: getIntensity(projNone.scores.wrinkles, proj.scores.wrinkles),
+        age_spot: getIntensity(projNone.scores.spots, proj.scores.spots),
+        radiance: getIntensity(projNone.scores.radiance, proj.scores.radiance),
       };
       
       let finalUrl = simSourceUrl;
@@ -1100,6 +1106,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       targetAge: realAge + TARGET_YEARS 
     });
   } catch (err) {
+    console.error("[runWhatIfSim] failed:", err);
     Sentry.captureException(err, { tags: { scope: "run-what-if-sim" }, extra: { userId: user._id?.toString() } });
     if (simSourceUrl && simSourceUrl !== sourceImageUrl) {
       await deleteImageFromCloudinary(simSourceUrl).catch(() => {});

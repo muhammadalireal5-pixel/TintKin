@@ -296,6 +296,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         continue;
       }
 
+      console.error("[simulateSkin] exhausted:", describeYouCamError(err), { intensities: payloadIntensities });
       Sentry.captureException(err, {
         tags: { scope: "simulate-skin-exhausted" },
         extra: { candidatesTried: i + 1, totalCandidates: candidates.length, youcamError: describeYouCamError(err) },
