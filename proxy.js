@@ -89,7 +89,9 @@ export async function proxy(request) {
 
   // If already logged in, redirect away from auth pages to dashboard
   const isAuthPath = authPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (isAuthPath && session) {
+  // The marketing home page is for visitors; signed-in users land on their
+  // dashboard (an expired cookie still gets bounced to sign-in from there).
+  if ((isAuthPath || pathname === "/") && session) {
     return withCsp(NextResponse.redirect(new URL("/dashboard", request.url)));
   }
 

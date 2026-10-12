@@ -241,7 +241,7 @@ export const SIM_CROP_OPTIONS = Object.freeze({ sharpen: false, quality: "auto:b
 export async function simulateSkin(imageUrl, intensities = {}) {
   const payloadIntensities = { ...intensities };
   if (Object.values(payloadIntensities).length === 0 || Object.values(payloadIntensities).every(v => !v || v === 0)) {
-    payloadIntensities.radiance = 0.05;
+    payloadIntensities.texture = 0.05;
   }
 
   const candidates = [];

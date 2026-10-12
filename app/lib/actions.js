@@ -110,6 +110,39 @@ function sanitizeInterventions(list) {
   });
 }
 
+// Which YouCam skin-simulation concerns to illustrate for each product type.
+// Radiance is deliberately absent: it brightens the whole face unevenly (white
+// patches, shifted skin tone). Texture/wrinkle change fine detail rather than
+// colour, redness only evens out redness, and age_spot is kept to the types
+// that actually target pigment, at a low ceiling (it lightens dark patches).
+// YouCam bills 4 units for up to 4 concerns, so each type stays within that.
+const SIM_CONCERNS_BY_TYPE = {
+  cleanser: ["texture", "redness"],
+  serum: ["wrinkle", "texture"],
+  retinol: ["wrinkle", "texture"],
+  moisturizer: ["texture", "wrinkle"],
+  sunscreen: ["redness", "age_spot"],
+  daily_spf: ["redness", "age_spot"],
+  exfoliant: ["texture", "age_spot"],
+};
+const DEFAULT_SIM_CONCERNS = ["texture"];
+// Strength range per concern: [floor when the routine helps, ceiling].
+const SIM_STRENGTH = {
+  wrinkle: { min: 0.3, max: 0.6 },
+  texture: { min: 0.3, max: 0.55 },
+  redness: { min: 0.25, max: 0.5 },
+  age_spot: { min: 0.2, max: 0.35 },
+};
+
+function simConcernsFor(interventions) {
+  const concerns = new Set();
+  for (const item of interventions) {
+    const type = String(typeof item === "object" && item ? item.type : item).toLowerCase();
+    for (const c of SIM_CONCERNS_BY_TYPE[type] || DEFAULT_SIM_CONCERNS) concerns.add(c);
+  }
+  return [...concerns];
+}
+
 function signCloudinaryParams(params) {
   return crypto.createHash("sha1").update(`${params}${process.env.CLOUDINARY_API_SECRET}`).digest("hex");
 }
@@ -1004,22 +1037,23 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
       // A 1-year projection moves scores by only a point or two, too faint to
-      // see on a raw 0-1 scale, so the *illustration* is boosted — but each
-      // concern has its own ceiling. High values look unnatural: radiance
-      // simply brightens/whitens the skin (blotchy, washed-out patches,
-      // especially on medium-to-dark skin tones) and a high age_spot erases
-      // features into smeared patches. Scores shown stay the honest projection.
-      const getIntensity = (none, projected, { min, max }) => {
-        const improvement = projected - none;
-        if (improvement <= 0) return 0.0;
-        return Math.min(max, min + improvement / 8);
-      };
-
-      const intensities = {
-        wrinkle: getIntensity(projNone.scores.wrinkles, proj.scores.wrinkles, { min: 0.3, max: 0.6 }),
-        age_spot: getIntensity(projNone.scores.spots, proj.scores.spots, { min: 0.25, max: 0.5 }),
-        radiance: getIntensity(projNone.scores.radiance, proj.scores.radiance, { min: 0.1, max: 0.2 }),
-      };
+      // see on a raw 0-1 scale, so the *illustration* is boosted, within each
+      // concern's own ceiling (high values look over-processed). How much the
+      // routine slows aging beyond doing nothing sets where in that range it
+      // lands. Scores shown stay the honest projection.
+      const benefit = Math.max(
+        0,
+        ...["wrinkles", "firmness", "spots", "radiance"].map(
+          (k) => (proj.scores[k] ?? 0) - (projNone.scores[k] ?? 0)
+        )
+      );
+      const intensities = {};
+      if (benefit > 0) {
+        for (const concern of simConcernsFor(interventions)) {
+          const { min, max } = SIM_STRENGTH[concern];
+          intensities[concern] = Math.min(max, min + benefit / 8);
+        }
+      }
       
       let finalUrl = simSourceUrl;
       if (interventions.length === 0 && finalUrl) {
@@ -1029,8 +1063,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       
       if (interventions.length > 0) {
         // Ensure at least minor simulation intensity so YouCam API requirement is satisfied
-        if (Object.values(intensities).every(v => v === 0)) {
-          intensities.radiance = 0.05;
+        if (Object.keys(intensities).length === 0) {
+          intensities.texture = 0.05;
         }
 
         // simSourceUrl is Cloudinary's raw (unsigned) upload response; YouCam
