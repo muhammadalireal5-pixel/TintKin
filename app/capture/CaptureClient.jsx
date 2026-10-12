@@ -13,7 +13,7 @@ import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback"
 import { refreshReportStatus } from "@/app/components/reportStatus";
 import Link from "next/link";
 
-export default function CaptureClient({ precheckPromise }) {
+export default function CaptureClient({ precheckPromise, quotasPromise }) {
     const router = useRouter();
     const { showToast } = useToast();
     const cameraInputRef = useRef(null);
@@ -39,6 +39,7 @@ export default function CaptureClient({ precheckPromise }) {
     const [precheck, setPrecheck] = useState(null);
     const [scanStage, setScanStage] = useState(null); // null | 'upload' | 'analyze' | 'done'
     const pendingActionType = useRef(null);
+    const browserQuotasLoaded = useRef(false);
 
     const loadingTexts = [
         "Analyzing skin tone & texture...",
@@ -77,6 +78,12 @@ export default function CaptureClient({ precheckPromise }) {
             router.push("/onboarding");
             return;
         }
+        // Don't open the camera for a photo that will be rejected anyway —
+        // surface the limit card now instead of after upload.
+        if (quotas && !quotas.scans.canScanToday) {
+            setQuotasLoaded(true);
+            return;
+        }
         if (result.needsConsent) {
             pendingActionType.current = type;
             setShowConsent(true);
@@ -112,6 +119,18 @@ export default function CaptureClient({ precheckPromise }) {
     }, [precheckPromise]);
 
     useEffect(() => {
+        let cancelled = false;
+        // Server-prefetched quotas (stored timezone) show the limit card
+        // early; the browser-timezone fetch below replaces them once it lands.
+        quotasPromise.then((result) => {
+            if (cancelled || !result || browserQuotasLoaded.current) return;
+            setQuotas(result);
+            setQuotasLoaded(true);
+        });
+        return () => { cancelled = true; };
+    }, [quotasPromise]);
+
+    useEffect(() => {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         getUsageQuotas(tz)
             .catch((err) => {
@@ -119,7 +138,10 @@ export default function CaptureClient({ precheckPromise }) {
                 return null;
             })
             .then((quotaData) => {
-                setQuotas(quotaData);
+                if (quotaData) {
+                    browserQuotasLoaded.current = true;
+                    setQuotas(quotaData);
+                }
                 setQuotasLoaded(true);
             });
     }, []);

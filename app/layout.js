@@ -6,7 +6,6 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { ToastProvider } from "./components/ToastProvider";
 import PageTransition from "./components/PageTransition";
-import TestBuildBanner from "./components/TestBuildBanner";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -116,7 +115,6 @@ export default async function RootLayout({ children }) {
         <PwaProvider>
         <AuthProvider>
           <ToastProvider>
-            <TestBuildBanner />
             <header className="sticky top-0 z-50 bg-[#FDFBF7] border-b border-[rgba(44,62,80,0.08)] transition-all duration-300 shrink-0">
               <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
 

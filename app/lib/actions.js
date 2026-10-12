@@ -1299,9 +1299,11 @@ export async function updatePrivacySettings(photoPrivacy) {
   }
 }
 
-export async function getUsageQuotas(timezone = "UTC") {
-  timezone = normalizeTimezone(timezone);
+export async function getUsageQuotas(timezone) {
   const user = await getDbUser();
+  // Server-rendered callers have no browser timezone, so fall back to the one
+  // last saved on the user (see syncUserTimezone).
+  timezone = normalizeTimezone(timezone ?? user.timezone);
   const todayStart = getLocalDayStart(timezone);
   const { daysInMonth } = getLocalMonthStart(timezone);
 

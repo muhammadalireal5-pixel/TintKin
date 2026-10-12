@@ -1,4 +1,4 @@
-import { checkOnboardingStatus, getScanConsentStatus } from "@/app/lib/actions";
+import { checkOnboardingStatus, getScanConsentStatus, getUsageQuotas } from "@/app/lib/actions";
 import CaptureClient from "./CaptureClient";
 
 export default function CapturePage() {
@@ -14,5 +14,9 @@ export default function CapturePage() {
         needsConsent: consent.needsConsent,
     }));
 
-    return <CaptureClient precheckPromise={precheckPromise} />;
+    // Separate promise so the camera never waits on it — it only lets a
+    // used-up allowance show before the user takes a photo, not after.
+    const quotasPromise = getUsageQuotas().catch(() => null);
+
+    return <CaptureClient precheckPromise={precheckPromise} quotasPromise={quotasPromise} />;
 }

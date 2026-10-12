@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
 import AnimatedModal from "./AnimatedModal";
+import UserAvatar from "./UserAvatar";
 import {
   X,
   MapPin,
   History,
   Share2,
   LogOut,
-  User,
   ChevronRight,
   Check,
   Crown,
@@ -522,15 +522,12 @@ export default function SettingsModal({ isOpen, onClose }) {
             </p>
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-[#E6E6FA] flex items-center justify-center shrink-0 overflow-hidden border border-white/50 shadow-sm">
-                {user?.photoURL || profile?.photoURL ? (
-                  <img
-                    src={user?.photoURL || profile?.photoURL}
-                    alt={user?.displayName || profile?.displayName || "User"}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User size={20} className="text-[#2C3E50]" />
-                )}
+                <UserAvatar
+                  photoURL={user?.photoURL || profile?.photoURL}
+                  name={user?.displayName || profile?.displayName}
+                  email={user?.email || profile?.email}
+                  className="text-base text-[#2C3E50]"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-[#2C3E50] truncate">

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useAuthContext } from "../context/AuthContext";
 import { useState } from "react";
-import { Settings, User } from "lucide-react";
+import { Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import SettingsModal from "./SettingsModal";
+import UserAvatar from "./UserAvatar";
 import { useReportStatus } from "./reportStatus";
 
 export function HeaderAuth() {
@@ -69,11 +70,7 @@ export function HeaderAuth() {
           aria-label="Open user settings"
         >
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-white flex items-center justify-center border border-lavender/50">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
-            ) : (
-              <User size={16} className="text-primary" />
-            )}
+            <UserAvatar photoURL={user.photoURL} name={user.displayName} email={user.email} className="text-xs sm:text-sm" />
           </div>
         </button>
 
