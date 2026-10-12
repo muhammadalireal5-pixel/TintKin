@@ -45,7 +45,7 @@ export function HeaderAuth() {
             <Link
               key={href}
               href={href}
-              prefetch={false}
+              prefetch={true}
               className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 border border-transparent
                 ${isActive
                   ? "text-primary font-semibold bg-black/[0.08] shadow-sm border-black/[0.08]"

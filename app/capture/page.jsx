@@ -326,13 +326,7 @@ export default function CapturePage() {
                             </div>
                         )}
                     </div>
-                ) : !quotasLoaded ? (
-                    <div className="cta-group" aria-busy="true">
-                        <div className="cta-skeleton" />
-                        <div className="or-divider"><span /><p>or</p><span /></div>
-                        <div className="cta-skeleton" />
-                    </div>
-                ) : scanLimitReached ? (
+                ) : quotasLoaded && scanLimitReached ? (
                     <div className="limit-card" role="status">
                         <div className="limit-icon">
                             <CalendarClock size={22} strokeWidth={2} />
@@ -644,13 +638,6 @@ export default function CapturePage() {
                     flex-shrink: 0;
                 }
 
-                .cta-skeleton {
-                    height: 74px;
-                    border-radius: 1.125rem;
-                    background: rgba(44,62,80,0.06);
-                    animation: pulse 1.6s ease-in-out infinite;
-                }
-
                 .limit-card {
                     text-align: center;
                     padding: 1.5rem 1.25rem 1.25rem;
@@ -684,8 +671,6 @@ export default function CapturePage() {
                 }
                 .limit-actions { display: flex; flex-direction: column; gap: 0.5rem; }
                 .limit-btn { justify-content: center; text-align: center; font-weight: 600; font-size: 0.9375rem; text-decoration: none; }
-
-                @keyframes pulse { 50% { opacity: 0.55; } }
 
                 .or-divider {
                     display: flex;

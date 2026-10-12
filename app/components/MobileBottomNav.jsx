@@ -35,7 +35,7 @@ export default function MobileBottomNav() {
             <Link
               key={href}
               href={href}
-              prefetch={false}
+              prefetch={true}
               className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
             >
               <motion.span
