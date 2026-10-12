@@ -25,6 +25,10 @@ function buildCsp(nonce) {
   return [
     "default-src 'self'",
     scriptSrc,
+    // Without this, worker-src falls back to script-src, whose 'strict-dynamic'
+    // ignores 'self' per the CSP3 spec — that would silently block
+    // navigator.serviceWorker.register() (public/service-worker.js).
+    "worker-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https://res.cloudinary.com https://yce-us.s3-accelerate.amazonaws.com data: blob:",
     "font-src 'self' data:",

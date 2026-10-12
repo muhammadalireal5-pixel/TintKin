@@ -329,3 +329,18 @@ const ShopSettingsSchema = new mongoose.Schema({
 
 export const ShopSettings = mongoose.models.ShopSettings || mongoose.model('ShopSettings', ShopSettingsSchema);
 
+// One row per subscribed browser/device (a user can have several — phone,
+// desktop, etc). `endpoint` is unique per browser push subscription and is
+// how we dedupe re-subscribes and drop ones the browser has revoked.
+const PushSubscriptionSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    endpoint: { type: String, required: true, unique: true },
+    keys: {
+      p256dh: { type: String, required: true },
+      auth: { type: String, required: true },
+    },
+    createdAt: { type: Date, default: Date.now },
+}, { strict: true });
+
+export const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
+

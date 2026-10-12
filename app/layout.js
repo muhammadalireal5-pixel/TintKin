@@ -17,6 +17,10 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  themeColor: "#2C3E50",
+};
+
 export const metadata = {
   metadataBase: new URL("https://tintkin.com"),
   title: {
@@ -25,6 +29,7 @@ export const metadata = {
   },
   icons: {
     icon: "/favicon.png",
+    apple: "/apple-icon.png",
   },
   description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
   openGraph: {

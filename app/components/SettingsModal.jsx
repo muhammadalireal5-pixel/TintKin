@@ -21,10 +21,12 @@ import {
   Loader2,
   AlertTriangle,
   Mail,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings, changeSubscriptionTier } from "@/app/lib/actions";
 import { resendVerificationEmail } from "@/app/lib/auth-actions";
+import { subscribeToPush, unsubscribeFromPush, sendTestNotification } from "@/app/lib/push-actions";
 import { exportUserData, emailUserDataExport } from "@/app/lib/export-data";
 import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
@@ -32,6 +34,17 @@ import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
 import { TIERS, TIER_NAMES, ACTIVE_SUBSCRIPTION_TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 import { PHOTO_PRIVACY } from "@/lib/constants/privacy";
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
 
 export default function SettingsModal({ isOpen, onClose }) {
   const { user, signOutUser } = useAuthContext();
@@ -54,6 +67,30 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [verifyEmailState, setVerifyEmailState] = useState("idle"); // idle | sending | sent
   const [tierChangeState, setTierChangeState] = useState("idle"); // idle | changing
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false);
+  const [notifSupported, setNotifSupported] = useState(false);
+  const [notifPermission, setNotifPermission] = useState("default");
+  const [notifSubscribed, setNotifSubscribed] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [testNotifState, setTestNotifState] = useState("idle"); // idle | sending
+
+  // Check push support/subscription state when the modal opens. notifSupported
+  // defaults to false, so the unsupported-browser case needs no extra setState.
+  useEffect(() => {
+    if (!isOpen || !VAPID_PUBLIC_KEY) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || typeof Notification === "undefined") {
+      return;
+    }
+    navigator.serviceWorker
+      .register("/service-worker.js", { scope: "/" })
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((sub) => {
+        setNotifSupported(true);
+        setNotifPermission(Notification.permission);
+        setNotifSubscribed(Boolean(sub));
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
   // Fetch DB profile data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -85,6 +122,71 @@ export default function SettingsModal({ isOpen, onClose }) {
       await resendVerificationEmail();
     } finally {
       setVerifyEmailState("sent");
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    setNotifBusy(true);
+    try {
+      const registration = await navigator.serviceWorker.register("/service-worker.js", { scope: "/" });
+      const permission = await Notification.requestPermission();
+      setNotifPermission(permission);
+      if (permission !== "granted") {
+        showToast({
+          type: "error",
+          title: "Notifications Blocked",
+          message: "Enable notifications for this site in your browser settings to turn this on.",
+        });
+        return;
+      }
+      const sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const res = await subscribeToPush(sub.toJSON());
+      if (res?.success) {
+        setNotifSubscribed(true);
+      } else {
+        await sub.unsubscribe();
+        showToast({ type: "error", title: "Error", message: res?.error || "Could not enable notifications." });
+      }
+    } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "push-subscribe-client" } });
+      showToast({ type: "error", title: "Error", message: "Could not enable notifications." });
+    } finally {
+      setNotifBusy(false);
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    setNotifBusy(true);
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const sub = await registration?.pushManager.getSubscription();
+      if (sub) {
+        await unsubscribeFromPush(sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setNotifSubscribed(false);
+    } catch (err) {
+      Sentry.captureException(err, { tags: { scope: "push-unsubscribe-client" } });
+      showToast({ type: "error", title: "Error", message: "Could not disable notifications." });
+    } finally {
+      setNotifBusy(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setTestNotifState("sending");
+    try {
+      const res = await sendTestNotification();
+      showToast(
+        res?.success
+          ? { type: "success", title: "Sent", message: "Check for the test notification on this device." }
+          : { type: "error", title: "Error", message: res?.error || "Could not send test notification." }
+      );
+    } finally {
+      setTestNotifState("idle");
     }
   };
 
@@ -590,6 +692,60 @@ export default function SettingsModal({ isOpen, onClose }) {
               </button>
             </div>
           </div>
+
+          {/* Notifications */}
+          {VAPID_PUBLIC_KEY && (
+            <div className="px-6 py-5 border-b border-black/5">
+              <div className="flex items-center gap-2 mb-3">
+                <Bell size={14} className="text-[#8A9A5B]" />
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+                  Notifications
+                </p>
+              </div>
+              {!notifSupported ? (
+                <p className="text-xs text-[#8E9BAA] italic">Not supported in this browser.</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-[#2C3E50]">Push Notifications</p>
+                      <p className="text-[11px] text-[#8E9BAA]">
+                        {notifPermission === "denied"
+                          ? "Blocked — enable in your browser settings"
+                          : "Get notified right on this device"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={notifSubscribed}
+                      disabled={notifBusy || notifPermission === "denied"}
+                      onClick={notifSubscribed ? handleDisableNotifications : handleEnableNotifications}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                        notifSubscribed ? "bg-[#8A9A5B]" : "bg-black/15"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          notifSubscribed ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {notifSubscribed && (
+                    <button
+                      type="button"
+                      onClick={handleSendTestNotification}
+                      disabled={testNotifState === "sending"}
+                      className="mt-3 text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors disabled:opacity-50"
+                    >
+                      {testNotifState === "sending" ? "Sending…" : "Send test notification"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* Location */}
           <div className="px-6 py-5 border-b border-black/5">
