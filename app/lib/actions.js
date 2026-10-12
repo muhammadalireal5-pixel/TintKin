@@ -6,7 +6,7 @@ import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/a
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
 import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
-import { analyzeSkin, simulateSkin, extractScoreInfo } from "./youcam";
+import { analyzeSkin, simulateSkin, extractScoreInfo, SIM_CROP_OPTIONS } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
 import { evaluateUserAchievements } from "./achievements";
@@ -151,6 +151,9 @@ async function uploadUrlToCloudinary(imageUrl, userId) {
 // scores stay comparable with earlier scans. Falls back to the original on
 // any failure.
 async function prepareSimulationSource(imageUrl, userId) {
+  // Off by default: the median/blur pass softens real skin texture, which the
+  // simulation output then inherits. Set SIM_DENOISE=1 to A/B it.
+  if (process.env.SIM_DENOISE !== "1") return imageUrl;
   if (!imageUrl || !imageUrl.includes("cloudinary.com")) return imageUrl;
   try {
     // Must be signed, not just the signature stripped: an `authenticated`-type
@@ -994,10 +997,14 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
 
     const buildScenario = async (interventions, label) => {
       const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
+      // A 1-year projection moves scores by only a few points, which on a raw
+      // 0-1 scale (improvement / 15) is too faint to see. The scores shown
+      // stay the honest projection; only the *illustration* is boosted, into
+      // the 0.5-1.0 range for every concern the routine actually improves.
       const getIntensity = (base, projected) => {
         const improvement = projected - base;
         if (improvement <= 0) return 0.0;
-        return Math.min(1.0, improvement / 15);
+        return Math.min(1.0, 0.5 + improvement / 30);
       };
 
       const intensities = {
@@ -1009,13 +1016,13 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       let finalUrl = simSourceUrl;
       if (interventions.length === 0 && finalUrl) {
         // Apply the same crop that simulateSkin uses to ensure Slider alignment
-        finalUrl = applyFaceCropToCloudinary(finalUrl);
+        finalUrl = applyFaceCropToCloudinary(finalUrl, 1.05, SIM_CROP_OPTIONS);
       }
       
       if (interventions.length > 0) {
         // Ensure at least minor simulation intensity so YouCam API requirement is satisfied
         if (Object.values(intensities).every(v => v === 0)) {
-          intensities.radiance = 0.05;
+          intensities.radiance = 0.3;
         }
 
         // simSourceUrl is Cloudinary's raw (unsigned) upload response; YouCam

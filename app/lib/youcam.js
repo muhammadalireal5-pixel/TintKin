@@ -233,6 +233,10 @@ export async function analyzeSkin(imageUrl) {
   throw lastError || new Error("Failed to analyze skin photo.");
 }
 
+// Shared with the no-routine baseline in runWhatIfSim so both sides of the
+// before/after slider come from the identical crop.
+export const SIM_CROP_OPTIONS = Object.freeze({ sharpen: false, quality: "auto:best" });
+
 // intensities: concern -> 0.0-1.0 improvement strength, e.g. { wrinkle: 0.5, age_spot: 0.8 }
 export async function simulateSkin(imageUrl, intensities = {}) {
   const payloadIntensities = { ...intensities };
@@ -242,8 +246,8 @@ export async function simulateSkin(imageUrl, intensities = {}) {
 
   const candidates = [];
   if (imageUrl.includes("cloudinary.com")) {
-    candidates.push(applyFaceCropToCloudinary(imageUrl, 1.05));
-    candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9));
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 1.05, SIM_CROP_OPTIONS));
+    candidates.push(applyFaceCropToCloudinary(imageUrl, 0.9, SIM_CROP_OPTIONS));
   }
   if (!candidates.includes(imageUrl)) {
     candidates.push(imageUrl);
