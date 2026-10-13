@@ -34,7 +34,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-display font-medium mb-3">2. Information We Collect</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Account Information:</strong> We collect your email address, name, and profile picture provided during sign-up (or from Google, if you sign in with Google). Passwords are stored only as salted bcrypt hashes.</li>
-              <li><strong>Profile Data:</strong> We collect information you provide during onboarding, including birth date, biological sex, skin type, and skincare goals.</li>
+              <li><strong>Profile Data:</strong> We collect information you provide during onboarding, including birth date, gender, skin type, and skincare goals.</li>
               <li><strong>Facial Images:</strong> When you use our scanning feature, you upload a photo of your face.</li>
               <li><strong>Analysis Data:</strong> We store the numerical scores (e.g., wrinkles, firmness) and AI-generated advice derived from your scans.</li>
               <li><strong>Payment Data:</strong> If you purchase credits, our payment processor (Polar, see below) handles your payment details directly &mdash; we never see or store your card number. We retain only the order/credit records needed to apply your purchase and handle refunds.</li>

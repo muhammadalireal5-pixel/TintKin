@@ -88,7 +88,7 @@ export default function OnboardingPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-primary mb-2">Sex</label>
+                            <label className="block text-sm font-medium text-primary mb-2">Gender</label>
                             <select 
                                 name="sex"
                                 value={formData.sex}
