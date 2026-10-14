@@ -2,6 +2,10 @@
 
 **Date:** 2026-10-02, updated 2026-10-05, 2026-10-10, 2026-10-12, 2026-10-13, 2026-10-14 · **Scope:** whole repository at `b16a094` plus uncommitted working tree · **Stack:** Next.js 16.3.8 (App Router, Turbopack), React 19.2, Auth.js `next-auth@5.0.0-beta.32` (JWT sessions), Mongoose 8, Cloudinary, YouCam, Qwen (DashScope), Resend, Sentry, Polar, Vercel.
 
+## 2026-10-14, fourth pass (Vercel Preview deployment of the above PR failed to build)
+
+- **Preview build crash — fixed.** `qwen.js` constructed its OpenAI/Qwen client eagerly at module scope (`const openai = new OpenAI({...})`), and the SDK throws immediately when no `apiKey` is resolvable. Because `qwen.js` is imported from the shared `actions.js` barrel, Next's build-time page-data collection pulls it into the module graph of *every* page that imports anything from `actions.js` — including `/leaderboard`, which never touches AI advice — so a Preview deployment without `QWEN_API_KEY`/`OPENAI_API_KEY` configured failed the entire build with `Missing credentials` at `/leaderboard`'s page-data-collection step (local builds never hit this, since `.env.local` always had the key). **Fix:** the client is now constructed lazily, on first actual call inside `generatePersonalizedAdvice`/`analyzeProductIngredients` — both already wrapped in a try/catch with an existing "AI advice unavailable" fallback, so a genuinely missing key now degrades gracefully at runtime instead of crashing the build for unrelated pages. **Verified by reproducing the failure locally**: temporarily stripped `QWEN_API_KEY`/`OPENAI_API_KEY` from `.env.local` and confirmed `bun run build` failed the same way before the fix and succeeded after; restored the real keys and rebuilt clean. Swept the rest of `app/lib`/`lib` for the same eager-construction-with-hard-validation shape (other third-party clients, e.g. Polar) — none found; this was the one outlier.
+
 ## 2026-10-14, second pass (user-requested: fix the 3 pre-existing test failures and re-enable leaderboard opt-in)
 
 - **3 pre-existing `tests/youcam.test.mjs` failures — fixed, both were test-harness artifacts, not app bugs.**
