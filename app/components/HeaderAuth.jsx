@@ -10,7 +10,7 @@ import UserAvatar from "./UserAvatar";
 import { useReportStatus } from "./reportStatus";
 
 export function HeaderAuth() {
-  const { user } = useAuthContext();
+  const { user, loading } = useAuthContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const pathname = usePathname();
   const reportStatus = useReportStatus(Boolean(user));
@@ -22,6 +22,19 @@ export function HeaderAuth() {
     { href: "/reports", label: "Reports" },
     { href: "/leaderboard", label: "Board" },
   ];
+
+  // Session status is still resolving — render a neutral placeholder instead
+  // of guessing. Showing Sign In/Start here (the old behavior) flashed those
+  // buttons for logged-in users on every reload, right alongside the page's
+  // own loading skeletons.
+  if (loading) {
+    return (
+      <div className="flex gap-2 items-center flex-shrink-0 animate-pulse" aria-hidden="true">
+        <div className="hidden md:block h-8 w-64 rounded-full bg-black/5" />
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/5" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (

@@ -2,6 +2,7 @@ import "server-only";
 import OpenAI from "openai";
 import * as Sentry from "@sentry/nextjs";
 import { sanitizeForPrompt } from "@/lib/utils/sanitize";
+import { calculateAge } from "@/lib/utils/date";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult } from "@/lib/utils/result";
@@ -28,10 +29,9 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
 
     let userAge = "Unknown";
     if (user.birthDate) {
-      const birthYear = new Date(user.birthDate).getFullYear();
-      const currentYear = new Date().getFullYear();
-      if (!isNaN(birthYear) && birthYear > 1900 && birthYear <= currentYear) {
-        userAge = currentYear - birthYear;
+      const age = calculateAge(user.birthDate);
+      if (typeof age === "number" && !isNaN(age)) {
+        userAge = age;
       }
     }
 

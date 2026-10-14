@@ -7,7 +7,8 @@ import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
 import { headers } from "next/headers";
-import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
+import { checkRateLimit, checkOriginAwareRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
+import { getClientIp } from "./request-ip";
 import { getAuthenticatedUser } from "./auth-server";
 import { getBaseUrl } from "./url";
 
@@ -45,25 +46,26 @@ export async function registerUser({ email, password, name } = {}) {
   }
 
   const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
+  const ip = getClientIp(requestHeaders);
 
   // Two checks, not one: a tight per-identity cap (same shape as LOGIN) stops
   // repeated attempts against one email, and a looser per-IP-only backstop
   // stops mass account creation from a single source — without the per-IP
   // cap alone blocking many distinct real users behind one shared IP
   // (school/office WiFi, mobile carrier NAT).
-  const identityRateCheck = await checkRateLimit(
-    getCompositeKey(ip, cleanEmail),
-    "register",
-    RATE_LIMIT_CONFIGS.REGISTER.limit,
-    RATE_LIMIT_CONFIGS.REGISTER.windowMs
-  );
+  const identityRateCheck = await checkOriginAwareRateLimit({
+    ip,
+    email: cleanEmail,
+    action: "register",
+    limit: RATE_LIMIT_CONFIGS.REGISTER.limit,
+    windowMs: RATE_LIMIT_CONFIGS.REGISTER.windowMs,
+  });
   if (!identityRateCheck.allowed) {
     return { success: false, error: `Too many sign-up attempts. Please try again in ${Math.ceil(identityRateCheck.retryAfter / 60)} minutes.` };
   }
 
   const ipRateCheck = await checkRateLimit(
-    getCompositeKey(ip),
+    getCompositeKey(ip || "no-origin"),
     "register-ip",
     RATE_LIMIT_CONFIGS.REGISTER_IP.limit,
     RATE_LIMIT_CONFIGS.REGISTER_IP.windowMs
@@ -240,17 +242,23 @@ export async function requestPasswordReset(email) {
 
   const cleanEmail = email.toLowerCase().trim();
 
-  // Hashed, not raw — server actions don't have direct IP context, but the
-  // email alone must still never be stored or logged in plaintext.
-  const identifier = getCompositeKey("server-action", cleanEmail);
+  // IP+email, not email alone: an email-only key means anyone who merely
+  // knows a victim's email (no credentials, no network position needed) can
+  // burn their 3/hour budget first, so the victim's own real request lands
+  // on the "rate limited, silently pretend success" branch below and never
+  // gets an email — a reset-suppression attack. Server actions can still
+  // read the request's headers via next/headers, same as registerUser above.
+  const requestHeaders = await headers();
+  const ip = getClientIp(requestHeaders);
 
-  // Check rate limit (3 per hour per email)
-  const rateLimitResult = await checkRateLimit(
-    identifier,
-    "password-reset",
-    RATE_LIMIT_CONFIGS.PASSWORD_RESET.limit,
-    RATE_LIMIT_CONFIGS.PASSWORD_RESET.windowMs
-  );
+  // Check rate limit (3 per hour per IP+email)
+  const rateLimitResult = await checkOriginAwareRateLimit({
+    ip,
+    email: cleanEmail,
+    action: "password-reset",
+    limit: RATE_LIMIT_CONFIGS.PASSWORD_RESET.limit,
+    windowMs: RATE_LIMIT_CONFIGS.PASSWORD_RESET.windowMs,
+  });
 
   if (!rateLimitResult.allowed) {
     // Still return success to prevent enumeration, but don't send email
