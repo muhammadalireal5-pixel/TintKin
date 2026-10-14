@@ -68,7 +68,15 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
   // getDbUserOrStatus() in app/lib/actions.js.
   useEffect(() => {
     let cancelled = false;
-    initialDataPromise
+    // `initialDataPromise` crosses the server->client boundary as a prop, so
+    // on the client it's React's internal "chunk" thenable (the same object
+    // `use()` reads), not a native Promise — its `.then()` exists (so `await`
+    // and single-callback `.then(cb)` work) but never returns anything, so
+    // chaining `.catch()` straight off it threw "Cannot read properties of
+    // undefined (reading 'catch')" on every /leaderboard load. Promise.resolve
+    // adopts its resolution via one `.then(resolve, reject)` call and hands
+    // back a real, chainable Promise.
+    Promise.resolve(initialDataPromise)
       .then((res) => {
         if (cancelled || latestScopeRef.current !== initialScope) return;
         if (res?.redirectTo) {

@@ -77,5 +77,8 @@ test("simulateSkin never sends a crop-before-signature URL for a signed source",
 
   assert.equal(posted.length, 1);
   assert.doesNotMatch(posted[0], /s--/);
-  assert.equal(posted[0], "https://res.cloudinary.com/demo-cloud/image/upload/c_thumb,g_face,z_1.05,w_1200,h_1200,q_auto:good,e_sharpen:50/abc123");
+  // simulateSkin's candidates use SIM_CROP_OPTIONS (auto:best, no sharpen),
+  // not applyFaceCropToCloudinary's own defaults — so both sides of a
+  // What-If before/after slider share identical crop/quality settings.
+  assert.equal(posted[0], "https://res.cloudinary.com/demo-cloud/image/upload/c_thumb,g_face,z_1.05,w_1200,h_1200,q_auto:best/abc123");
 });

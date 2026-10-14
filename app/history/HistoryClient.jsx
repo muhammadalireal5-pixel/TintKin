@@ -35,7 +35,15 @@ export default function HistoryClient({ historyPromise }) {
   // effect on an unawaited, streamed promise — see getDbUserOrStatus().
   useEffect(() => {
     let cancelled = false;
-    historyPromise
+    // `historyPromise` crosses the server->client boundary as a prop, so on
+    // the client it's React's internal "chunk" thenable (the same object
+    // `use()` reads), not a native Promise — its `.then()` exists but never
+    // returns anything, so chaining `.catch()`/`.finally()` straight off it
+    // throws "Cannot read properties of undefined (reading 'catch')" (same
+    // bug fixed in LeaderboardClient.jsx). Promise.resolve adopts its
+    // resolution via one `.then(resolve, reject)` call and hands back a
+    // real, chainable Promise.
+    Promise.resolve(historyPromise)
       .then((res) => { if (!cancelled) applyResult(res, { setHistory, setError, router }); })
       .catch((err) => {
         if (cancelled) return;
