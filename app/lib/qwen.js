@@ -7,16 +7,31 @@ import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/pro
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult } from "@/lib/utils/result";
 
-const openai = new OpenAI({
-  apiKey: process.env.QWEN_API_KEY || process.env.OPENAI_API_KEY,
-  // International region: the account key isn't served by the mainland-China
-  // endpoint (dashscope.aliyuncs.com) and requests there hang until timeout.
-  baseURL: process.env.QWEN_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-  // SDK defaults are a 10-minute timeout with 2 retries, which outlives a
-  // serverless invocation; callers already fall back when advice fails.
-  timeout: 45000,
-  maxRetries: 1,
-});
+// Lazy singleton: the OpenAI SDK's constructor throws immediately if no
+// apiKey is resolvable. Built eagerly at module scope, that throw happened
+// at *import* time — and since this module is reachable from the shared
+// actions.js barrel, Next's build-time page-data collection imports it for
+// every page (including ones that never call AI advice, like /leaderboard),
+// so one missing env var (e.g. an unconfigured Preview deployment) failed
+// the entire build. Constructing it on first actual use means a missing key
+// only ever surfaces inside the try/catch below, as the existing
+// "AI advice unavailable" fallback already handles.
+let openaiClient = null;
+function getOpenAIClient() {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.QWEN_API_KEY || process.env.OPENAI_API_KEY,
+      // International region: the account key isn't served by the mainland-China
+      // endpoint (dashscope.aliyuncs.com) and requests there hang until timeout.
+      baseURL: process.env.QWEN_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      // SDK defaults are a 10-minute timeout with 2 retries, which outlives a
+      // serverless invocation; callers already fall back when advice fails.
+      timeout: 45000,
+      maxRetries: 1,
+    });
+  }
+  return openaiClient;
+}
 
 export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null) {
   try {
@@ -81,7 +96,7 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     - The third product should support barrier repair or provide daily protection (e.g., a moisturizer or sunscreen).
     - Avoid generic, one-size-fits-all products. Each recommendation must be justified by the user's data.`;
     
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: process.env.QWEN_MODEL_NAME || "deepseek-v4-pro-0813",
       // Thinking mode spends ~4k reasoning tokens (~50s) and blows the timeout;
       // without it the same JSON comes back in ~8s.
@@ -135,7 +150,7 @@ export async function analyzeProductIngredients(base64Image) {
       "customMultiplier": 0.7
     }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: "qwen-vl-max",
       messages: [
         {
