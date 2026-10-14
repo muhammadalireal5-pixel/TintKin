@@ -46,12 +46,15 @@ async function reserveSlot({ userId, field, dayKey, monthKey, dailyLimit, monthl
       effectiveDayKey = day ? day.key : null;
       effectiveMonthKey = month.key;
 
-      if (day && dailyLimit != null && day.count + 1 > dailyLimit) {
-        reason = "daily_limit";
-        return;
-      }
+      // Monthly checked first: when both caps are exhausted, "monthly_limit"
+      // is the accurate reason — "daily_limit" tells the user to come back
+      // tomorrow, which won't actually work if the month is also spent.
       if (monthlyLimit != null && month.count + 1 > monthlyLimit) {
         reason = "monthly_limit";
+        return;
+      }
+      if (day && dailyLimit != null && day.count + 1 > dailyLimit) {
+        reason = "daily_limit";
         return;
       }
 

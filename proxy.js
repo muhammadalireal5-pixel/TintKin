@@ -30,7 +30,10 @@ function buildCsp(nonce) {
     // navigator.serviceWorker.register() (public/service-worker.js).
     "worker-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' https://res.cloudinary.com https://yce-us.s3-accelerate.amazonaws.com data: blob:",
+    // lh3.googleusercontent.com serves the profile photo Google OAuth
+    // accounts sign in with (user.photoURL) — without it here, every <img>
+    // rendering a Google avatar is silently blocked by the browser.
+    "img-src 'self' https://res.cloudinary.com https://yce-us.s3-accelerate.amazonaws.com https://lh3.googleusercontent.com data: blob:",
     "font-src 'self' data:",
     "connect-src 'self'",
     "object-src 'none'",

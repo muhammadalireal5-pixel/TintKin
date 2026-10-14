@@ -378,8 +378,21 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   const user = await getDbUser();
   await syncUserTimezone(user, timezone);
 
+  // Any early return below means this scan attempt will never produce a
+  // Selfie record, so the photo the client already uploaded to Cloudinary
+  // (uploadSelfieServerAction, before this action even runs) would otherwise
+  // sit there forever — regardless of photoPrivacy, since there's no Selfie
+  // to apply that preference to. Checks ownership itself, so it's a safe
+  // no-op if imageUrl is missing or isn't actually this user's upload.
+  const cleanupOrphanedUpload = async () => {
+    if (imageUrl && isOwnedUserUpload(imageUrl, user._id.toString())) {
+      await deleteImageFromCloudinary(imageUrl).catch(() => {});
+    }
+  };
+
   const rateCheck = await checkRateLimit(user._id.toString(), "analyze", 3, 60000);
   if (!rateCheck.allowed) {
+    await cleanupOrphanedUpload();
     return errorResult(
       ERROR_CODES.RATE_LIMIT || "RATE_LIMIT",
       `Too many scan requests. Please wait ${rateCheck.retryAfter}s before scanning again.`,
@@ -393,6 +406,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
   let selfieCreated = false;
   try {
     if (!user.termsAcceptedAt) {
+      await cleanupOrphanedUpload();
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "Please accept the terms and choose your photo privacy option first.", { error: "CONSENT_REQUIRED" });
     }
     if (!imageUrl || !isOwnedUserUpload(imageUrl, user._id.toString())) {
@@ -425,6 +439,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       } else if (!QUOTA_LIMIT_REASONS.has(reservation.reason)) {
         // The check itself failed (DB/transaction error), not the user's limit:
         // don't silently spend their purchased extra scans on it.
+        await cleanupOrphanedUpload();
         return errorResult(ERROR_CODES.SCAN_LIMIT, "We couldn't verify your scan allowance right now. Please try again in a moment.", { error: "QUOTA_CHECK_FAILED" });
       } else {
         scanDenialReason = reservation.reason === "daily_limit" ? DENIAL_REASONS.DAILY_LIMIT : DENIAL_REASONS.MONTHLY_LIMIT;
@@ -448,6 +463,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
           if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
           if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
           if (scanDenialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
+          await cleanupOrphanedUpload();
           return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
         }
         creditsConsumed = true;
@@ -788,6 +804,8 @@ export async function getLatestData(timezone = null, options = {}) {
   const currentWeekStart = getISOWeekStart(now).getTime();
   const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
   const todayStart = getLocalDayStart(timezone);
+  const yesterdayStart = getLocalDayStart(timezone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const sevenDaysAgoStart = getLocalDayStart(timezone, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
 
   const [
     latestSelfie,
@@ -795,6 +813,8 @@ export async function getLatestData(timezone = null, options = {}) {
     selfieRows,
     lifestyleLogs,
     todayRoutineLog,
+    yesterdayRoutineLog,
+    recentRoutineLogs,
     simCount,
     totalSelfieCount,
     firstSelfie,
@@ -814,6 +834,16 @@ export async function getLatestData(timezone = null, options = {}) {
       userId: user._id,
       date: { $gte: todayStart }
     }),
+    RoutineLog.findOne({
+      userId: user._id,
+      date: { $gte: yesterdayStart, $lt: todayStart }
+    }).select("amCompleted pmCompleted").lean(),
+    // Used only to derive a rolling "consistency" percentage — how many of
+    // the last 7 completed days had any routine step logged.
+    RoutineLog.find({
+      userId: user._id,
+      date: { $gte: sevenDaysAgoStart, $lt: todayStart }
+    }).select("date amCompleted pmCompleted").lean(),
     Simulation.countDocuments({ userId: user._id }),
     // Exact regardless of the cap above, so achievements/scan-count stay
     // correct even for a history longer than MAX_SELFIE_HISTORY.
@@ -862,6 +892,22 @@ export async function getLatestData(timezone = null, options = {}) {
     };
   }
 
+  const habitTotalSteps = (latestAnalyzedSelfie?.amRoutine?.length || 0) + (latestAnalyzedSelfie?.pmRoutine?.length || 0);
+  const yesterdayDone = yesterdayRoutineLog
+    ? (yesterdayRoutineLog.amCompleted?.length || 0) + (yesterdayRoutineLog.pmCompleted?.length || 0)
+    : null;
+  const daysInWindow = Math.max(1, Math.round((todayStart.getTime() - sevenDaysAgoStart.getTime()) / 86400000));
+  const activeDaysInWindow = new Set(
+    recentRoutineLogs
+      .filter(l => (l.amCompleted?.length || 0) + (l.pmCompleted?.length || 0) > 0)
+      .map(l => new Date(l.date).toDateString())
+  ).size;
+  const habitConsistency = {
+    yesterdayDone,
+    yesterdayTotal: habitTotalSteps,
+    consistencyPct: recentRoutineLogs.length > 0 ? Math.round((activeDaysInWindow / daysInWindow) * 100) : null,
+  };
+
   const { evaluatedAchievements, unlockedCount, totalCount, newlyUnlockedIds } = evaluateUserAchievements({
     user,
     allSelfies,
@@ -900,8 +946,9 @@ export async function getLatestData(timezone = null, options = {}) {
     allSelfies, 
     lifestyleLogs, 
     realAge, 
-    weeklyAverage, 
+    weeklyAverage,
     todayRoutineLog,
+    habitConsistency,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
     ...(selfieLimit ? { hasMoreSelfies: totalSelfieCount > allSelfies.length } : {}),

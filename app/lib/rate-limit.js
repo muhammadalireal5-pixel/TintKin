@@ -113,4 +113,36 @@ export const RATE_LIMIT_CONFIGS = {
   REGISTER_IP: { limit: 20, windowMs: 60 * 60 * 1000 }, // 20 per hour
   PASSWORD_RESET: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour
   DATA_EXPORT: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3 per hour — builds a ZIP and sends an email, both non-trivial cost
+  // Shared, email-independent floor for requests with no identifiable IP at
+  // all (see checkOriginAwareRateLimit). Deliberately tight and global per
+  // action: better that no-origin traffic degrades for everyone than that an
+  // attacker gets an email-only key to target one victim with.
+  NO_ORIGIN_FLOOR: { limit: 10, windowMs: 60 * 60 * 1000 },
 };
+
+/**
+ * Rate-limits an identity (ip+email) action without ever falling back to an
+ * email-only key.
+ *
+ * `checkRateLimit(getCompositeKey(ip, email), ...)` is only as safe as `ip`
+ * is trustworthy and present. When `getClientIp` (request-ip.js) can't find
+ * one at all, keying on email alone would let anyone who merely knows a
+ * victim's email address exhaust their rate limit — no network position or
+ * header spoofing required, since the "ip" component would be the same
+ * constant for every caller. Instead, no-origin traffic is capped by a
+ * single shared, action-wide bucket with no email in the key: it can still
+ * be exhausted, but doing so blocks every other no-origin request for that
+ * action too (including the attacker's own next attempt), not just one
+ * victim's.
+ */
+export async function checkOriginAwareRateLimit({ ip, email, action, limit, windowMs }) {
+  if (ip) {
+    return checkRateLimit(getCompositeKey(ip, email), action, limit, windowMs);
+  }
+  return checkRateLimit(
+    `no-origin:${action}`,
+    action,
+    RATE_LIMIT_CONFIGS.NO_ORIGIN_FLOOR.limit,
+    RATE_LIMIT_CONFIGS.NO_ORIGIN_FLOOR.windowMs
+  );
+}

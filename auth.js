@@ -4,7 +4,8 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
-import { checkRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
+import { checkOriginAwareRateLimit, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
+import { getClientIp } from "@/app/lib/request-ip";
 
 // Auth.js only sends the real error `type` to the client for a small
 // allow-list of error classes (CredentialsSignin among them) — anything else,
@@ -53,20 +54,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new InvalidCredentialsSignin();
         }
 
-        // Get client IP for rate limiting
-        const ip = req?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-                   req?.headers?.get("x-real-ip") || 
-                   "unknown";
+        const ip = req?.headers ? getClientIp(req.headers) : null;
         const email = credentials.email.toString().toLowerCase().trim();
-        const compositeKey = getCompositeKey(ip, email);
 
         // Check rate limit (5 per hour per IP+email)
-        const rateLimitResult = await checkRateLimit(
-          compositeKey,
-          "login",
-          RATE_LIMIT_CONFIGS.LOGIN.limit,
-          RATE_LIMIT_CONFIGS.LOGIN.windowMs
-        );
+        const rateLimitResult = await checkOriginAwareRateLimit({
+          ip,
+          email,
+          action: "login",
+          limit: RATE_LIMIT_CONFIGS.LOGIN.limit,
+          windowMs: RATE_LIMIT_CONFIGS.LOGIN.windowMs,
+        });
 
         if (!rateLimitResult.allowed) {
           // Check if this is a hard lockout scenario (7+ attempts)

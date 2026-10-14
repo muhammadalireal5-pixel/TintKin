@@ -122,7 +122,7 @@ export default function LocationPrompt({ user }) {
           <button
             onClick={handleUseGeolocation}
             disabled={loading}
-            className="px-3.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+            className="px-3.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-full hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
           >
             {loading ? "Locating..." : "Use My Location"}
           </button>
@@ -137,7 +137,7 @@ export default function LocationPrompt({ user }) {
             <button
               type="submit"
               disabled={loading || !city.trim()}
-              className="px-3 py-1.5 bg-sage text-white text-xs font-semibold rounded-xl hover:bg-sage/90 transition-colors disabled:opacity-50 cursor-pointer"
+              className="px-3 py-1.5 bg-sage text-white text-xs font-semibold rounded-full hover:bg-sage/90 transition-colors disabled:opacity-50 cursor-pointer"
             >
               Save
             </button>

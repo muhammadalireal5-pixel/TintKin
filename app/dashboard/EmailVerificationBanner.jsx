@@ -44,7 +44,7 @@ export default function EmailVerificationBanner({ user }) {
           <button
             onClick={handleResend}
             disabled={state === "sending"}
-            className="shrink-0 px-3.5 py-1.5 bg-amber-800 text-white text-xs font-semibold rounded-xl hover:bg-amber-900 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+            className="shrink-0 px-3.5 py-1.5 bg-amber-800 text-white text-xs font-semibold rounded-full hover:bg-amber-900 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
           >
             {state === "sending" ? "Sending…" : "Resend Email"}
           </button>

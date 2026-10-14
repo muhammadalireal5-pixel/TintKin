@@ -4,6 +4,7 @@ import "server-only";
 import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { checkRateLimit } from "./rate-limit";
+import { getClientIp } from "./request-ip";
 import { connectDb, AdminAuthState } from "./mongoose";
 
 function getAdminEmail() {
@@ -58,7 +59,7 @@ export async function adminLogin(email, password) {
   }
 
   const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "unknown";
+  const ip = getClientIp(requestHeaders) || "no-origin";
   const rate = await checkRateLimit(`ip:${ip}`, "admin_login", LOGIN_LIMIT, LOGIN_WINDOW_MS);
   if (!rate.allowed) {
     return { success: false, status: 429, error: "Too many attempts. Try again in a few minutes." };

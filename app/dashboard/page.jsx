@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, achievements, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, habitConsistency, achievements, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
     const reportStatus = await getReportStatus();
 
@@ -69,23 +69,13 @@ async function DashboardContent() {
                 <ReportReadyPrompt status={reportStatus} />
 
                 {/* Page Title */}
-                <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
-                    <div>
-                        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
-                            {firstName ? `Hi ${firstName}, welcome back` : "Your Skin Journal"}
-                        </p>
-                        <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
-                            Today&apos;s <span className="italic text-sage">Insight</span>
-                        </h1>
-                    </div>
-                    {user?.currentStreak > 0 && (
-                        <div>
-                            <div className="inline-flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-full border border-orange-200 shadow-sm">
-                                <Flame className="w-5 h-5 text-orange-500 tk-anim-flame" />
-                                <span className="font-bold text-orange-600">{user.currentStreak} Day Streak</span>
-                            </div>
-                        </div>
-                    )}
+                <div className="mb-6">
+                    <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
+                        {firstName ? `Hi ${firstName}, welcome back` : "Your Skin Journal"}
+                    </p>
+                    <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
+                        Today&apos;s <span className="italic text-sage">Insight</span>
+                    </h1>
                 </div>
 
                 {latestSelfie && latestSelfie.isAnalyzed === false && (
@@ -98,9 +88,14 @@ async function DashboardContent() {
                         an affirming read on her skin rather than a to-do list */}
                     <StaggerItem>
                         <div className="tk-glass p-6 sm:p-7 flex flex-col relative">
-                            <div className="flex justify-between items-start mb-1.5">
+                            <div className="flex justify-between items-start mb-1.5 gap-2">
                                 <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
-                                <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-end">
+                                    {user?.currentStreak > 0 && (
+                                        <span className="inline-flex items-center gap-1.5 bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 text-xs font-bold whitespace-nowrap">
+                                            <Flame size={12} className="text-orange-500 tk-anim-flame" /> {user.currentStreak} Day Streak
+                                        </span>
+                                    )}
                                     <Link href="/share" className="text-xs font-semibold text-sage hover:text-primary transition-colors flex items-center gap-1.5 bg-sage/10 px-3 py-1 rounded-full border border-sage/20">
                                         <Share2 size={12} /> Share Card
                                     </Link>
@@ -111,45 +106,89 @@ async function DashboardContent() {
                             </div>
                             <p className="text-xs sm:text-sm text-primary mb-4">Your skin&apos;s overall balance and vitality.</p>
 
-                            <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8 my-2">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-5 sm:gap-x-6 my-2">
                                 {/* Today */}
                                 <div>
                                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
                                     <div className="flex items-end gap-1.5">
-                                        <h2 className="text-4xl sm:text-5xl font-display font-medium text-primary leading-none">
+                                        <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
                                             {typeof overallScore === 'number' ? overallScore : "—"}
                                         </h2>
                                         <span className="text-base text-muted mb-0.5">/ 100</span>
                                     </div>
                                 </div>
 
-                                <div className="hidden sm:block w-px h-12 bg-black/10"></div>
-                                <div className="sm:hidden h-px w-full bg-black/5"></div>
-
                                 {/* This Week */}
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week (Mon-Sun)</p>
+                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week</p>
                                     {weeklyAverage?.overallScore != null ? (
                                         <>
                                             <div className="flex items-end gap-1.5">
-                                                <h2 className="text-4xl sm:text-5xl font-display font-medium text-sage leading-none">
+                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-sage leading-none">
                                                     {weeklyAverage.overallScore}
                                                 </h2>
                                                 <span className="text-base text-muted mb-0.5">/ 100</span>
                                             </div>
                                             <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                                ── {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'} ──
+                                                {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'}
                                             </p>
                                         </>
                                     ) : (
                                         <>
                                             <div className="flex items-end gap-1.5">
-                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-muted/60 leading-none">
+                                                <h2 className="text-2xl sm:text-3xl font-display font-medium text-muted/60 leading-none">
                                                     —
                                                 </h2>
                                             </div>
                                             <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
                                                 First scan this week
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Skin Age vs real age */}
+                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Skin Age</p>
+                                    <div className="flex items-end gap-1.5">
+                                        <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
+                                            {hasSkinAge ? skinAge : "—"}
+                                        </h2>
+                                        {ageDelta != null && (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold mb-1 ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
+                                                {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
+                                        {hasRealAge ? `vs. real age ${realAge}` : 'Add birth date to compare'}
+                                    </p>
+                                </div>
+
+                                {/* Yesterday's habits + consistency */}
+                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Yesterday</p>
+                                    {habitConsistency?.yesterdayDone != null && habitConsistency.yesterdayTotal > 0 ? (
+                                        <>
+                                            <div className="flex items-end gap-1.5">
+                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
+                                                    {habitConsistency.yesterdayDone}
+                                                </h2>
+                                                <span className="text-base text-muted mb-0.5">/ {habitConsistency.yesterdayTotal}</span>
+                                            </div>
+                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
+                                                {habitConsistency.consistencyPct != null ? `${habitConsistency.consistencyPct}% consistency` : 'habits done'}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-end gap-1.5">
+                                                <h2 className="text-2xl sm:text-3xl font-display font-medium text-muted/60 leading-none">
+                                                    —
+                                                </h2>
+                                            </div>
+                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
+                                                No routine logged
                                             </p>
                                         </>
                                     )}
@@ -177,29 +216,7 @@ async function DashboardContent() {
                     {/* Insights strip — swipeable on mobile, grid on desktop */}
                     <StaggerItem>
                         <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2.5 px-0.5">Insights</p>
-                        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:mx-0 md:px-0">
-                            {/* Age comparison */}
-                            <div className="tk-glass shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none p-4 rounded-2xl flex flex-col">
-                                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-2.5">Age Comparison</p>
-                                <div className="grid grid-cols-2 gap-2.5 flex-1">
-                                    <div className="rounded-xl bg-white/40 p-3 flex flex-col justify-center">
-                                        <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Real Age</p>
-                                        <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
-                                    </div>
-                                    <div className={`rounded-xl p-3 flex flex-col justify-center border ${skinOlder ? 'border-sage/30 bg-sage/5' : 'border-lavender/40 bg-lavender/10'}`}>
-                                        <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-0.5">Skin Age</p>
-                                        <div className="flex items-baseline gap-1.5">
-                                            <p className="text-2xl sm:text-3xl font-display text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
-                                            {ageDelta != null && (
-                                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
-                                                    {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
+                        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:mx-0 md:px-0">
                             {/* Community board */}
                             <div className="shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none flex flex-col">
                                 <LeaderboardCard />
