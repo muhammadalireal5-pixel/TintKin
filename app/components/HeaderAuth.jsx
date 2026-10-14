@@ -2,18 +2,37 @@
 
 import Link from "next/link";
 import { useAuthContext } from "../context/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import SettingsModal from "./SettingsModal";
 import UserAvatar from "./UserAvatar";
 import { useReportStatus } from "./reportStatus";
+import { useToast } from "./ToastProvider";
 
 export function HeaderAuth() {
   const { user, loading } = useAuthContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const pathname = usePathname();
+  const { showToast } = useToast();
   const reportStatus = useReportStatus(Boolean(user));
+
+  // /api/billing-portal redirects back here with this on a Polar API
+  // failure (e.g. the access token is missing the customer_sessions:write
+  // scope) instead of leaving the user on a crashed/blank page. Reads
+  // window.location directly (not useSearchParams()) so this component
+  // doesn't force every page using it into a Suspense boundary.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("error") === "billing_portal_failed") {
+      showToast({ type: "error", title: "Couldn't open billing", message: "Please try again in a moment." });
+      // Reacting to the initial URL (an external system) once on mount, not
+      // a derived render value; there's no render-time alternative here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSettingsOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
