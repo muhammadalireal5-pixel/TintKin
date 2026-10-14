@@ -804,6 +804,8 @@ export async function getLatestData(timezone = null, options = {}) {
   const currentWeekStart = getISOWeekStart(now).getTime();
   const currentWeekEnd = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
   const todayStart = getLocalDayStart(timezone);
+  const yesterdayStart = getLocalDayStart(timezone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const sevenDaysAgoStart = getLocalDayStart(timezone, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
 
   const [
     latestSelfie,
@@ -811,6 +813,8 @@ export async function getLatestData(timezone = null, options = {}) {
     selfieRows,
     lifestyleLogs,
     todayRoutineLog,
+    yesterdayRoutineLog,
+    recentRoutineLogs,
     simCount,
     totalSelfieCount,
     firstSelfie,
@@ -830,6 +834,16 @@ export async function getLatestData(timezone = null, options = {}) {
       userId: user._id,
       date: { $gte: todayStart }
     }),
+    RoutineLog.findOne({
+      userId: user._id,
+      date: { $gte: yesterdayStart, $lt: todayStart }
+    }).select("amCompleted pmCompleted").lean(),
+    // Used only to derive a rolling "consistency" percentage — how many of
+    // the last 7 completed days had any routine step logged.
+    RoutineLog.find({
+      userId: user._id,
+      date: { $gte: sevenDaysAgoStart, $lt: todayStart }
+    }).select("date amCompleted pmCompleted").lean(),
     Simulation.countDocuments({ userId: user._id }),
     // Exact regardless of the cap above, so achievements/scan-count stay
     // correct even for a history longer than MAX_SELFIE_HISTORY.
@@ -878,6 +892,22 @@ export async function getLatestData(timezone = null, options = {}) {
     };
   }
 
+  const habitTotalSteps = (latestAnalyzedSelfie?.amRoutine?.length || 0) + (latestAnalyzedSelfie?.pmRoutine?.length || 0);
+  const yesterdayDone = yesterdayRoutineLog
+    ? (yesterdayRoutineLog.amCompleted?.length || 0) + (yesterdayRoutineLog.pmCompleted?.length || 0)
+    : null;
+  const daysInWindow = Math.max(1, Math.round((todayStart.getTime() - sevenDaysAgoStart.getTime()) / 86400000));
+  const activeDaysInWindow = new Set(
+    recentRoutineLogs
+      .filter(l => (l.amCompleted?.length || 0) + (l.pmCompleted?.length || 0) > 0)
+      .map(l => new Date(l.date).toDateString())
+  ).size;
+  const habitConsistency = {
+    yesterdayDone,
+    yesterdayTotal: habitTotalSteps,
+    consistencyPct: recentRoutineLogs.length > 0 ? Math.round((activeDaysInWindow / daysInWindow) * 100) : null,
+  };
+
   const { evaluatedAchievements, unlockedCount, totalCount, newlyUnlockedIds } = evaluateUserAchievements({
     user,
     allSelfies,
@@ -916,8 +946,9 @@ export async function getLatestData(timezone = null, options = {}) {
     allSelfies, 
     lifestyleLogs, 
     realAge, 
-    weeklyAverage, 
+    weeklyAverage,
     todayRoutineLog,
+    habitConsistency,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
     ...(selfieLimit ? { hasMoreSelfies: totalSelfieCount > allSelfies.length } : {}),
