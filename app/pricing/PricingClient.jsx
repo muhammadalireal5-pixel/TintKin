@@ -6,12 +6,14 @@ import { updateUserTier, updateUserSettings } from "@/app/lib/actions";
 import { Check, Sparkles, Star, Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
 import AnimatedModal from "@/app/components/AnimatedModal";
+import { usePwaInstall } from "@/app/context/PwaContext";
 import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
 
 export default function PricingClient({ demoMode = false }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showToast } = useToast();
+    const { isInstalled } = usePwaInstall();
     const [loading, setLoading] = useState(false);
     const [showStandardModal, setShowStandardModal] = useState(false);
     const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // for mobile view: 'free' | 'standard' | 'premium'
@@ -25,7 +27,19 @@ export default function PricingClient({ demoMode = false }) {
     }, []);
 
     const goToCheckout = (tier) => {
-        window.location.href = `/api/checkout?tier=${tier}`;
+        const url = `/api/checkout?tier=${tier}`;
+        // An installed Android PWA's standalone window can fail to follow
+        // the eventual redirect out to Polar's checkout domain cleanly —
+        // open it in the regular browser instead of navigating the app's
+        // own window away. Same-tab navigation is unaffected everywhere else.
+        if (isInstalled) {
+            window.open(url, "_blank", "noopener,noreferrer");
+            // Unlike the same-window case, this tab never navigates away —
+            // clear the loading overlay instead of leaving it stuck.
+            setLoading(false);
+        } else {
+            window.location.href = url;
+        }
     };
 
     const handleSelectPlan = async (tier) => {

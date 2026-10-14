@@ -20,6 +20,12 @@ const playfair = Playfair_Display({
 
 export const viewport = {
   themeColor: "#2C3E50",
+  // Pinch-to-zoom off, per explicit request — makes the installed PWA feel
+  // like a native app instead of a zoomable web page. iOS Safari's
+  // auto-zoom-on-input-focus is handled separately (globals.css forces
+  // 16px+ on form fields), so this isn't relied on for that.
+  userScalable: false,
+  maximumScale: 1,
 };
 
 export const metadata = {

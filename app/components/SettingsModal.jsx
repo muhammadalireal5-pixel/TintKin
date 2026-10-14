@@ -380,7 +380,15 @@ export default function SettingsModal({ isOpen, onClose }) {
   const handleManageBilling = async () => {
     setIsOpeningBillingPortal(true);
     try {
-      window.location.href = "/api/billing-portal";
+      // An installed Android PWA's standalone window can fail to follow the
+      // eventual redirect out to Polar's customer-portal domain cleanly —
+      // open it in the regular browser instead (see PricingClient.jsx's
+      // goToCheckout for the same fix on the checkout flow).
+      if (isInstalled) {
+        window.open("/api/billing-portal", "_blank", "noopener,noreferrer");
+      } else {
+        window.location.href = "/api/billing-portal";
+      }
     } finally {
       // Navigation is about to replace the page; this only matters if it fails.
       setIsOpeningBillingPortal(false);
