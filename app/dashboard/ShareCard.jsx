@@ -1,42 +1,34 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, Sparkles, Check } from "lucide-react";
+import { Download, Share2, Sparkles, Check } from "lucide-react";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_METRICS } from "@/lib/constants/metrics";
 
 const BACKGROUND_THEMES = [
   {
-    id: "green",
-    name: "Sage",
-    image: "/cards/green.jpeg",
-    accentColor: "#5A6A3B",
-    badgeBg: "bg-[#5A6A3B]/10 text-[#5A6A3B]",
-    borderHover: "hover:border-[#5A6A3B]/50",
+    id: "peach",
+    name: "Peach",
+    background: "linear-gradient(160deg, #FCF4F2 0%, #F8DCE1 100%)",
+    accentColor: "#B5546A",
   },
   {
-    id: "blue",
-    name: "Ocean",
-    image: "/cards/blue.jpeg",
-    accentColor: "#2563EB",
-    badgeBg: "bg-blue-500/10 text-blue-600",
-    borderHover: "hover:border-blue-500/50",
+    id: "blush",
+    name: "Blush",
+    background: "linear-gradient(160deg, #FFFBFA 0%, #F6E2E2 100%)",
+    accentColor: "#D98A9A",
   },
   {
-    id: "pink",
-    name: "Rose",
-    image: "/cards/pink.jpeg",
-    accentColor: "#DB2777",
-    badgeBg: "bg-pink-500/10 text-pink-600",
-    borderHover: "hover:border-pink-500/50",
+    id: "clay",
+    name: "Clay",
+    background: "linear-gradient(160deg, #F8DCE1 0%, #E8B4BF 100%)",
+    accentColor: "#9A4156",
   },
   {
-    id: "light-pink",
-    name: "Blossom",
-    image: "/cards/light-pink.jpeg",
-    accentColor: "#E11D48",
-    badgeBg: "bg-rose-500/10 text-rose-600",
-    borderHover: "hover:border-rose-500/50",
+    id: "cocoa",
+    name: "Cocoa",
+    background: "linear-gradient(160deg, #F3D3D9 0%, #C27A8B 100%)",
+    accentColor: "#6B3342",
   },
 ];
 
@@ -77,52 +69,83 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
     }
   };
 
+  const handleShare = async () => {
+    if (!cardRef.current || !hasValidScore) return;
+    setLoading(true);
+    try {
+      const htmlToImage = await import("html-to-image");
+      const blob = await htmlToImage.toBlob(cardRef.current, { cacheBust: true, pixelRatio: 2.5 });
+      const file = blob ? new File([blob], `tintkin-skin-card-${selectedTheme.id}.png`, { type: "image/png" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My TintKin skin card" });
+      } else {
+        setLoading(false);
+        await handleDownload();
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        showToast({ type: "error", title: "Share Failed", message: "Could not share the card. Try downloading it instead." });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="tk-glass p-6 sm:p-8 rounded-3xl w-full flex flex-col items-center">
+    <div className="tk-card p-5 sm:p-8 rounded-3xl w-full flex flex-col items-center">
       {/* Top Controls Header */}
       <div className="w-full flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase text-muted">Share Progress</p>
-          <p className="text-xs text-primary/70">
+          <p className="text-xs text-muted">
             {hasValidScore ? "Pick a background and download your snapshot" : "Complete a skin scan to unlock your share card"}
           </p>
         </div>
-        <button
-          onClick={handleDownload}
-          disabled={loading || !hasValidScore}
-          title={!hasValidScore ? "Complete a skin scan to download card" : undefined}
-          className="flex items-center gap-2 text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition px-5 py-2.5 rounded-full shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            "Rendering..."
-          ) : (
-            <>
-              <Download size={15} /> Download Card
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleShare}
+            disabled={loading || !hasValidScore}
+            className="tk-pill-btn tk-btn-primary text-sm px-6 py-3 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Share2 size={15} /> Share
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={loading || !hasValidScore}
+            title={!hasValidScore ? "Complete a skin scan to download card" : undefined}
+            className="tk-pill-btn tk-btn-ghost text-sm px-6 py-3 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              "Rendering..."
+            ) : (
+              <>
+                <Download size={15} /> Download Card
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Theme Selector Tabs */}
-      <div className="w-full max-w-sm mb-6 flex items-center justify-center gap-2 bg-white/60 p-1.5 rounded-2xl border border-black/5 shadow-inner">
+      <div className="w-full max-w-sm mb-6 flex items-center justify-center gap-2 bg-white p-1.5 rounded-full border border-line">
         {BACKGROUND_THEMES.map((theme) => {
           const isSelected = selectedTheme.id === theme.id;
           return (
             <button
               key={theme.id}
               onClick={() => setSelectedTheme(theme)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full text-xs font-medium transition-all ${
                 isSelected
-                  ? "bg-white text-primary shadow-sm font-semibold border border-black/10 scale-100"
-                  : "text-muted hover:text-primary hover:bg-white/40"
+                  ? "bg-accent-soft text-accent-deep font-semibold border border-accent/30"
+                  : "text-muted hover:text-primary hover:bg-blush"
               }`}
             >
               <span
-                className="w-3 h-3 rounded-full border border-black/20 shrink-0"
+                className="w-3 h-3 rounded-full border border-line shrink-0"
                 style={{ backgroundColor: theme.accentColor }}
               />
               <span>{theme.name}</span>
-              {isSelected && <Check size={12} className="text-primary ml-0.5" />}
+              {isSelected && <Check size={12} className="text-accent ml-0.5" />}
             </button>
           );
         })}
@@ -131,46 +154,44 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
       {/* The Printable / Exportable Card */}
       <div
         ref={cardRef}
-        className="w-full max-w-sm rounded-[2.2rem] shadow-2xl relative overflow-hidden flex flex-col justify-between p-6 sm:p-7 select-none"
-        style={{ minHeight: "580px" }}
+        className="w-full max-w-sm rounded-[2.2rem] shadow-xl relative overflow-hidden flex flex-col justify-between p-6 sm:p-7 select-none"
+        style={{ minHeight: "580px", background: selectedTheme.background }}
       >
-        {/* Background Image */}
-        <img
-          src={selectedTheme.image}
-          alt={selectedTheme.name}
-          crossOrigin="anonymous"
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        {/* Decorative soft circles (inline-styled so html-to-image captures them) */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: -70, right: -70, width: 220, height: 220, borderRadius: "9999px", background: "rgba(255,255,255,0.45)" }}
         />
-
-        {/* Soft Vignette Overlay for Crisp Readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/20 to-black/35 pointer-events-none" />
+        <div
+          className="absolute pointer-events-none"
+          style={{ bottom: -90, left: -60, width: 240, height: 240, borderRadius: "9999px", background: "rgba(181, 84, 106,0.12)" }}
+        />
 
         {/* Card Content (Relative z-10) */}
         <div className="relative z-10 flex flex-col h-full justify-between gap-5">
           {/* Top Branding & Enlarged Logo */}
           <div className="text-center pt-2">
-            <div className="relative inline-block mb-3">
-              <img
-                src="/logo-clean.png"
-                alt="TintKin Logo"
-                crossOrigin="anonymous"
-                className="h-9 sm:h-10 w-auto object-contain mx-auto drop-shadow-lg filter transition-transform hover:scale-105"
-              />
+            <div className="mb-3">
+              <span
+                style={{ fontFamily: "var(--font-wordmark)", fontWeight: 600, fontSize: 34, lineHeight: 1, color: "#6B3342", letterSpacing: "-0.01em" }}
+              >
+                tintkin
+              </span>
             </div>
-            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-[rgba(44,62,80,0.08)] shadow-sm text-[10px] font-bold tracking-widest uppercase text-primary mb-1">
-              <Sparkles size={11} className="text-sage" />
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-[#EFDCDC] shadow-sm text-[10px] font-bold tracking-widest uppercase text-primary mb-1">
+              <Sparkles size={11} className="text-accent" />
               <span>Skin Longevity Journal</span>
             </div>
             {userName && (
-              <p className="text-xs font-medium text-white/90 drop-shadow-sm mt-1">{userName}&apos;s Profile</p>
+              <p className="text-xs font-medium text-cocoa mt-1">{userName}&apos;s Profile</p>
             )}
           </div>
 
           {/* Core Score Hero Pill */}
-          <div className="bg-white p-6 rounded-3xl border border-[rgba(44,62,80,0.08)] shadow-lg text-center mx-1">
+          <div className="bg-white p-6 rounded-3xl border border-[#EFDCDC] shadow-lg text-center mx-1">
             <p className="text-[11px] font-semibold tracking-widest uppercase text-muted mb-1">Overall Skin Health</p>
             <div className="flex items-baseline justify-center gap-2">
-              <span className="text-6xl sm:text-7xl font-display font-medium text-primary leading-none tracking-tight">
+              <span className="text-6xl sm:text-7xl font-semibold text-primary leading-none tracking-tight">
                 {hasValidScore ? overallScore : "—"}
               </span>
               {hasValidScore && <span className="text-lg text-muted font-medium">/ 100</span>}
@@ -179,18 +200,18 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
 
           {/* Real Age vs Skin Age */}
           <div className="grid grid-cols-2 gap-3 mx-1">
-            <div className="bg-white p-4 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm">
+            <div className="bg-white p-4 rounded-2xl border border-[#EFDCDC] shadow-sm">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Real Age</p>
-              <p className="text-2xl font-display font-medium text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
+              <p className="text-2xl font-semibold text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm relative overflow-hidden">
+            <div className="bg-white p-4 rounded-2xl border border-[#EFDCDC] shadow-sm relative overflow-hidden">
               <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Skin Age</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-display font-medium text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
+                <p className="text-2xl font-semibold text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
                 {hasBothAges && ageDelta > 0 && (
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                      skinYounger ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"
+                      skinYounger ? "bg-success-soft text-success" : "bg-accent-soft text-accent-deep"
                     }`}
                   >
                     {skinYounger ? `-${ageDelta}y` : `+${ageDelta}y`}
@@ -201,8 +222,8 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           </div>
 
           {/* Biomarkers Mini Grid */}
-          <div className="bg-white p-3.5 rounded-2xl border border-[rgba(44,62,80,0.08)] shadow-sm mx-1">
-            <div className="grid grid-cols-4 gap-2 text-center divide-x divide-black/5">
+          <div className="bg-white p-3.5 rounded-2xl border border-[#EFDCDC] shadow-sm mx-1">
+            <div className="grid grid-cols-4 gap-2 text-center divide-x divide-[#EFDCDC]">
               <div className="px-1">
                 <p className="text-[9px] uppercase tracking-wider text-muted font-semibold">Wrinkles</p>
                 <p className="text-sm font-bold text-primary">
@@ -231,9 +252,9 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           </div>
 
           {/* Watermark Footer */}
-          <div className="pt-2 pb-1 px-2 flex items-center justify-between text-white/95 drop-shadow-md">
+          <div className="pt-2 pb-1 px-2 flex items-center justify-between text-cocoa">
             <span className="text-[11px] font-medium tracking-wide">Track your skin journey</span>
-            <span className="text-xs font-bold tracking-wider underline decoration-white/40">tintkin.com</span>
+            <span className="text-xs font-bold tracking-wider underline decoration-[#B5546A]/40">tintkin.com</span>
           </div>
         </div>
       </div>

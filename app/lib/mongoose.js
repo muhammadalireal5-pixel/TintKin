@@ -342,5 +342,32 @@ const PushSubscriptionSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 }, { strict: true });
 
+// In-app reviews / feedback / complaints sent through the companion. Private:
+// only the admin portal reads these. status/priority/adminNote are the
+// owner's own triage fields ("what I'll do to fix this") and never reach users.
+const FeedbackSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userEmail: { type: String, default: '' },
+    userName: { type: String, default: '' },
+    tier: { type: String, default: 'free' },
+    scanCount: { type: Number, default: 0 },
+    type: { type: String, enum: ['review', 'feedback', 'complaint', 'idea', 'bug', 'other'], default: 'feedback', index: true },
+    rating: { type: Number, min: 1, max: 5, default: null },
+    message: { type: String, required: true, maxlength: 2000 },
+    page: { type: String, default: '' },
+    viewport: { type: String, default: '' },
+    device: { type: String, default: '' },
+    userAgent: { type: String, default: '', maxlength: 400 },
+    theme: { type: String, default: '' },
+    status: { type: String, enum: ['new', 'in_progress', 'resolved', 'wont_fix'], default: 'new', index: true },
+    priority: { type: String, enum: ['low', 'medium', 'high', null], default: null },
+    adminNote: { type: String, default: '', maxlength: 4000 },
+    resolvedAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now, index: true },
+    updatedAt: { type: Date, default: Date.now },
+}, { strict: true });
+
+export const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);
+
 export const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
 

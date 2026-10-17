@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { fetchAdminData } from "@/lib/services/admin-users";
+import Wordmark from "@/app/components/ui/Wordmark";
 import AdminDashboard from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function AdminPage() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "#FDFBF7",
+          background: "var(--tk-bg)",
           borderBottom: "1px solid var(--tk-border-solid)",
           padding: "0 24px",
         }}
@@ -35,12 +36,12 @@ export default async function AdminPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img src="/icon.png" alt="TintKin Admin Logo" style={{ width: "288px", height: "auto", objectFit: "contain", marginLeft: "-8px" }} />
+            <Wordmark asLink={false} className="text-3xl" />
             <span
               style={{
                 fontSize: "18px",
                 fontWeight: 600,
-                fontFamily: "var(--font-display, 'Playfair Display', serif)",
+                fontFamily: "var(--font-body, 'Outfit', system-ui, sans-serif)",
                 color: "var(--tk-text-primary)",
                 letterSpacing: "-0.5px",
               }}
@@ -52,7 +53,7 @@ export default async function AdminPage() {
                 fontSize: "11px",
                 padding: "2px 8px",
                 borderRadius: "9999px",
-                background: "rgba(44, 62, 80, 0.05)",
+                background: "var(--tk-blush)",
                 color: "var(--tk-text-muted)",
                 fontWeight: 500,
               }}
@@ -61,6 +62,21 @@ export default async function AdminPage() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Link
+              href="/admin/feedback"
+              style={{
+                padding: "8px 16px",
+                background: "transparent",
+                border: "1px solid var(--tk-border-solid)",
+                borderRadius: "10px",
+                color: "var(--tk-text-primary)",
+                fontSize: "13px",
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              Feedback
+            </Link>
             <Link
               href="/admin/shop"
               style={{

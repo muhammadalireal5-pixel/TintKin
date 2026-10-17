@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { zipSync, strToU8 } from "fflate";
 import { Resend } from "resend";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Feedback } from "./mongoose";
 import { signCloudinaryUrl } from "@/lib/utils/cloudinary";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./rate-limit";
 
@@ -46,11 +46,13 @@ export async function exportUserData() {
   }
 
   try {
-    const [selfies, lifestyles, simulations, routineLogs] = await Promise.all([
+    const [selfies, lifestyles, simulations, routineLogs, feedback] = await Promise.all([
       Selfie.find({ userId }).select("-__v").sort({ takenAt: -1 }).lean(),
       Lifestyle.find({ userId }).select("-__v").sort({ date: -1 }).lean(),
       Simulation.find({ userId }).select("-__v").sort({ createdAt: -1 }).lean(),
       RoutineLog.find({ userId }).select("-__v").sort({ date: -1 }).lean(),
+      // Only what the user wrote; the owner's private triage fields stay out.
+      Feedback.find({ userId }).select("type rating message page createdAt").sort({ createdAt: -1 }).lean(),
     ]);
 
     const exportManifest = {
@@ -115,6 +117,7 @@ export async function exportUserData() {
         resultB: sim.resultB ? { ...sim.resultB, imageUrl: signCloudinaryUrl(sim.resultB.imageUrl) } : sim.resultB,
         createdAt: sim.createdAt,
       })),
+      feedback: feedback.map((f) => ({ type: f.type, rating: f.rating, message: f.message, page: f.page, createdAt: f.createdAt })),
       routineLogs: routineLogs.map((r) => ({
         id: r._id.toString(),
         date: r.date,

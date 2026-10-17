@@ -6,7 +6,7 @@ import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { getLeaderboard } from "@/app/lib/actions";
 import {
-  ArrowLeft,
+  ChevronLeft,
   Trophy,
   Medal,
   Flame,
@@ -104,27 +104,23 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
   const myEntry = data?.entries?.find((e) => e.isMe);
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
-      {/* Ambient gradient orbs */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-lavender/30 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-orange-100/40 rounded-full blur-[80px] translate-y-1/3 -translate-x-1/4 pointer-events-none" />
-
-      <div className="max-w-4xl mx-auto relative z-10">
+    <div className="w-full pb-6">
+      <div className="max-w-4xl mx-auto">
         {/* Header with back navigation */}
         <div className="flex items-center gap-4 mb-8">
           <Link
-            href="/dashboard"
-            className="w-10 h-10 rounded-full bg-white/50 border border-white/60 flex items-center justify-center text-muted hover:text-primary hover:bg-white transition-colors shadow-sm shrink-0"
+            href="/progress"
+            className="w-10 h-10 rounded-full bg-surface border border-line flex items-center justify-center text-primary hover:bg-blush transition-colors shrink-0 focus-visible:ring-2 ring-accent"
             aria-label="Back to dashboard"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5" />
           </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-lavender text-primary shadow-xs">
-                <Trophy size={15} className="text-amber-600" />
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-accent-soft text-accent">
+                <Trophy size={15} />
               </span>
-              <h1 className="text-2xl sm:text-3xl font-display font-medium text-primary truncate">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-primary truncate">
                 Community Leaderboard
               </h1>
             </div>
@@ -135,9 +131,9 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
         </div>
 
         {/* Scope Tabs & Stats Bar */}
-        <div className="tk-glass p-3 sm:p-4 rounded-2xl mb-6 shadow-sm border border-black/5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="tk-card p-3 sm:p-4 mb-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Scope selection buttons */}
-          <div className="flex p-1 rounded-xl bg-black/[0.04] gap-1 w-full sm:w-auto">
+          <div className="tk-segmented w-full sm:w-auto">
             {SCOPES.map(({ id, label, icon: Icon }) => {
               const isActive = activeScope === id;
               return (
@@ -145,13 +141,10 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                   key={id}
                   type="button"
                   onClick={() => handleScopeClick(id)}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                    isActive
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-muted hover:text-primary hover:bg-white/50"
-                  }`}
+                  aria-selected={isActive}
+                  className="tk-segmented-item flex-1 sm:flex-initial flex items-center justify-center gap-2"
                 >
-                  <Icon size={15} className={isActive ? "text-sage" : "opacity-70"} />
+                  <Icon size={15} />
                   <span>{label}</span>
                 </button>
               );
@@ -161,7 +154,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
           {/* Active scope context pill */}
           <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
             {data?.activeScopeLabel && !data.needsLocation && (
-              <span className="text-xs text-muted bg-white/70 px-3 py-1.5 rounded-full border border-black/5">
+              <span className="tk-chip">
                 Active: <span className="font-semibold text-primary">{data.activeScopeLabel}</span>
                 {data?.userCount != null && ` · ${data.userCount} ${data.userCount === 1 ? "member" : "members"}`}
               </span>
@@ -170,7 +163,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
               type="button"
               onClick={() => fetchBoard(activeScope)}
               disabled={loading}
-              className="p-2 rounded-full hover:bg-black/5 text-muted hover:text-primary transition-colors"
+              className="p-2 rounded-full hover:bg-blush text-muted hover:text-primary transition-colors"
               title="Refresh"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -180,13 +173,13 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
 
         {/* Current User Standings Callout */}
         {myEntry && (
-          <div className="mb-6 p-4 rounded-2xl bg-sage/15 border border-sage/30 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="mb-5 p-4 rounded-[1.25rem] bg-accent-soft border border-accent/40 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-xs font-display font-bold text-sage text-base">
+              <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center font-semibold text-accent text-base">
                 #{myEntry.rank}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-sage">Your Standing</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-accent-deep">Your Standing</p>
                 <p className="text-sm font-medium text-primary">
                   You are ranked <span className="font-bold">#{myEntry.rank}</span> out of {data?.userCount} {activeScope} members
                 </p>
@@ -194,12 +187,12 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
             </div>
             <div className="flex items-center gap-3">
               {myEntry.streak > 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 text-xs font-medium text-muted shadow-xs">
-                  <Flame size={14} className="text-amber-500 fill-amber-500/20" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface text-xs font-medium text-muted">
+                  <Flame size={14} className="text-accent fill-accent/20" />
                   <span>{myEntry.streak} day streak</span>
                 </div>
               )}
-              <div className="px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold shadow-xs">
+              <div className="px-3 py-1 rounded-full bg-accent text-white text-xs font-semibold">
                 Score: {myEntry.overallScore}
               </div>
             </div>
@@ -209,16 +202,16 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
         {/* Loading State */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 size={32} className="animate-spin text-sage" />
+            <Loader2 size={32} className="animate-spin text-accent" />
             <p className="text-sm text-muted">Updating community rankings…</p>
           </div>
         ) : error ? (
           /* Error state */
-          <div className="tk-glass p-8 sm:p-12 rounded-3xl text-center max-w-md mx-auto my-8 shadow-sm border border-black/5">
-            <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
+          <div className="tk-card p-8 sm:p-12 text-center max-w-md mx-auto my-8">
+            <div className="w-14 h-14 rounded-full bg-danger-soft text-danger mx-auto flex items-center justify-center mb-4">
               <AlertCircle size={24} />
             </div>
-            <h2 className="text-lg font-medium text-primary mb-1.5">
+            <h2 className="text-lg font-semibold text-primary mb-1.5">
               Couldn&apos;t Load Rankings
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
@@ -227,37 +220,37 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
             <button
               type="button"
               onClick={() => fetchBoard(activeScope)}
-              className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary/90 shadow-sm transition-all"
+              className="tk-pill-btn tk-btn-primary inline-flex items-center justify-center"
             >
               Try Again
             </button>
           </div>
         ) : data?.needsLocation ? (
           /* Location required card */
-          <div className="tk-glass p-8 sm:p-12 rounded-3xl text-center max-w-md mx-auto my-8 shadow-sm border border-black/5">
-            <div className="w-14 h-14 rounded-full bg-lavender/60 text-primary mx-auto flex items-center justify-center mb-4 shadow-sm">
-              <MapPin size={24} className="text-primary" />
+          <div className="tk-card p-8 sm:p-12 text-center max-w-md mx-auto my-8">
+            <div className="w-14 h-14 rounded-full bg-accent-soft text-accent mx-auto flex items-center justify-center mb-4">
+              <MapPin size={24} />
             </div>
-            <h2 className="text-lg font-medium text-primary mb-1.5">
+            <h2 className="text-lg font-semibold text-primary mb-1.5">
               Set Your Location to Unlock
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
               Add your city to your profile to compare your progress with other skincare enthusiasts in your area.
             </p>
             <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary/90 shadow-sm transition-all"
+              href="/progress"
+              className="tk-pill-btn tk-btn-primary inline-flex items-center justify-center"
             >
               Open Dashboard Settings
             </Link>
           </div>
         ) : !data?.entries || data.entries.length === 0 ? (
           /* Empty state */
-          <div className="tk-glass p-8 sm:p-12 rounded-3xl text-center max-w-md mx-auto my-8 shadow-sm border border-black/5">
-            <div className="w-14 h-14 rounded-full bg-sage/10 text-sage mx-auto flex items-center justify-center mb-4 shadow-sm">
+          <div className="tk-card p-8 sm:p-12 text-center max-w-md mx-auto my-8">
+            <div className="w-14 h-14 rounded-full bg-accent-soft text-accent mx-auto flex items-center justify-center mb-4">
               <Sparkles size={24} />
             </div>
-            <h2 className="text-lg font-medium text-primary mb-1.5">
+            <h2 className="text-lg font-semibold text-primary mb-1.5">
               Be the First on the Board!
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
@@ -265,7 +258,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
             </p>
             <Link
               href="/capture"
-              className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary/90 shadow-sm transition-all"
+              className="tk-pill-btn tk-btn-primary inline-flex items-center justify-center"
             >
               Take a Skin Scan
             </Link>
@@ -277,11 +270,11 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
               <div className="grid grid-cols-3 gap-3 sm:gap-4 items-end pt-4 pb-2">
                 {/* 2nd Place */}
                 {topThree[1] ? (
-                  <div className={`tk-glass p-4 sm:p-5 rounded-2xl text-center flex flex-col items-center border ${topThree[1].isMe ? 'border-sage/40 bg-sage/5' : 'border-slate-200'}`}>
-                    <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center mb-2 shadow-xs">
+                  <div className={`tk-card p-4 sm:p-5 text-center flex flex-col items-center ${topThree[1].isMe ? '!border-accent !bg-accent-soft' : '!bg-blush'}`}>
+                    <div className="w-8 h-8 rounded-full bg-surface text-muted border border-line flex items-center justify-center mb-2">
                       <Medal size={16} />
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-lavender/70 flex items-center justify-center overflow-hidden mb-2 shadow-xs">
+                    <div className="w-12 h-12 rounded-full bg-blush flex items-center justify-center overflow-hidden mb-2">
                       {topThree[1].photoURL ? (
                         <img src={topThree[1].photoURL} alt={topThree[1].displayName} className="w-full h-full object-cover" />
                       ) : (
@@ -290,9 +283,9 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[1].displayName}
-                      {topThree[1].isMe && <span className="ml-1 text-[10px] text-sage font-bold">(You)</span>}
+                      {topThree[1].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
                     </p>
-                    <span className="text-lg sm:text-xl font-display font-bold text-primary">
+                    <span className="text-lg sm:text-xl font-semibold text-primary">
                       {topThree[1].overallScore}
                     </span>
                     <span className="text-[10px] text-muted">2nd Place</span>
@@ -301,11 +294,11 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
 
                 {/* 1st Place (Elevated) */}
                 {topThree[0] && (
-                  <div className={`tk-glass p-5 sm:p-6 rounded-2xl text-center flex flex-col items-center border-2 border-amber-300 bg-amber-50/20 shadow-md transform -translate-y-2`}>
-                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center mb-2.5 shadow-sm">
+                  <div className={`tk-card p-5 sm:p-6 text-center flex flex-col items-center !border-2 !border-accent !bg-accent-soft transform -translate-y-2`}>
+                    <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center mb-2.5">
                       <Trophy size={20} />
                     </div>
-                    <div className="w-14 h-14 rounded-full bg-lavender/70 flex items-center justify-center overflow-hidden mb-2 shadow-sm">
+                    <div className="w-14 h-14 rounded-full bg-blush flex items-center justify-center overflow-hidden mb-2">
                       {topThree[0].photoURL ? (
                         <img src={topThree[0].photoURL} alt={topThree[0].displayName} className="w-full h-full object-cover" />
                       ) : (
@@ -314,22 +307,22 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[0].displayName}
-                      {topThree[0].isMe && <span className="ml-1 text-[10px] text-sage font-bold">(You)</span>}
+                      {topThree[0].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
                     </p>
-                    <span className="text-2xl sm:text-3xl font-display font-bold text-amber-700">
+                    <span className="text-2xl sm:text-3xl font-semibold text-accent">
                       {topThree[0].overallScore}
                     </span>
-                    <span className="text-[10px] text-amber-800 font-semibold tracking-wide uppercase">Champion</span>
+                    <span className="text-[10px] text-accent-deep font-semibold tracking-wide uppercase">Champion</span>
                   </div>
                 )}
 
                 {/* 3rd Place */}
                 {topThree[2] ? (
-                  <div className={`tk-glass p-4 sm:p-5 rounded-2xl text-center flex flex-col items-center border ${topThree[2].isMe ? 'border-sage/40 bg-sage/5' : 'border-orange-200'}`}>
-                    <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-700 border border-orange-300 flex items-center justify-center mb-2 shadow-xs">
+                  <div className={`tk-card p-4 sm:p-5 text-center flex flex-col items-center ${topThree[2].isMe ? '!border-accent !bg-accent-soft' : '!bg-cocoa/10'}`}>
+                    <div className="w-8 h-8 rounded-full bg-surface text-cocoa border border-line flex items-center justify-center mb-2">
                       <Medal size={16} />
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-lavender/70 flex items-center justify-center overflow-hidden mb-2 shadow-xs">
+                    <div className="w-12 h-12 rounded-full bg-blush flex items-center justify-center overflow-hidden mb-2">
                       {topThree[2].photoURL ? (
                         <img src={topThree[2].photoURL} alt={topThree[2].displayName} className="w-full h-full object-cover" />
                       ) : (
@@ -338,9 +331,9 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[2].displayName}
-                      {topThree[2].isMe && <span className="ml-1 text-[10px] text-sage font-bold">(You)</span>}
+                      {topThree[2].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
                     </p>
-                    <span className="text-lg sm:text-xl font-display font-bold text-primary">
+                    <span className="text-lg sm:text-xl font-semibold text-primary">
                       {topThree[2].overallScore}
                     </span>
                     <span className="text-[10px] text-muted">3rd Place</span>
@@ -350,8 +343,8 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
             )}
 
             {/* Complete Rankings List */}
-            <div className="tk-glass rounded-2xl overflow-hidden shadow-sm border border-black/5">
-              <div className="p-4 border-b border-black/5 bg-black/[0.02] flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted">
+            <div className="tk-card overflow-hidden">
+              <div className="p-4 border-b border-line bg-blush/50 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted">
                 <span>Rank &amp; Member</span>
                 <div className="flex items-center gap-6">
                   <span className="hidden sm:inline">Location</span>
@@ -360,7 +353,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                 </div>
               </div>
 
-              <div className="divide-y divide-black/5">
+              <div className="divide-y divide-line">
                 {data.entries.map((entry) => {
                   const isRank1 = entry.rank === 1;
                   const isRank2 = entry.rank === 2;
@@ -370,7 +363,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     <div
                       key={entry.userId}
                       className={`p-4 flex items-center justify-between text-sm transition-colors ${
-                        entry.isMe ? "bg-sage/10 font-medium" : "hover:bg-black/[0.02]"
+                        entry.isMe ? "bg-accent-soft font-medium shadow-[inset_3px_0_0_var(--tk-accent)]" : "hover:bg-blush/40"
                       }`}
                     >
                       {/* Left: Rank & User */}
@@ -378,24 +371,24 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${
                             isRank1
-                              ? "bg-amber-100 text-amber-700 border border-amber-300"
+                              ? "bg-accent text-white"
                               : isRank2
-                              ? "bg-slate-200 text-slate-700 border border-slate-300"
+                              ? "bg-blush text-muted border border-line"
                               : isRank3
-                              ? "bg-orange-100 text-orange-700 border border-orange-300"
-                              : "bg-black/5 text-muted"
+                              ? "bg-cocoa/10 text-cocoa border border-line"
+                              : "bg-blush text-muted"
                           }`}
                         >
                           {isRank1 ? (
-                            <Trophy size={14} className="text-amber-700" />
+                            <Trophy size={14} className="text-white" />
                           ) : isRank2 || isRank3 ? (
-                            <Medal size={14} className={isRank2 ? "text-slate-700" : "text-orange-700"} />
+                            <Medal size={14} className={isRank2 ? "text-muted" : "text-cocoa"} />
                           ) : (
                             entry.rank
                           )}
                         </div>
 
-                        <div className="w-8 h-8 rounded-full bg-lavender/70 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-blush flex items-center justify-center overflow-hidden shrink-0">
                           {entry.photoURL ? (
                             <img src={entry.photoURL} alt={entry.displayName} className="w-full h-full object-cover" />
                           ) : (
@@ -409,7 +402,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                               {entry.displayName}
                             </span>
                             {entry.isMe && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-sage text-white font-semibold shrink-0">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-white font-semibold shrink-0">
                                 You
                               </span>
                             )}
@@ -430,7 +423,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                         <div className="flex items-center gap-1 text-xs text-muted min-w-[50px]">
                           {entry.streak > 0 ? (
                             <>
-                              <Flame size={14} className="text-amber-500 fill-amber-500/20" />
+                              <Flame size={14} className="text-accent fill-accent/20" />
                               <span>{entry.streak}d</span>
                             </>
                           ) : (
@@ -439,7 +432,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                         </div>
 
                         <div className="min-w-[45px] text-right">
-                          <span className="font-display font-semibold text-sm px-3 py-1 rounded-full bg-black/5 text-primary">
+                          <span className="font-semibold text-sm px-3 py-1 rounded-full bg-blush text-primary">
                             {entry.overallScore}
                           </span>
                         </div>

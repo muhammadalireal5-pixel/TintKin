@@ -5,8 +5,8 @@ export default function manifest() {
     description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
     start_url: "/",
     display: "standalone",
-    background_color: "#FDFBF7",
-    theme_color: "#2C3E50",
+    background_color: "#FCF4F2",
+    theme_color: "#FCF4F2",
     icons: [
       {
         src: "/icon-192.png",

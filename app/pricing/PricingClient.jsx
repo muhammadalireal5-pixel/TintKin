@@ -3,11 +3,64 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateUserTier, updateUserSettings } from "@/app/lib/actions";
-import { Check, Sparkles, Star, Loader2, ArrowRight } from "lucide-react";
+import { Check, Minus, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
 import { useToast } from "@/app/components/ToastProvider";
 import AnimatedModal from "@/app/components/AnimatedModal";
 import { usePwaInstall } from "@/app/context/PwaContext";
 import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
+
+const PLANS = [
+    {
+        tier: TIERS.FREE,
+        name: "Free",
+        price: "$0",
+        tagline: "A taste of TintKin's AI analysis.",
+        features: [
+            { text: "2 Scans", rest: " per month" },
+            { text: "1 AI Simulation", rest: " per month" },
+            { text: "Basic insights & logging" },
+        ],
+        cta: "Select Free",
+    },
+    {
+        tier: TIERS.STANDARD,
+        name: "Standard",
+        price: "$12",
+        tagline: "Perfect for tracking progress every other day.",
+        popular: true,
+        features: [
+            { text: "15 Scans", rest: " per month" },
+            { text: "3 AI Simulations", rest: " per month" },
+            { text: "Advanced routine tracking" },
+        ],
+        cta: "Select Standard",
+    },
+    {
+        tier: TIERS.PREMIUM,
+        name: "Pro",
+        price: "$24",
+        tagline: "For the dedicated skincare enthusiast.",
+        features: [
+            { text: "Daily Scans", rest: " (Full Month)" },
+            { text: "4 AI Simulations", rest: " per month" },
+            { text: "Custom Product Uploads", rest: " in Simulator", sparkle: true },
+        ],
+        cta: "Select Pro",
+    },
+];
+
+const COMPARE_ROWS = [
+    { label: "Scans per month", values: ["2", "15", "Daily"] },
+    { label: "AI simulations per month", values: ["1", "3", "4"] },
+    { label: "Custom product uploads in Simulator", values: [false, false, true] },
+];
+
+function CompareCell({ value }) {
+    if (value === true) return <Check className="w-5 h-5 text-accent mx-auto" aria-label="Included" />;
+    if (value === false) return <Minus className="w-5 h-5 text-faint mx-auto" aria-label="Not included" />;
+    return <span className="text-sm font-semibold text-primary">{value}</span>;
+}
 
 export default function PricingClient({ demoMode = false }) {
     const router = useRouter();
@@ -16,7 +69,7 @@ export default function PricingClient({ demoMode = false }) {
     const { isInstalled } = usePwaInstall();
     const [loading, setLoading] = useState(false);
     const [showStandardModal, setShowStandardModal] = useState(false);
-    const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // for mobile view: 'free' | 'standard' | 'premium'
+    const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // selected plan (also drives the phone tab view)
 
     useEffect(() => {
         if (searchParams.get("error") === "checkout_failed") {
@@ -38,7 +91,7 @@ export default function PricingClient({ demoMode = false }) {
             // clear the loading overlay instead of leaving it stuck.
             setLoading(false);
         } else {
-            window.location.href = url;
+            window.location.assign(url);
         }
     };
 
@@ -88,204 +141,110 @@ export default function PricingClient({ demoMode = false }) {
 
     return (
         <>
-            {/* Mobile Tab Switcher */}
-            <div className="md:hidden flex justify-center mb-8 tk-anim-1">
-                <div className="inline-flex bg-white/70 p-1 rounded-2xl border border-lavender shadow-sm">
-                    <button
-                        onClick={() => setActiveTab(TIERS.FREE)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                            activeTab === TIERS.FREE
-                                ? "bg-primary text-white shadow-sm"
-                                : "text-muted hover:text-primary"
-                        }`}
-                    >
-                        Free
-                    </button>
-                    <button
-                        onClick={() => setActiveTab(TIERS.STANDARD)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all relative ${
-                            activeTab === TIERS.STANDARD
-                                ? "bg-sage text-white shadow-sm"
-                                : "text-muted hover:text-primary"
-                        }`}
-                    >
-                        Standard
-                        <span className="ml-1 text-[9px] uppercase px-1.5 py-0.2 bg-white/20 rounded-full font-bold">Pop</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab(TIERS.PREMIUM)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                            activeTab === TIERS.PREMIUM
-                                ? "bg-primary text-white shadow-sm"
-                                : "text-muted hover:text-primary"
-                        }`}
-                    >
-                        Pro
-                    </button>
-                </div>
+            {/* Phone plan switcher */}
+            <div className="md:hidden mb-5 tk-anim-1">
+                <SegmentedTabs
+                    label="Plan"
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    items={[
+                        { id: TIERS.FREE, label: "Free" },
+                        { id: TIERS.STANDARD, label: "Standard" },
+                        { id: TIERS.PREMIUM, label: "Pro" },
+                    ]}
+                />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-                
-                {/* Free Plan */}
-                <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-2 hover:shadow-xl transition-all ${
-                    activeTab !== TIERS.FREE ? "hidden md:flex" : "flex"
-                }`}>
-                    <div className="mb-6">
-                        <h3 className="text-2xl font-display text-primary mb-2">Free</h3>
-                        <p className="text-muted text-sm min-h-[40px]">A taste of TintKin&apos;s AI analysis.</p>
-                    </div>
-                    <div className="mb-8">
-                        <span className="text-4xl font-display text-primary">$0</span>
-                        <span className="text-muted">/mo</span>
-                    </div>
-                    <ul className="space-y-4 mb-8 flex-1">
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>2 Scans</strong> per month</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>1 AI Simulation</strong> per month</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span>Basic insights & logging</span>
-                        </li>
-                    </ul>
-                    <button 
-                        onClick={() => handleSelectPlan(TIERS.FREE)}
-                        disabled={loading}
-                        className="tk-pill-btn w-full bg-white/50 border border-lavender hover:bg-white transition-colors"
-                    >
-                        Select Free
-                    </button>
-                </div>
-
-                {/* Standard Plan */}
-                <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-3 relative hover:shadow-xl transition-all border-sage/30 ${
-                    activeTab !== TIERS.STANDARD ? "hidden md:flex" : "flex"
-                }`}>
-                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2 sm:translate-x-4">
-                        <div className="bg-sage text-white text-[10px] sm:text-xs font-bold uppercase tracking-widest px-3 sm:px-4 py-1 rounded-full shadow-lg">
-                            Popular
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 items-stretch">
+                {PLANS.map((plan) => {
+                    const selected = activeTab === plan.tier;
+                    return (
+                        <div
+                            key={plan.tier}
+                            onClick={() => setActiveTab(plan.tier)}
+                            className={`tk-card relative p-5 sm:p-6 flex-col transition-all border-2 ${
+                                selected ? "border-accent bg-accent-soft/50" : "border-transparent"
+                            } ${selected ? "flex" : "hidden md:flex"}`}
+                        >
+                            {plan.popular && (
+                                <span className="tk-chip absolute top-4 right-4 bg-accent text-white">Most Popular</span>
+                            )}
+                            <h3 className="text-xl font-semibold text-primary mb-1">{plan.name}</h3>
+                            <p className="text-muted text-sm min-h-[40px] pr-24 md:pr-0">{plan.tagline}</p>
+                            <div className="my-5">
+                                <span className="text-4xl font-semibold text-primary">{plan.price}</span>
+                                <span className="text-muted text-sm"> / month</span>
+                            </div>
+                            <ul className="space-y-3 mb-6 flex-1">
+                                {plan.features.map((f) => (
+                                    <li key={f.text} className="flex items-start gap-3 text-sm text-primary">
+                                        {f.sparkle ? (
+                                            <Sparkles className="w-5 h-5 text-accent shrink-0" />
+                                        ) : (
+                                            <Check className="w-5 h-5 text-accent shrink-0" />
+                                        )}
+                                        <span><strong>{f.text}</strong>{f.rest}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleSelectPlan(plan.tier); }}
+                                disabled={loading}
+                                className={`tk-pill-btn w-full disabled:opacity-60 ${selected ? "tk-btn-primary" : "tk-btn-soft"}`}
+                            >
+                                {selected ? (plan.tier === TIERS.FREE ? "Get started" : "Continue") : plan.cta}
+                            </button>
                         </div>
-                    </div>
-                    <div className="mb-6">
-                        <h3 className="text-2xl font-display text-primary mb-2">Standard</h3>
-                        <p className="text-muted text-sm min-h-[40px]">Perfect for tracking progress every other day.</p>
-                    </div>
-                    <div className="mb-8">
-                        <span className="text-4xl font-display text-primary">$12</span>
-                        <span className="text-muted">/mo</span>
-                    </div>
-                    <ul className="space-y-4 mb-8 flex-1">
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>15 Scans</strong> per month</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>3 AI Simulations</strong> per month</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span>Advanced routine tracking</span>
-                        </li>
-                    </ul>
-                    <button 
-                        onClick={() => handleSelectPlan(TIERS.STANDARD)}
-                        disabled={loading}
-                        className="tk-pill-btn w-full bg-primary text-white hover:bg-primary/90 transition-colors shadow-lg"
-                    >
-                        Select Standard
-                    </button>
-                </div>
-
-                {/* Pro Plan */}
-                <div className={`tk-glass p-6 sm:p-8 rounded-3xl flex flex-col tk-anim-4 hover:shadow-xl transition-all ${
-                    activeTab !== TIERS.PREMIUM ? "hidden md:flex" : "flex"
-                }`}>
-                    <div className="mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-2xl font-display text-primary">Pro</h3>
-                            <Star className="w-5 h-5 text-orange-400 fill-orange-400" />
-                        </div>
-                        <p className="text-muted text-sm min-h-[40px]">For the dedicated skincare enthusiast.</p>
-                    </div>
-                    <div className="mb-8">
-                        <span className="text-4xl font-display text-primary">$24</span>
-                        <span className="text-muted">/mo</span>
-                    </div>
-                    <ul className="space-y-4 mb-8 flex-1">
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>Daily Scans</strong> (Full Month)</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Check className="w-5 h-5 text-sage shrink-0" />
-                            <span><strong>4 AI Simulations</strong> per month</span>
-                        </li>
-                        <li className="flex items-start gap-3 text-sm text-primary">
-                            <Sparkles className="w-5 h-5 text-orange-400 shrink-0" />
-                            <span><strong>Custom Product Uploads</strong> in Simulator</span>
-                        </li>
-                    </ul>
-                    <button 
-                        onClick={() => handleSelectPlan(TIERS.PREMIUM)}
-                        disabled={loading}
-                        className="tk-pill-btn w-full bg-white/50 border border-lavender hover:bg-white transition-colors"
-                    >
-                        Select Pro
-                    </button>
-                </div>
+                    );
+                })}
             </div>
 
-            {/* Sticky Mobile CTA */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-black/5 z-40 pb-safe">
-                {activeTab === TIERS.FREE && (
-                    <button
-                        onClick={() => handleSelectPlan(TIERS.FREE)}
-                        disabled={loading}
-                        className="tk-pill-btn w-full bg-white/90 border border-lavender text-primary shadow-lg flex items-center justify-center gap-2 text-sm font-semibold hover:bg-white"
-                    >
-                        Select Free Plan — $0/mo
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                )}
-                {activeTab === TIERS.STANDARD && (
-                    <button
-                        onClick={() => handleSelectPlan(TIERS.STANDARD)}
-                        disabled={loading}
-                        className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold"
-                    >
-                        Get Standard Plan — $12/mo
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                )}
-                {activeTab === TIERS.PREMIUM && (
-                    <button
-                        onClick={() => handleSelectPlan(TIERS.PREMIUM)}
-                        disabled={loading}
-                        className="tk-pill-btn bg-primary text-white w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold hover:bg-primary/90"
-                    >
-                        Get Pro Plan — $24/mo
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                )}
-            </div>
+            {/* Compare plans */}
+            <section className="mt-10" aria-labelledby="compare-plans-heading">
+                <h2 id="compare-plans-heading" className="text-xl font-semibold text-primary mb-4 text-center">Compare plans</h2>
+                <div className="tk-card overflow-x-auto max-h-[32rem] overflow-y-auto">
+                    <table className="w-full min-w-[30rem] text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th scope="col" className="sticky top-0 z-10 bg-surface p-4 text-xs font-semibold uppercase tracking-wider text-muted border-b border-line">Features</th>
+                                {PLANS.map((p) => (
+                                    <th key={p.tier} scope="col" className="sticky top-0 z-10 bg-surface p-4 text-center text-sm font-semibold text-primary border-b border-line">
+                                        {p.name}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {COMPARE_ROWS.map((row) => (
+                                <tr key={row.label} className="border-b border-line">
+                                    <th scope="row" className="p-4 text-sm font-medium text-primary">{row.label}</th>
+                                    {row.values.map((v, i) => (
+                                        <td key={i} className="p-4 text-center"><CompareCell value={v} /></td>
+                                    ))}
+                                </tr>
+                            ))}
+                            <tr>
+                                <th scope="row" className="p-4 text-sm font-semibold text-primary">Price</th>
+                                {PLANS.map((p) => (
+                                    <td key={p.tier} className="p-4 text-center text-sm font-semibold text-primary">{p.price} / mo</td>
+                                ))}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
             {/* Loading Overlay */}
             {loading && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-[#2C3E50]/45" role="status" aria-live="polite">
-                    <div className="flex flex-col items-center gap-3 rounded-3xl bg-[#FDFBF7] border border-[rgba(44,62,80,0.08)] px-8 py-7 shadow-[0_24px_64px_-16px_rgba(44,62,80,0.35)]">
-                        <Loader2 className="w-8 h-8 animate-spin text-sage" />
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-cocoa/45" role="status" aria-live="polite">
+                    <div className="tk-card flex flex-col items-center gap-3 rounded-3xl px-8 py-7">
+                        <Loader2 className="w-8 h-8 animate-spin text-accent" />
                         <p className="text-primary font-medium text-sm">Setting up your plan...</p>
                     </div>
                 </div>
             )}
 
-            {/* Standard Frequency Modal */}
+                        {/* Standard Frequency Modal */}
             <AnimatedModal
                 isOpen={showStandardModal}
                 onClose={() => setShowStandardModal(false)}
@@ -293,7 +252,7 @@ export default function PricingClient({ demoMode = false }) {
                 ariaLabel="Choose your rhythm"
                 panelClassName="p-6 pt-8 sm:p-8"
             >
-                        <h2 className="text-2xl font-display font-medium text-primary mb-2">Choose your rhythm</h2>
+                        <h2 className="text-2xl font-semibold text-primary mb-2">Choose your rhythm</h2>
                         <p className="text-muted text-sm mb-6">
                             With the Standard plan, you get 15 scans per month. How would you like to pace them? 
                             (You can always change this in your Settings later)
@@ -302,16 +261,16 @@ export default function PricingClient({ demoMode = false }) {
                         <div className="space-y-4">
                             <button 
                                 onClick={() => handleStandardFrequency(STANDARD_PACING.EVERY_OTHER_DAY)}
-                                className="w-full text-left p-4 rounded-2xl border-2 border-sage/50 bg-white hover:bg-sage/5 transition-colors relative group"
+                                className="w-full text-left p-4 rounded-2xl border-2 border-accent bg-accent-soft/50 hover:bg-accent-soft transition-colors relative group"
                             >
                                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2">
-                                    <span className="bg-sage text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                    <span className="bg-accent text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
                                         Recommended
                                     </span>
                                 </div>
                                 <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
                                     Strict Every Other Day
-                                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-sage" />
+                                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-accent" />
                                 </h4>
                                 <p className="text-sm text-muted">
                                     Enforce a 48-hour gap between scans. Best for completing a consistent 30-day cycle without burning through scans too fast.
@@ -320,7 +279,7 @@ export default function PricingClient({ demoMode = false }) {
 
                             <button 
                                 onClick={() => handleStandardFrequency(STANDARD_PACING.FLEXIBLE)}
-                                className="w-full text-left p-4 rounded-2xl border border-[rgba(44,62,80,0.12)] bg-white hover:bg-black/[0.02] transition-colors group"
+                                className="w-full text-left p-4 rounded-2xl border border-line bg-white hover:bg-blush transition-colors group"
                             >
                                 <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
                                     Flexible (Any Day)

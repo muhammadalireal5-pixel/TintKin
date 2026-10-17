@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 const protectedUserPaths = [
   "/dashboard",
+  "/routine",
+  "/progress",
+  "/profile",
   "/capture",
   "/what-if",
   "/history",
@@ -40,7 +43,9 @@ function buildCsp(nonce) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
+    // Prod only: on a plain-http LAN dev URL this rewrites every CSS/JS request
+    // to https:// and the page loads as bare HTML with no styles.
+    ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 }
 

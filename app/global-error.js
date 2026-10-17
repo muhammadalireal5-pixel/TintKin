@@ -29,13 +29,13 @@ export default function GlobalError({ error, reset }) {
       <head>
         <title>Application Error | TintKin</title>
       </head>
-      <body className="tk-body tk-mesh-bg min-h-screen flex items-center justify-center p-6">
-        <div className="tk-glass p-10 md:p-14 rounded-3xl flex flex-col items-center text-center max-w-lg w-full">
-          <div className="w-20 h-20 rounded-3xl bg-red-100 flex items-center justify-center text-red-600 mb-8 tk-anim-float">
+      <body className="tk-body tk-page min-h-screen flex items-center justify-center p-6">
+        <div className="tk-card p-8 md:p-12 flex flex-col items-center text-center max-w-lg w-full">
+          <div className="tk-icon-circle w-20 h-20 bg-danger-soft text-danger mb-8 tk-anim-float">
             <AlertOctagon className="w-10 h-10" />
           </div>
           
-          <h1 className="font-display text-3xl md:text-4xl font-medium text-primary mb-4">
+          <h1 className="text-3xl md:text-4xl font-semibold text-primary mb-4">
             Critical System Error
           </h1>
           
@@ -45,7 +45,7 @@ export default function GlobalError({ error, reset }) {
           
           <button 
             onClick={() => reset()} 
-            className="tk-btn-primary w-full flex items-center justify-center gap-2"
+            className="tk-pill-btn tk-btn-primary w-full gap-2"
           >
             <RotateCcw className="w-4 h-4" /> Reload Application
           </button>

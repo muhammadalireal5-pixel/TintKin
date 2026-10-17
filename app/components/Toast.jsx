@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, Sparkles, Activity } from "lucide-react";
 
 const ICONS = {
-  success: <CheckCircle2 className="w-5 h-5 text-sage" />,
-  error: <XCircle className="w-5 h-5 text-red-500" />,
-  habit: <Sparkles className="w-5 h-5 text-lavender" />,
-  workout: <Activity className="w-5 h-5 text-primary" />,
-  product: <Sparkles className="w-5 h-5 text-orange-400" />
+  success: <CheckCircle2 className="w-5 h-5 text-success" />,
+  error: <XCircle className="w-5 h-5 text-danger" />,
+  habit: <Sparkles className="w-5 h-5 text-accent" />,
+  workout: <Activity className="w-5 h-5 text-accent" />,
+  product: <Sparkles className="w-5 h-5 text-accent" />
 };
 
 export default function Toast({ id, type = "success", title, message, duration = 4000, onClose }) {
@@ -29,7 +29,7 @@ export default function Toast({ id, type = "success", title, message, duration =
 
   return (
     <div 
-      className={`pointer-events-auto w-full max-w-sm overflow-hidden rounded-2xl bg-[#FDFBF7] border border-[rgba(44,62,80,0.08)] shadow-[0_12px_32px_-8px_rgba(44,62,80,0.25)] transition-all duration-300
+      className={`pointer-events-auto w-full max-w-sm overflow-hidden rounded-[1.25rem] bg-surface border border-line shadow-[0_12px_32px_-8px_rgba(74,42,31,0.25)] transition-all duration-300
       ${isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'}`}
       style={{
         animation: !isClosing ? 'slideInUp 0.3s ease-out forwards' : 'none'
@@ -37,7 +37,7 @@ export default function Toast({ id, type = "success", title, message, duration =
     >
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 mt-0.5">
+          <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center -ml-0.5">
             {ICONS[type] || ICONS.success}
           </div>
           <div className="ml-1 w-0 flex-1 pt-0.5">
@@ -47,7 +47,7 @@ export default function Toast({ id, type = "success", title, message, duration =
           <div className="ml-4 flex flex-shrink-0">
             <button
               type="button"
-              className="inline-flex rounded-md bg-transparent text-muted hover:text-primary focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
+              className="inline-flex rounded-md bg-transparent text-muted hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
               onClick={handleClose}
             >
               <span className="sr-only">Close</span>
@@ -58,9 +58,9 @@ export default function Toast({ id, type = "success", title, message, duration =
           </div>
         </div>
       </div>
-      <div className="h-1 bg-black/5 w-full">
+      <div className="h-1 bg-line w-full">
         <div 
-          className="h-full bg-primary/20" 
+          className="h-full bg-accent/40" 
           style={{
             animation: `shrink ${duration}ms linear forwards`
           }}

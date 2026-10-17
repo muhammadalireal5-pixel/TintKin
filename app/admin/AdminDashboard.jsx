@@ -44,8 +44,8 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-[44px] items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#7E72A8] focus:ring-offset-2 focus:ring-offset-white ${
-        checked ? 'bg-[#7E72A8]' : 'bg-black/10'
+      className={`relative inline-flex h-6 w-[44px] items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white ${
+        checked ? 'bg-accent' : 'bg-black/10'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
@@ -110,7 +110,7 @@ const ImageMigrationPanel = () => {
           type="button"
           disabled={running}
           onClick={() => run(false)}
-          className="px-4 py-2 rounded-xl text-sm font-medium bg-[#7E72A8] text-white hover:bg-[#6a5f91] disabled:opacity-50"
+          className="px-4 py-2 rounded-xl text-sm font-medium bg-accent text-white hover:bg-accent-deep disabled:opacity-50"
         >
           {running ? 'Running…' : 'Migrate next batch'}
         </button>
@@ -145,7 +145,7 @@ const ScoreCircle = ({ score }) => {
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
-  const color = score >= 80 ? '#22c55e' : score >= 60 ? '#f97316' : '#ef4444';
+  const color = score >= 80 ? '#2F8F5B' : score >= 60 ? '#C9772B' : '#B3261E';
 
   return (
     <div className="relative inline-flex items-center justify-center">
@@ -336,7 +336,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
   }, [users, searchTerm, filter]);
 
   return (
-    <div className="min-h-screen bg-[var(--tk-bg-primary)] text-[var(--tk-text-primary)] p-6 md:p-8 font-sans selection:bg-[#7E72A8]/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-base text-[var(--tk-text-primary)] p-6 md:p-8 font-sans selection:bg-accent/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
       
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>
@@ -346,12 +346,12 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <StatCard title="Total Users" value={initialStats.totalUsers || 0} icon={Users} accentColor="#7E72A8" />
-        <StatCard title="Active Users" value={initialStats.activeUsers || 0} icon={Activity} accentColor="#22c55e" />
-        <StatCard title="Inactive Users" value={initialStats.inactiveUsers || 0} icon={Clock} accentColor="#6b7280" />
+        <StatCard title="Total Users" value={initialStats.totalUsers || 0} icon={Users} accentColor="#B5546A" />
+        <StatCard title="Active Users" value={initialStats.activeUsers || 0} icon={Activity} accentColor="#2F8F5B" />
+        <StatCard title="Inactive Users" value={initialStats.inactiveUsers || 0} icon={Clock} accentColor="#7E5B64" />
         <StatCard title="Subscribed" value={initialStats.subscribedUsers || 0} icon={Crown} accentColor="#eab308" />
-        <StatCard title="Total Scans" value={initialStats.totalScans || 0} icon={Eye} accentColor="#5A6A3B" />
-        <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#f97316" />
+        <StatCard title="Total Scans" value={initialStats.totalScans || 0} icon={Eye} accentColor="#6B3342" />
+        <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#C9772B" />
       </div>
 
       <ImageMigrationPanel />
@@ -364,7 +364,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
             placeholder="Search by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/80 border border-[var(--tk-border-solid)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7E72A8]/50 focus:border-transparent transition-all placeholder:text-[var(--tk-text-faint)] text-[var(--tk-text-primary)]"
+            className="w-full bg-white/80 border border-[var(--tk-border-solid)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all placeholder:text-[var(--tk-text-faint)] text-[var(--tk-text-primary)]"
           />
         </div>
         
@@ -434,7 +434,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-[#22c55e] shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-gray-400'}`} />
+                            <span className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-[#22c55e] shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-faint'}`} />
                             <span className={user.isActive ? 'text-[var(--tk-text-primary)]' : 'text-[var(--tk-text-faint)]'}>
                               {user.isActive ? 'Active' : 'Inactive'}
                             </span>
@@ -445,7 +445,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                             value={user.tier || 'free'}
                             onChange={(e) => handleChangeTier(user._id, e.target.value)}
                             disabled={togglingMap[user._id]}
-                            className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-sage"
+                            className="text-sm border border-line rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
                           >
                             <option value="free">Free</option>
                             <option value="pending">Pending</option>
@@ -479,7 +479,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                       {isExpanded && (
                         <tr className="bg-black/5 border-b-0">
                           <td colSpan="8" className="p-0">
-                            <div className="px-6 py-6 border-l-2 border-[#7E72A8] ml-[2px] animate-in slide-in-from-top-2 fade-in duration-300">
+                            <div className="px-6 py-6 border-l-2 border-accent ml-[2px] animate-in slide-in-from-top-2 fade-in duration-300">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 
                                 <div className="space-y-4">
@@ -508,7 +508,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                     <button
                                       onClick={() => handleAddExtraScans(user._id, 1)}
                                       disabled={togglingMap[user._id]}
-                                      className="w-full flex items-center justify-center gap-2 py-2 bg-sage/10 hover:bg-sage/20 text-sage text-sm font-semibold rounded-lg transition-colors border border-sage/20 disabled:opacity-50"
+                                      className="w-full flex items-center justify-center gap-2 py-2 bg-accent/10 hover:bg-accent/20 text-accent text-sm font-semibold rounded-lg transition-colors border border-accent/20 disabled:opacity-50"
                                     >
                                       <Plus size={16} /> Add Extra Scan
                                     </button>
@@ -527,7 +527,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                             <button
                                               onClick={() => handleConfirmRefund(user._id)}
                                               disabled={togglingMap[user._id] || refundPreview[user._id].suggestedAmountCents <= 0}
-                                              className="flex-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-xs font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                              className="flex-1 py-1.5 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
                                             >
                                               Confirm Refund
                                             </button>
@@ -543,7 +543,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                         <button
                                           onClick={() => handlePreviewRefund(user._id)}
                                           disabled={togglingMap[user._id]}
-                                          className="w-full flex items-center justify-center gap-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-sm font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                          className="w-full flex items-center justify-center gap-2 py-2 bg-danger/10 hover:bg-danger/15 text-danger text-sm font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
                                         >
                                           <Undo2 size={16} /> Issue Refund
                                         </button>
@@ -573,7 +573,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                                             <button
                                               onClick={() => handleRefundCreditOrder(user._id, order.orderId)}
                                               disabled={creditOrdersLoading[order.orderId]}
-                                              className="shrink-0 py-1.5 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 text-xs font-semibold rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                                              className="shrink-0 py-1.5 px-3 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
                                             >
                                               Refund
                                             </button>
@@ -654,7 +654,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                       <p>No users found matching your criteria.</p>
                       <button 
                         onClick={() => { setSearchTerm(''); setFilter('All'); }}
-                        className="text-sm text-[#7E72A8] hover:underline font-medium"
+                        className="text-sm text-accent hover:underline font-medium"
                       >
                         Clear filters
                       </button>

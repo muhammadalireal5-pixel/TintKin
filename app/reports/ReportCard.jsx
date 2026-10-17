@@ -22,14 +22,14 @@ function formatDate(date) {
 function TrendPill({ trend, value }) {
   if (!trend) return null;
   const config = {
-    improving: { Icon: TrendingUp, label: `Improving${value ? ` +${value}` : ""}`, cls: "bg-sage/15 text-[#5E6B3A]" },
-    declining: { Icon: TrendingDown, label: `Dipped${value ? ` −${value}` : ""}`, cls: "bg-[#FFDAB9]/60 text-[#9A5B2E]" },
-    stable: { Icon: Minus, label: "Stable", cls: "bg-lavender text-primary" },
+    improving: { Icon: TrendingUp, label: `Improving${value ? ` +${value}` : ""}`, cls: "tk-chip-success" },
+    declining: { Icon: TrendingDown, label: `Dipped${value ? ` −${value}` : ""}`, cls: "tk-chip-danger" },
+    stable: { Icon: Minus, label: "Stable", cls: "tk-chip" },
   }[trend];
   if (!config) return null;
   const { Icon, label, cls } = config;
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${cls}`}>
+    <span className={`tk-chip inline-flex items-center gap-1 ${cls}`}>
       <Icon size={12} /> {label}
     </span>
   );
@@ -236,18 +236,18 @@ export default function ReportCard({ report, userName }) {
     <article className="tk-card p-5 sm:p-6 flex flex-col gap-5 md:flex-row md:items-start">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${report.type === "weekly" ? "bg-sage/15 text-[#5E6B3A]" : "bg-lavender text-primary"}`}>
+          <span className={`tk-chip uppercase tracking-wider ${report.type === "weekly" ? "tk-chip-success" : ""}`}>
             {report.type} report
           </span>
           {report.aiGenerated && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#FFDAB9]/50 text-[#9A5B2E] inline-flex items-center gap-1">
+            <span className="tk-chip uppercase tracking-wider inline-flex items-center gap-1">
               <Sparkles size={10} /> AI
             </span>
           )}
           <TrendPill trend={report.trend} value={report.trendValue} />
         </div>
 
-        <h3 className="text-lg sm:text-xl font-display font-medium text-primary mb-1.5 leading-snug">{report.title}</h3>
+        <h3 className="text-lg sm:text-xl font-semibold text-primary mb-1.5 leading-snug">{report.title}</h3>
         <p className="flex items-center gap-1.5 text-xs text-muted mb-3">
           <Clock size={13} /> {formatDate(report.date)}
         </p>
@@ -256,7 +256,7 @@ export default function ReportCard({ report, userName }) {
         {report.highlights.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {report.highlights.map((highlight, i) => (
-              <span key={i} className="text-xs px-3 py-1 rounded-full bg-sage/10 text-[#5E6B3A] font-medium">
+              <span key={i} className="text-xs px-3 py-1 rounded-full bg-accent-soft text-accent-deep font-medium">
                 {highlight}
               </span>
             ))}
@@ -269,7 +269,7 @@ export default function ReportCard({ report, userName }) {
           type="button"
           onClick={handleDownloadPdf}
           disabled={Boolean(busy)}
-          className="flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-xl bg-primary text-white text-sm md:text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+          className="flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 tk-pill-btn tk-btn-primary text-sm md:text-xs disabled:opacity-60"
         >
           {busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
           {busy === "pdf" ? "Creating…" : "Download PDF"}
@@ -278,7 +278,7 @@ export default function ReportCard({ report, userName }) {
           type="button"
           onClick={handleShare}
           disabled={Boolean(busy)}
-          className="flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-xl bg-white border border-[rgba(44,62,80,0.12)] text-primary text-sm md:text-xs font-semibold hover:bg-black/[0.02] transition-colors disabled:opacity-60"
+          className="flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 tk-pill-btn tk-btn-ghost text-sm md:text-xs disabled:opacity-60"
         >
           {busy === "share" ? <Loader2 size={15} className="animate-spin" /> : <Share2 size={15} />}
           Share
@@ -292,7 +292,7 @@ export default function ReportCard({ report, userName }) {
       )}
 
       <AnimatedModal isOpen={shareOpen} onClose={() => setShareOpen(false)} size="sm" ariaLabel="Share report" panelClassName="p-6 pt-8 sm:pt-6">
-        <h3 className="text-lg font-display font-semibold text-primary mb-1">Share your report</h3>
+        <h3 className="text-lg font-semibold text-primary mb-1">Share your report</h3>
         <p className="text-sm text-muted mb-5">Pick how you&apos;d like to share it.</p>
         <div className="flex flex-col gap-2">
           {[
@@ -303,14 +303,14 @@ export default function ReportCard({ report, userName }) {
           ].map(({ label, hint, Icon, onClick, href }) => {
             const inner = (
               <>
-                <span className="w-10 h-10 rounded-xl bg-lavender flex items-center justify-center text-primary shrink-0"><Icon size={18} /></span>
+                <span className="tk-icon-circle w-10 h-10 shrink-0 text-accent"><Icon size={18} /></span>
                 <span className="flex flex-col text-left">
                   <span className="text-sm font-semibold text-primary">{label}</span>
                   <span className="text-xs text-muted">{hint}</span>
                 </span>
               </>
             );
-            const cls = "flex items-center gap-3 p-3 rounded-2xl border border-[rgba(44,62,80,0.08)] bg-white hover:bg-black/[0.02] transition-colors";
+            const cls = "flex items-center gap-3 p-3 rounded-2xl border border-line bg-white hover:bg-blush transition-colors";
             return href ? (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setShareOpen(false)}>{inner}</a>
             ) : (

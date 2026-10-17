@@ -43,7 +43,7 @@ function unlockScroll() {
 }
 
 // Solid, warm surface that matches the app's cards instead of frosted glass.
-const SURFACE = "bg-[#FDFBF7] text-primary border border-[rgba(44,62,80,0.08)] shadow-[0_24px_64px_-16px_rgba(44,62,80,0.35)]";
+const SURFACE = "bg-white text-primary border border-line shadow-[0_24px_64px_-16px_rgba(74,42,31,0.35)]";
 
 const SIZES = {
   sm: "sm:max-w-sm",
@@ -78,7 +78,7 @@ const DESKTOP = {
 // a drag handle, swipe-down to dismiss and room for the home indicator.
 const MOBILE = {
   wrapper: "fixed inset-0 flex items-end justify-center",
-  shape: "w-full rounded-t-[28px] max-h-[92dvh] overflow-y-auto overscroll-contain border-b-0 pb-[env(safe-area-inset-bottom)]",
+  shape: "w-full rounded-t-3xl max-h-[92dvh] overflow-y-auto overscroll-contain border-b-0 pb-[env(safe-area-inset-bottom)]",
   panel: {
     initial: { y: "100%" },
     animate: { y: 0 },
@@ -137,7 +137,7 @@ export default function AnimatedModal({
         <Fragment>
           <motion.div
             key="backdrop"
-            className="fixed inset-0 bg-[#2C3E50]/45"
+            className="fixed inset-0 bg-primary/30"
             style={{ zIndex }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -176,7 +176,7 @@ export default function AnimatedModal({
                   onPointerDown={canSwipeClose ? (e) => dragControls.start(e) : undefined}
                   aria-hidden="true"
                 >
-                  <span className="h-1 w-10 rounded-full bg-[#2C3E50]/20" />
+                  <span className="h-1 w-10 rounded-full bg-primary/20" />
                 </div>
               )}
               <div className={panelClassName}>{children}</div>

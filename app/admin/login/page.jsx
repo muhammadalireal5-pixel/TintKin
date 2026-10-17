@@ -127,7 +127,7 @@ export default function AdminLoginPage() {
           border: 1px solid var(--tk-border-solid);
           border-radius: 24px;
           padding: 40px 32px 32px;
-          box-shadow: 0 1px 2px rgba(44,62,80,0.04), 0 12px 32px -8px rgba(44,62,80,0.12);
+          box-shadow: 0 1px 2px rgba(74, 37, 48,0.04), 0 12px 32px -8px rgba(74, 37, 48,0.18);
           animation: fadeInUp 0.5s ease both;
         }
         .admin-login-card.is-shaking { animation: adminShake 0.45s ease-in-out; }
@@ -135,11 +135,11 @@ export default function AdminLoginPage() {
         .admin-login-badge {
           display: inline-flex; align-items: center; justify-content: center;
           width: 56px; height: 56px; border-radius: 16px;
-          background: var(--tk-accent-lavender); color: var(--tk-text-primary);
+          background: var(--tk-accent-soft); color: var(--tk-accent);
           margin-bottom: 16px;
         }
         .admin-login-head h1 {
-          font-family: var(--font-display, 'Playfair Display', serif);
+          font-family: var(--font-body, 'Outfit', system-ui, sans-serif);
           font-size: 24px; font-weight: 600; letter-spacing: -0.5px;
           color: var(--tk-text-primary); margin: 0 0 6px;
         }
@@ -154,16 +154,16 @@ export default function AdminLoginPage() {
           display: flex; align-items: center; gap: 10px;
           padding: 0 14px; height: 50px;
           background: var(--tk-bg);
-          border: 1px solid rgba(44,62,80,0.12);
+          border: 1px solid var(--tk-border-solid);
           border-radius: 14px;
           color: var(--tk-text-faint);
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .admin-input-wrap:focus-within {
-          border-color: var(--tk-text-primary);
-          box-shadow: 0 0 0 3px rgba(44,62,80,0.08);
+          border-color: var(--tk-accent);
+          box-shadow: var(--tk-glow-focus);
         }
-        .admin-input-wrap.has-error { border-color: rgba(220,38,38,0.5); }
+        .admin-input-wrap.has-error { border-color: var(--tk-danger); }
         .admin-input-wrap input {
           flex: 1; min-width: 0; height: 100%;
           border: none; outline: none; background: transparent;
@@ -177,22 +177,22 @@ export default function AdminLoginPage() {
           border: none; background: none; border-radius: 10px;
           color: var(--tk-text-faint); cursor: pointer;
         }
-        .admin-eye:hover { color: var(--tk-text-primary); background: rgba(44,62,80,0.05); }
+        .admin-eye:hover { color: var(--tk-text-primary); background: var(--tk-blush); }
 
         .admin-error {
-          font-size: 13px; color: #dc2626;
-          background: #fef2f2; border: 1px solid #fecaca;
+          font-size: 13px; color: var(--tk-danger);
+          background: #FBE9E7; border: 1px solid #F3C7C2;
           border-radius: 12px; padding: 10px 12px; margin: 0 0 16px;
         }
         .admin-submit {
           width: 100%; height: 50px; margin-top: 8px;
           display: flex; align-items: center; justify-content: center; gap: 8px;
-          border: none; border-radius: 14px;
-          background: var(--tk-text-primary); color: #FDFBF7;
+          border: none; border-radius: 9999px;
+          background: var(--tk-accent); color: #fff;
           font-family: inherit; font-size: 15px; font-weight: 500;
           cursor: pointer; transition: background 0.15s, opacity 0.15s;
         }
-        .admin-submit:hover:not(:disabled) { background: #3a5068; }
+        .admin-submit:hover:not(:disabled) { background: var(--tk-accent-deep); }
         .admin-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
         @media (max-width: 480px) {

@@ -62,7 +62,7 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
           type="button"
           onClick={loadMore}
           disabled={loadingMore}
-          className="self-start mb-2 text-xs font-medium text-muted hover:text-primary transition-colors disabled:opacity-50"
+          className="self-start mb-2 text-xs font-medium text-accent hover:text-accent-deep transition-colors disabled:opacity-50"
         >
           {loadingMore ? "Loading…" : "← Load earlier scans"}
         </button>
@@ -75,30 +75,30 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
       <div className="h-[280px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6E6FA" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--tk-border-solid)" />
           <XAxis 
             dataKey="date" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fontSize: 12, fill: '#6b7280' }} 
+            tick={{ fontSize: 12, fill: 'var(--tk-text-muted)' }} 
             dy={10}
           />
           <YAxis 
             domain={[0, 100]} 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: 'var(--tk-text-muted)' }}
           />
           <Tooltip 
-            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
-            labelStyle={{ fontWeight: 'bold', color: '#1F2937', marginBottom: '8px' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid var(--tk-border-solid)', background: 'var(--tk-surface-card)', boxShadow: '0 4px 20px rgba(74,42,31,0.08)' }}
+            labelStyle={{ fontWeight: 'bold', color: 'var(--tk-text-primary)', marginBottom: '8px' }}
           />
           <Line 
             type="monotone" 
             dataKey="overall" 
-            stroke="#8A9A5B" 
+            stroke="var(--tk-accent)" 
             strokeWidth={3} 
-            dot={{ r: 4, fill: '#8A9A5B', strokeWidth: 2, stroke: '#fff' }}
+            dot={{ r: 4, fill: 'var(--tk-accent)', strokeWidth: 2, stroke: '#fff' }}
             activeDot={{ r: 6 }} 
             name="Overall Harmony"
           />

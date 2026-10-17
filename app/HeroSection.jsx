@@ -1,119 +1,179 @@
 import Link from "next/link";
+import {
+  ScanFace,
+  FlaskConical,
+  CalendarCheck,
+  FileText,
+  Trophy,
+  Sun,
+  Moon,
+  Apple,
+  Droplets,
+  Check,
+  ArrowRight,
+} from "lucide-react";
+
+const FEATURES = [
+  { icon: ScanFace, title: "AI skin scan", desc: "Snap a quick selfie and get a clear score for wrinkles, firmness, spots and radiance." },
+  { icon: FlaskConical, title: "What-If simulator", desc: "Curious about a new routine? Preview how different choices could look and feel." },
+  { icon: CalendarCheck, title: "Daily routine", desc: "A gentle morning and evening plan that adapts to your skin and keeps you on a streak." },
+  { icon: FileText, title: "Reports", desc: "Beautiful, easy-to-read summaries that show what is improving over time." },
+  { icon: Trophy, title: "Leaderboard", desc: "Friendly competition and trophies to keep your habits fun and consistent." },
+];
+
+const STEPS = [
+  { n: "1", title: "Scan", desc: "Take a filter-free selfie in natural light." },
+  { n: "2", title: "Understand", desc: "See your skin score and what is behind it." },
+  { n: "3", title: "Improve", desc: "Follow a daily plan and watch your progress grow." },
+];
+
+const METRICS = [
+  { label: "Wrinkles", value: 12, up: true },
+  { label: "Firmness", value: 28, up: true },
+  { label: "Spots", value: 15, up: false },
+  { label: "Radiance", value: 82, up: true },
+];
+
+const PLAN = [
+  { label: "Morning Routine", icon: Sun },
+  { label: "Evening Routine", icon: Moon },
+  { label: "Nutrition", icon: Apple },
+  { label: "Hydration", icon: Droplets },
+];
 
 export function HeroSection() {
   return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] bg-base selection:bg-lavender selection:text-primary">
-      <section className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
-        <div className="w-full lg:w-[60%] flex flex-col justify-center px-6 lg:px-20 py-12 lg:py-20 z-10 text-center lg:text-left">
-          
-          <div className="tk-anim-1 inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-sage/10 border border-sage/20 w-fit mb-6 lg:mb-8 mx-auto lg:mx-0">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sage opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-sage"></span>
-            </span>
-            <span className="text-sm font-medium text-sage">A gentle approach to skin health</span>
+    <div className="flex flex-col flex-1 selection:bg-accent-soft">
+      {/* Hero */}
+      <section className="tk-page relative overflow-hidden">
+        <div className="tk-container grid lg:grid-cols-2 items-center gap-10 lg:gap-14 py-10 sm:py-14 lg:py-20">
+          <div className="text-center lg:text-left">
+            <p className="tk-anim-1 tk-chip mb-5 mx-auto lg:mx-0 w-fit">A gentle approach to skin health</p>
+
+            <h1 className="tk-anim-2 text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.08] tracking-tight text-primary mb-4 lg:mb-6">
+              A daily journal for your <span className="text-accent">skin&rsquo;s</span> journey.
+            </h1>
+
+            <p className="tk-anim-3 text-base sm:text-lg text-muted leading-relaxed max-w-xl mb-8 mx-auto lg:mx-0">
+              Move away from harsh clinical metrics. Discover a mindful, AI-supported companion that helps you understand, nurture, and celebrate your skin every day.
+            </p>
+
+            <div className="tk-anim-4 flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start">
+              <Link href="/sign-up" className="tk-pill-btn tk-btn-primary gap-2 w-full sm:w-auto">
+                Get started
+                <ArrowRight className="w-[18px] h-[18px]" aria-hidden="true" />
+              </Link>
+              <Link href="/sign-in" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto">
+                I already have an account
+              </Link>
+            </div>
           </div>
 
-          <h1 className="tk-anim-2 text-4xl sm:text-5xl lg:text-7xl font-display font-medium leading-[1.1] tracking-tight text-primary mb-4 lg:mb-6 max-w-3xl mx-auto lg:mx-0">
-            A daily journal for your <span className="italic text-sage/90">skin’s</span> journey.
-          </h1>
+          <PhonePreview />
+        </div>
+      </section>
 
-          <p className="tk-anim-3 text-base sm:text-lg lg:text-xl text-muted leading-relaxed max-w-xl mb-8 lg:mb-12 mx-auto lg:mx-0">
-            Move away from harsh clinical metrics. Discover a mindful, AI-supported companion that helps you understand, nurture, and celebrate your skin every day.
+      {/* Features */}
+      <section className="tk-container py-12 sm:py-16" aria-labelledby="features-title">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+          <h2 id="features-title" className="text-3xl sm:text-4xl font-semibold text-primary mb-3">A gentle perspective on care</h2>
+          <p className="text-muted leading-relaxed">Embrace a routine that listens to your skin&apos;s unique needs, backed by thoughtful intelligence.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {FEATURES.map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="tk-card p-5 sm:p-6">
+              <span className="tk-icon-circle w-12 h-12 mb-4"><Icon className="w-6 h-6" aria-hidden="true" /></span>
+              <h3 className="text-lg font-semibold text-primary mb-1.5">{title}</h3>
+              <p className="text-sm text-muted leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="bg-blush/60 border-y border-line" aria-labelledby="how-title">
+        <div className="tk-container py-12 sm:py-16">
+          <h2 id="how-title" className="text-3xl sm:text-4xl font-semibold text-primary text-center mb-8 sm:mb-10">How it works</h2>
+          <ol className="grid md:grid-cols-3 gap-3 sm:gap-4">
+            {STEPS.map((s) => (
+              <li key={s.n} className="tk-card p-5 sm:p-6 flex md:flex-col items-center md:items-start gap-4 md:gap-3">
+                <span className="w-11 h-11 shrink-0 rounded-full bg-accent text-white font-semibold flex items-center justify-center">{s.n}</span>
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">{s.title}</h3>
+                  <p className="text-sm text-muted">{s.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Pricing teaser / final CTA */}
+      <section className="tk-container py-12 sm:py-16">
+        <div className="tk-card p-8 sm:p-12 text-center bg-accent-soft">
+          <h2 className="text-3xl sm:text-4xl font-semibold text-primary mb-3">Start with a free scan</h2>
+          <p className="text-muted max-w-xl mx-auto mb-6">
+            Create your account in seconds, see your first skin score, then pick the plan or credit pack that suits you. No pressure, cancel anytime.
           </p>
-
-          <div className="tk-anim-4 flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-            <Link href="/onboarding" className="tk-pill-btn tk-btn-primary flex items-center justify-center gap-2 w-full sm:w-auto shadow-[0_8px_24px_rgba(44,62,80,0.12)]">
-              Begin journey
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </Link>
-            <Link href="/dashboard" className="tk-pill-btn tk-btn-ghost flex items-center justify-center w-full sm:w-auto">
-              View your journal
-            </Link>
-          </div>
-        </div>
-
-        <div className="w-full lg:w-[40%] relative min-h-[280px] sm:min-h-[400px] lg:min-h-full tk-mesh-bg flex items-center justify-center p-4 sm:p-6 lg:p-12">
-          <div className="relative z-10 w-full max-w-[280px] sm:max-w-[340px] tk-glass tk-anim-5 flex flex-col p-4 sm:p-6 shadow-2xl" style={{ animation: 'fadeInUp 1s 0.8s ease both, orbFloat 12s 2s ease-in-out infinite' }}>
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <p className="text-xs font-semibold text-muted tracking-widest uppercase mb-1">Today</p>
-                <h3 className="font-display text-xl text-primary font-medium">Morning Glow</h3>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-lavender flex items-center justify-center text-primary shadow-sm">
-                ✦
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="h-24 rounded-2xl bg-gradient-to-br from-white/60 to-white/20 border border-white/40 flex items-center p-4">
-                <div className="w-2 h-full rounded-full bg-sage/60 mr-4"></div>
-                <div>
-                  <p className="text-sm font-medium text-primary">Hydration</p>
-                  <p className="text-xs text-muted">Looking dewy and balanced.</p>
-                </div>
-              </div>
-              
-              <div className="h-16 rounded-2xl bg-white/40 border border-white/40 flex items-center p-4">
-                <div className="w-2 h-full rounded-full bg-[#FFDAB9] mr-4"></div>
-                <div>
-                  <p className="text-sm font-medium text-primary">Redness</p>
-                  <p className="text-xs text-muted">A little sensitive today.</p>
-                </div>
-              </div>
-            </div>
-            
-            <button className="mt-6 w-full py-3 rounded-full bg-white/50 hover:bg-white/70 text-primary text-sm font-medium transition-colors border border-white/40 shadow-sm">
-              Read full insight
-            </button>
-          </div>
-
-        </div>
-      </section>
-
-      <section className="px-6 lg:px-20 py-16 lg:py-24 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-16 text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl lg:text-4xl font-display font-medium text-primary mb-4">A gentle perspective on care</h2>
-            <p className="text-muted leading-relaxed">Embrace a routine that listens to your skin's unique needs, backed by thoughtful intelligence.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <FeatureCard 
-              title="Daily Check-ins" 
-              desc="Snap a quick, filter-free photo to log your skin's mood and hydration levels instantly."
-              icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>}
-              colorClass="bg-sage/10 text-sage"
-            />
-            <FeatureCard 
-              title="What-If Scenarios" 
-              desc="Curious about a new serum? Gently explore how different choices could feel."
-              icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V1.99"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.52 16h12.96"></path></svg>}
-              colorClass="bg-[#FFDAB9]/40 text-[#E05454]"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/sign-up" className="tk-pill-btn tk-btn-primary w-full sm:w-auto">Get started</Link>
+            <Link href="/pricing" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto bg-white">See pricing</Link>
           </div>
         </div>
       </section>
-
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-base border-t border-black/5 z-40 tk-anim-1 pb-safe">
-        <Link href="/onboarding" className="tk-pill-btn tk-btn-primary flex items-center justify-center gap-2 w-full shadow-lg">
-          Begin journey
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-        </Link>
-      </div>
-
     </div>
   );
 }
 
-function FeatureCard({ title, desc, icon, colorClass }) {
+/** CSS-built mock of the app's "Today" screen. Purely decorative. */
+function PhonePreview() {
   return (
-    <div className="flex flex-col p-8 rounded-3xl bg-base border border-solid hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${colorClass}`}>
-        {icon}
+    <div className="tk-anim-5 flex justify-center" aria-hidden="true">
+      <div className="w-full max-w-[300px] sm:max-w-[330px] rounded-[2.5rem] border-[6px] border-cocoa bg-base p-4 shadow-[0_30px_60px_-20px_rgb(var(--tk-ink-rgb)/0.45)]">
+        <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-cocoa/20" />
+        <p className="text-xs text-muted">Good morning,</p>
+        <p className="text-xl font-semibold text-primary mb-3">Your skin today</p>
+
+        <div className="tk-card p-4 mb-3">
+          <p className="tk-eyebrow mb-1">Skin score</p>
+          <div className="flex items-end gap-2">
+            <span className="text-5xl font-semibold text-primary leading-none">72</span>
+            <span className="text-sm text-muted mb-1">/ 100</span>
+            <span className="tk-chip tk-chip-success ml-auto mb-1">+8</span>
+          </div>
+          <div className="mt-3 h-1.5 rounded-full bg-line overflow-hidden">
+            <div className="h-full w-[72%] rounded-full bg-accent" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
+          {METRICS.map((m) => (
+            <div key={m.label} className="tk-tile p-2 text-center">
+              <p className="text-[9px] text-muted truncate">{m.label}</p>
+              <p className="text-base font-semibold text-primary leading-tight">{m.value}</p>
+              <p className={`text-[9px] font-semibold ${m.up ? "text-success" : "text-muted"}`}>{m.up ? "▲" : "–"}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-primary">Today&rsquo;s Plan</p>
+          <p className="text-[10px] text-muted">2 of 12 completed</p>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {PLAN.map(({ label, icon: Icon }, i) => (
+            <div key={label} className="tk-tile p-2 flex flex-col items-center gap-1 text-center relative">
+              {i === 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success text-white flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                </span>
+              )}
+              <Icon className="w-4 h-4 text-accent" />
+              <span className="text-[8px] leading-tight text-primary">{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <h3 className="font-display text-xl font-medium text-primary mb-3">{title}</h3>
-      <p className="text-muted leading-relaxed text-sm">{desc}</p>
     </div>
   );
 }

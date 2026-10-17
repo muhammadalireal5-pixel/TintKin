@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
+import PageHeader from "@/app/components/ui/PageHeader";
 import { useToast } from "@/app/components/ToastProvider";
 import { CREDIT_COST } from "@/lib/constants/credits";
 
@@ -24,20 +25,18 @@ function CreditPackCard({ pack }) {
     };
 
     return (
-        <div className="tk-glass p-6 sm:p-8 rounded-3xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 tk-anim-2 hover:shadow-xl transition-all">
-            <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-sage/15 flex items-center justify-center shrink-0">
-                    <ShoppingBag size={20} className="text-sage" />
-                </div>
-                <div>
-                    <h2 className="text-lg font-display font-medium text-primary">{pack.label}</h2>
-                    <p className="text-sm text-muted">{pack.description || conversionLine(pack.credits)}</p>
-                </div>
+        <div className="tk-card p-4 sm:p-5 flex flex-col gap-3 tk-anim-2">
+            <div className="tk-icon-circle w-11 h-11">
+                <ShoppingBag size={20} className="text-accent" />
+            </div>
+            <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-primary leading-snug">{pack.label}</h2>
+                <p className="text-xs sm:text-sm text-muted mt-0.5">{pack.description || conversionLine(pack.credits)}</p>
             </div>
             <button
                 onClick={handleBuy}
                 disabled={!pack.polarProductId || isLoading}
-                className="shrink-0 flex items-center justify-center gap-2 bg-primary text-white font-medium text-sm px-6 py-3 rounded-full hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="tk-pill-btn tk-btn-primary w-full flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {isLoading ? "Redirecting…" : <>Buy <ArrowRight size={16} /></>}
             </button>
@@ -62,13 +61,13 @@ function CustomAmountCard({ pricePerCreditCents, minCustomCredits, maxCustomCred
     };
 
     return (
-        <div className="tk-glass p-6 sm:p-8 rounded-3xl tk-anim-2 border-2 border-dashed border-sage/30">
+        <div className="tk-card p-5 sm:p-6 tk-anim-2 border-2 border-dashed border-accent/30 col-span-2 md:col-span-3 lg:col-span-4">
             <div className="flex items-center gap-4 mb-5">
-                <div className="w-11 h-11 rounded-2xl bg-sage/15 flex items-center justify-center shrink-0">
-                    <Sparkles size={20} className="text-sage" />
+                <div className="tk-icon-circle w-11 h-11 shrink-0">
+                    <Sparkles size={20} className="text-accent" />
                 </div>
                 <div>
-                    <h2 className="text-lg font-display font-medium text-primary">Custom Amount</h2>
+                    <h2 className="text-lg font-semibold text-primary">Custom Amount</h2>
                     <p className="text-sm text-muted">Pick exactly how many credits you need.</p>
                 </div>
             </div>
@@ -81,7 +80,7 @@ function CustomAmountCard({ pricePerCreditCents, minCustomCredits, maxCustomCred
                         step={1}
                         value={credits}
                         onChange={(e) => setCredits(clamp(Number(e.target.value)))}
-                        className="w-24 px-3 py-2 rounded-xl border border-[var(--tk-border-solid)] text-center font-medium bg-white/60"
+                        className="w-24 px-3 py-2 rounded-xl tk-input text-center font-medium"
                     />
                     <span className="text-sm text-muted">credits</span>
                 </div>
@@ -91,7 +90,7 @@ function CustomAmountCard({ pricePerCreditCents, minCustomCredits, maxCustomCred
                 <button
                     onClick={handleBuy}
                     disabled={isLoading}
-                    className="shrink-0 flex items-center justify-center gap-2 bg-primary text-white font-medium text-sm px-6 py-3 rounded-full hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="tk-pill-btn tk-btn-primary shrink-0 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isLoading ? "Redirecting…" : <>Buy <ArrowRight size={16} /></>}
                 </button>
@@ -122,40 +121,34 @@ export default function ShopClient({ creditBalance, packs, pricePerCreditCents, 
     const hasAnything = packs.length > 0 || customPurchaseEnabled;
 
     return (
-        <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
-            <div className="max-w-3xl mx-auto relative z-10">
-                <div className="text-center mb-8 sm:mb-12 tk-anim-1">
-                    <p className="text-xs font-semibold tracking-[0.2em] uppercase text-sage mb-2">
-                        Need More Scans Or Simulations?
-                    </p>
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-medium text-primary mb-4">
-                        Credit <span className="italic text-sage">Shop</span>
-                    </h1>
-                    <p className="text-muted text-sm sm:text-base max-w-xl mx-auto px-2">
-                        Credits top up your plan&apos;s monthly allowance — {CREDIT_COST.scan} credits per scan, {CREDIT_COST.simulation} per simulation. Available on every plan, including Free.
-                    </p>
-                    <p className="text-sm font-semibold text-primary mt-4">
-                        Your balance: <span className="text-sage">{creditBalance} credits</span>
-                    </p>
-                </div>
+        <div className="tk-container py-6 sm:py-10">
+            <PageHeader
+                eyebrow="Need more scans or simulations?"
+                title="Credit Shop"
+                subtitle={`Credits top up your plan's monthly allowance — ${CREDIT_COST.scan} credits per scan, ${CREDIT_COST.simulation} per simulation. Available on every plan, including Free.`}
+            />
 
-                {hasAnything ? (
-                    <div className="grid gap-4 sm:gap-6">
-                        {packs.map((pack) => (
-                            <CreditPackCard key={pack.id} pack={pack} />
-                        ))}
-                        {customPurchaseEnabled && (
-                            <CustomAmountCard
-                                pricePerCreditCents={pricePerCreditCents}
-                                minCustomCredits={minCustomCredits}
-                                maxCustomCredits={maxCustomCredits}
-                            />
-                        )}
-                    </div>
-                ) : (
-                    <p className="text-center text-sm text-muted">The shop isn&apos;t set up yet — check back soon.</p>
-                )}
+            <div className="tk-card p-4 sm:p-5 mb-5 flex items-center justify-between tk-anim-1">
+                <span className="tk-eyebrow">Your balance</span>
+                <span className="text-2xl font-semibold text-accent">{creditBalance} <span className="text-sm text-muted font-medium">credits</span></span>
             </div>
+
+            {hasAnything ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {packs.map((pack) => (
+                        <CreditPackCard key={pack.id} pack={pack} />
+                    ))}
+                    {customPurchaseEnabled && (
+                        <CustomAmountCard
+                            pricePerCreditCents={pricePerCreditCents}
+                            minCustomCredits={minCustomCredits}
+                            maxCustomCredits={maxCustomCredits}
+                        />
+                    )}
+                </div>
+            ) : (
+                <p className="text-center text-sm text-muted">The shop isn&apos;t set up yet — check back soon.</p>
+            )}
         </div>
     );
 }

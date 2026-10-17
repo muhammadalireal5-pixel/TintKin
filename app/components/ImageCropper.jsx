@@ -237,7 +237,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
     <div className="flex flex-col items-center w-full max-w-md mx-auto">
       {/* Instructional header */}
       <div className="text-center mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sage mb-1 flex items-center justify-center gap-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-accent mb-1 flex items-center justify-center gap-1.5">
           <Move size={13} /> Frame Your Face
         </p>
         <p className="text-xs text-muted">
@@ -246,7 +246,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
       </div>
 
       {/* Outer framing stage with dark background */}
-      <div className="w-full max-w-[340px] mx-auto rounded-2xl overflow-hidden select-none bg-neutral-900 shadow-xl border border-white/20 flex items-center justify-center p-2">
+      <div className="w-full max-w-[340px] mx-auto rounded-3xl overflow-hidden select-none bg-primary shadow-xl border border-line flex items-center justify-center p-2">
         {/* Inner wrapper that matches the image dimensions EXACTLY */}
         <div className="relative inline-block overflow-hidden leading-none max-h-[380px] max-w-full">
           {/* Source Image */}
@@ -289,34 +289,34 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
               {/* 4 Corner Resize Handles */}
               <div
                 onPointerDown={(e) => startDrag(e, "nw")}
-                className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-primary cursor-nwse-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
+                className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-accent cursor-nwse-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
                 title="Resize top-left"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
               </div>
 
               <div
                 onPointerDown={(e) => startDrag(e, "ne")}
-                className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-primary cursor-nesw-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
+                className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-accent cursor-nesw-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
                 title="Resize top-right"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
               </div>
 
               <div
                 onPointerDown={(e) => startDrag(e, "sw")}
-                className="absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-primary cursor-nesw-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
+                className="absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-accent cursor-nesw-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
                 title="Resize bottom-left"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
               </div>
 
               <div
                 onPointerDown={(e) => startDrag(e, "se")}
-                className="absolute -bottom-3 -right-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-primary cursor-nwse-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
+                className="absolute -bottom-3 -right-3 w-6 h-6 rounded-full bg-white shadow-lg border-2 border-accent cursor-nwse-resize z-20 flex items-center justify-center touch-none hover:scale-110 active:scale-95 transition-transform"
                 title="Resize bottom-right"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
               </div>
             </div>
           )}
@@ -328,7 +328,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
         <button
           type="button"
           onClick={handleReset}
-          className="flex items-center gap-1 text-xs text-muted hover:text-primary transition-colors py-1.5 px-2.5 rounded-lg hover:bg-black/5"
+          className="flex items-center gap-1 text-xs text-muted hover:text-primary transition-colors py-1.5 px-2.5 rounded-lg hover:bg-accent-soft"
           title="Reset Box"
         >
           <RotateCcw size={13} /> Reset
@@ -337,7 +337,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
         <button
           type="button"
           onClick={handleUseFull}
-          className="flex items-center gap-1 text-xs text-muted hover:text-primary transition-colors py-1.5 px-2.5 rounded-lg hover:bg-black/5"
+          className="flex items-center gap-1 text-xs text-muted hover:text-primary transition-colors py-1.5 px-2.5 rounded-lg hover:bg-accent-soft"
           title="Skip Crop"
         >
           <Maximize2 size={13} /> Full Photo
@@ -346,7 +346,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-red-50"
+          className="flex items-center gap-1 text-xs text-danger hover:text-danger transition-colors py-1.5 px-2.5 rounded-lg hover:bg-danger-soft"
         >
           <X size={13} /> Cancel
         </button>
@@ -357,7 +357,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
         <button
           type="button"
           onClick={handleApplyCrop}
-          className="w-full py-2.5 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          className="tk-pill-btn tk-btn-primary w-full py-3 px-4 text-sm"
         >
           <Check size={16} /> Confirm Framing
         </button>

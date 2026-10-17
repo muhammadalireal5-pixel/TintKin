@@ -7,6 +7,7 @@ import { registerUser } from "@/app/lib/auth-actions";
 import { useAuthContext } from "@/app/context/AuthContext";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import AuthLayout from "@/app/components/AuthLayout";
 import BrandLoader from "@/app/components/BrandLoader";
 
 export default function SignUpPage() {
@@ -81,26 +82,25 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 tk-glass p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-        
-        <div className="text-center">
-          <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-lavender text-primary shadow-sm mb-4">✦</span>
-          <h2 className="text-3xl font-display font-medium tracking-tight text-primary">
-            Create an account
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Start your skincare wellness journey today
-          </p>
-        </div>
-
-        <div className="mt-8 space-y-6">
+    <AuthLayout
+      title="Create an account"
+      subtitle="Start your skincare wellness journey today"
+      footer={
+        <p className="text-center text-sm text-muted">
+          Already have an account?{" "}
+          <Link href="/sign-in" className="font-semibold text-accent hover:text-accent-deep">
+            Sign in
+          </Link>
+        </p>
+      }
+    >
+        <div className="space-y-6">
           {/* Google OAuth Button */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-all disabled:opacity-50"
+            className="tk-pill-btn tk-btn-ghost w-full gap-3 bg-white disabled:opacity-50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
@@ -126,50 +126,50 @@ export default function SignUpPage() {
           {/* Divider */}
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-line" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#FAF9F6] px-2 text-muted">Or register with email</span>
+              <span className="bg-surface px-2 text-muted">Or register with email</span>
             </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-5">
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+              <div className="p-3 text-sm text-danger bg-danger-soft rounded-xl">
                 {error}
               </div>
             )}
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-primary mb-1">Full Name</label>
               <input
                 type="text"
                 name="name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="block w-full px-4 py-2.5 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
+                className="tk-input"
                 placeholder="Jane Doe"
                 autoComplete="name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+              <label className="block text-sm font-medium text-primary mb-1">Email address</label>
               <input
                 type="email"
                 name="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-4 py-2.5 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
+                className="tk-input"
                 placeholder="you@example.com"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-primary mb-1">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -177,38 +177,31 @@ export default function SignUpPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full px-4 py-2.5 pr-10 text-gray-900 border border-gray-200 rounded-xl bg-gray-50/50 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
+                  className="tk-input pr-11"
                   placeholder="••••••••"
                   autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary focus:outline-none"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Must be at least 12 characters.</p>
+              <p className="mt-1 text-xs text-muted">Must be at least 12 characters.</p>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="tk-pill-btn tk-btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="font-medium text-primary hover:text-primary/80">
-              Sign in
-            </Link>
-          </p>
         </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

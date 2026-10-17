@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
+import { Check } from "lucide-react";
 import PricingClient from "./PricingClient";
 
 export const metadata = {
@@ -97,32 +98,45 @@ const pricingStructuredData = {
 
 export default async function PricingPage() {
     const nonce = (await headers()).get("x-nonce") || undefined;
+    const demo = process.env.ENABLE_DEMO_TIER_SWITCHING === "true";
+    const benefits = [
+        "Track acne, pigmentation, redness & texture",
+        "Personalized skincare routines",
+        "AI what-if simulations",
+        "Visible progress over time",
+    ];
     return (
-        <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
+        <div className="tk-container py-6 sm:py-10">
             <script
                 type="application/ld+json"
                 nonce={nonce}
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingStructuredData) }}
             />
-            <div className="max-w-6xl mx-auto relative z-10">
-                <div className="text-center mb-8 sm:mb-16 tk-anim-1">
-                    <p className="text-xs font-semibold tracking-[0.2em] uppercase text-sage mb-2">
-                        Unlock Your Potential
-                    </p>
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-medium text-primary mb-4">
-                        Choose your <span className="italic text-sage">Journey</span>
+            <div className="tk-card p-6 sm:p-8 mb-6 sm:mb-8 tk-anim-1 md:flex md:items-center md:justify-between md:gap-10">
+                <div>
+                    <p className="tk-eyebrow mb-2">Unlock Your Potential</p>
+                    <h1 className="text-[1.75rem] sm:text-4xl font-semibold text-primary leading-tight">
+                        Healthier skin.<br />A more confident you.
                     </h1>
-                    <p className="text-muted text-sm sm:text-base max-w-xl mx-auto px-2">
-                        {process.env.ENABLE_DEMO_TIER_SWITCHING === "true"
+                    <p className="text-muted text-sm sm:text-base max-w-xl mt-3">
+                        {demo
                             ? "Select the plan that fits your skin goals. Early access preview — all tiers are unlocked for testing!"
                             : "Select the plan that fits your skin goals. Standard and Pro are paid plans and will take you to checkout."}
                     </p>
                 </div>
-
-                <Suspense fallback={null}>
-                    <PricingClient demoMode={process.env.ENABLE_DEMO_TIER_SWITCHING === "true"} />
-                </Suspense>
+                <ul className="mt-5 md:mt-0 space-y-2.5 shrink-0">
+                    {benefits.map((b) => (
+                        <li key={b} className="flex items-center gap-2.5 text-sm text-primary">
+                            <span className="tk-icon-circle w-6 h-6 shrink-0"><Check className="w-3.5 h-3.5 text-accent" /></span>
+                            {b}
+                        </li>
+                    ))}
+                </ul>
             </div>
+
+            <Suspense fallback={null}>
+                <PricingClient demoMode={demo} />
+            </Suspense>
         </div>
     );
 }

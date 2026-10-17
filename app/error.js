@@ -11,13 +11,13 @@ export default function Error({ error, reset }) {
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] tk-mesh-bg p-6">
-      <div className="tk-glass p-10 md:p-14 rounded-3xl flex flex-col items-center text-center max-w-lg w-full tk-anim-1">
-        <div className="w-20 h-20 rounded-3xl bg-red-100 flex items-center justify-center text-red-500 mb-8 tk-anim-2 tk-anim-float">
+    <div className="flex flex-1 flex-col items-center justify-center min-h-[60vh] p-5">
+      <div className="tk-card p-8 md:p-12 flex flex-col items-center text-center max-w-lg w-full tk-anim-1">
+        <div className="tk-icon-circle w-20 h-20 bg-danger-soft text-danger mb-8 tk-anim-2 tk-anim-float">
           <AlertTriangle className="w-10 h-10" />
         </div>
         
-        <h1 className="font-display text-3xl md:text-4xl font-medium text-primary mb-4 tk-anim-3">
+        <h1 className="text-3xl md:text-4xl font-semibold text-primary mb-4 tk-anim-3">
           Something unexpected happened.
         </h1>
         
@@ -28,13 +28,13 @@ export default function Error({ error, reset }) {
         <div className="flex flex-col sm:flex-row gap-4 w-full tk-anim-5">
           <button 
             onClick={() => reset()} 
-            className="tk-btn-primary flex-1 flex items-center justify-center gap-2"
+            className="tk-pill-btn tk-btn-primary flex-1 gap-2"
           >
             <RotateCcw className="w-4 h-4" /> Try Again
           </button>
           <Link 
             href="/" 
-            className="tk-btn-ghost flex-1 flex items-center justify-center gap-2"
+            className="tk-pill-btn tk-btn-ghost flex-1 gap-2"
           >
             <Home className="w-4 h-4" /> Return Home
           </Link>

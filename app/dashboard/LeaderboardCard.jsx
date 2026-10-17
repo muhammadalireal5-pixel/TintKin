@@ -62,25 +62,25 @@ export default function LeaderboardCard() {
   const displayEntries = data?.entries || [];
 
   return (
-    <div className="tk-glass p-4 sm:p-4.5 rounded-3xl h-full flex flex-col justify-between shadow-sm border border-black/5 overflow-hidden min-h-[250px]">
+    <div className="tk-card p-4 sm:p-5 h-full flex flex-col justify-between overflow-hidden min-h-[250px]">
       {/* Header & Category Tabs */}
       <div className="shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <Trophy size={13} className="text-amber-500" />
+            <Trophy size={13} className="text-accent" />
             <p className="text-[11px] font-semibold tracking-widest uppercase text-muted">
               Community Board
             </p>
           </div>
           {data?.userCount > 0 && !data.needsLocation && (
-            <span className="text-[10px] font-medium text-muted bg-black/5 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-medium text-accent-deep bg-accent-soft px-2 py-0.5 rounded-full">
               {data.userCount} {data.userCount === 1 ? "member" : "members"}
             </span>
           )}
         </div>
 
         {/* 3 Scope Tabs: City, Country, Global */}
-        <div className="flex p-0.5 rounded-xl bg-black/[0.04] gap-0.5 mb-2">
+        <div className="tk-segmented mb-2">
           {SCOPES.map(({ id, label, icon: Icon }) => {
             const isActive = activeScope === id;
             return (
@@ -88,13 +88,10 @@ export default function LeaderboardCard() {
                 key={id}
                 type="button"
                 onClick={() => setActiveScope(id)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                  isActive
-                    ? "bg-white text-primary shadow-xs font-semibold"
-                    : "text-muted hover:text-primary hover:bg-white/50"
-                }`}
+                aria-selected={isActive}
+                className="tk-segmented-item flex-1 flex items-center justify-center gap-1 !text-[11px]"
               >
-                <Icon size={12} className={isActive ? "text-sage" : "opacity-70"} />
+                <Icon size={12} />
                 <span>{label}</span>
               </button>
             );
@@ -114,12 +111,12 @@ export default function LeaderboardCard() {
       <div className="flex-1 min-h-0 flex flex-col justify-center overflow-hidden my-1">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-6 gap-2">
-            <Loader2 size={20} className="animate-spin text-sage" />
+            <Loader2 size={20} className="animate-spin text-accent" />
             <p className="text-xs text-muted">Loading rankings…</p>
           </div>
         ) : error ? (
           <div className="text-center py-4 px-3">
-            <div className="w-9 h-9 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-2">
+            <div className="w-9 h-9 rounded-full bg-danger-soft text-danger mx-auto flex items-center justify-center mb-2">
               <AlertCircle size={16} />
             </div>
             <p className="text-xs font-medium text-primary mb-1">
@@ -131,8 +128,8 @@ export default function LeaderboardCard() {
           </div>
         ) : data?.needsLocation ? (
           <div className="text-center py-4 px-3">
-            <div className="w-9 h-9 rounded-full bg-lavender/60 text-primary mx-auto flex items-center justify-center mb-2">
-              <MapPin size={16} className="text-primary" />
+            <div className="w-9 h-9 rounded-full bg-accent-soft text-accent mx-auto flex items-center justify-center mb-2">
+              <MapPin size={16} />
             </div>
             <p className="text-xs font-medium text-primary mb-1">
               Location Required
@@ -143,7 +140,7 @@ export default function LeaderboardCard() {
           </div>
         ) : !data?.entries || data.entries.length === 0 ? (
           <div className="text-center py-4 px-3">
-            <div className="w-9 h-9 rounded-full bg-sage/10 text-sage mx-auto flex items-center justify-center mb-2">
+            <div className="w-9 h-9 rounded-full bg-accent-soft text-accent mx-auto flex items-center justify-center mb-2">
               <Sparkles size={16} />
             </div>
             <p className="text-xs font-medium text-primary mb-1">
@@ -165,8 +162,8 @@ export default function LeaderboardCard() {
                   key={entry.userId}
                   className={`flex items-center justify-between p-1.5 rounded-xl text-xs transition-colors ${
                     entry.isMe
-                      ? "bg-sage/15 border border-sage/30 shadow-xs"
-                      : "hover:bg-black/[0.02]"
+                      ? "bg-accent-soft border border-accent/40"
+                      : "hover:bg-blush/40"
                   }`}
                 >
                   {/* Left: Rank & User Details */}
@@ -175,25 +172,25 @@ export default function LeaderboardCard() {
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold ${
                         isRank1
-                          ? "bg-amber-100 text-amber-700 border border-amber-300 shadow-xs"
+                          ? "bg-accent text-white"
                           : isRank2
-                          ? "bg-slate-200 text-slate-700 border border-slate-300"
+                          ? "bg-blush text-muted border border-line"
                           : isRank3
-                          ? "bg-orange-100 text-orange-700 border border-orange-300"
-                          : "bg-black/5 text-muted font-medium"
+                          ? "bg-cocoa/10 text-cocoa border border-line"
+                          : "bg-blush text-muted font-medium"
                       }`}
                     >
                       {isRank1 ? (
-                        <Trophy size={12} className="text-amber-700" />
+                        <Trophy size={12} className="text-white" />
                       ) : isRank2 || isRank3 ? (
-                        <Medal size={12} className={isRank2 ? "text-slate-700" : "text-orange-700"} />
+                        <Medal size={12} className={isRank2 ? "text-muted" : "text-cocoa"} />
                       ) : (
                         entry.rank
                       )}
                     </div>
 
                     {/* Avatar / Initial */}
-                    <div className="w-6 h-6 rounded-full bg-lavender/70 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-blush flex items-center justify-center overflow-hidden shrink-0">
                       {entry.photoURL ? (
                         <img
                           src={entry.photoURL}
@@ -212,7 +209,7 @@ export default function LeaderboardCard() {
                           {entry.displayName}
                         </span>
                         {entry.isMe && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sage text-white font-semibold shrink-0">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent text-white font-semibold shrink-0">
                             You
                           </span>
                         )}
@@ -224,11 +221,11 @@ export default function LeaderboardCard() {
                   <div className="flex items-center gap-2 shrink-0">
                     {entry.streak > 0 && (
                       <span className="flex items-center gap-0.5 text-[11px] text-muted" title={`${entry.streak} day streak`}>
-                        <Flame size={12} className="text-amber-500 fill-amber-500/20" />
+                        <Flame size={12} className="text-accent fill-accent/20" />
                         {entry.streak}d
                       </span>
                     )}
-                    <span className="font-display font-semibold text-xs px-2 py-0.5 rounded-full bg-black/5 text-primary">
+                    <span className="font-semibold text-xs px-2 py-0.5 rounded-full bg-blush text-primary">
                       {entry.overallScore}
                     </span>
                   </div>
@@ -240,7 +237,7 @@ export default function LeaderboardCard() {
       </div>
 
       {/* Pinned Footer */}
-      <div className="shrink-0 mt-2 pt-2 border-t border-black/5 flex items-center justify-between text-[11px] text-muted">
+      <div className="shrink-0 mt-2 pt-2 border-t border-line flex items-center justify-between text-[11px] text-muted">
         {data?.myRank ? (
           <span>
             Standing: <span className="font-semibold text-primary">#{data.myRank} of {data.userCount}</span>
@@ -250,7 +247,7 @@ export default function LeaderboardCard() {
         )}
         <Link
           href="/leaderboard"
-          className="text-sage hover:text-primary font-medium flex items-center gap-0.5 transition-colors"
+          className="text-accent hover:text-accent-deep font-medium flex items-center gap-0.5 transition-colors"
         >
           Full Board <ChevronRight size={12} />
         </Link>

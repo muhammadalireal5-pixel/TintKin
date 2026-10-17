@@ -2,7 +2,7 @@
 
 import "server-only";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, RateLimit } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, RateLimit, Feedback } from "./mongoose";
 import { deleteCloudinaryAsset } from "@/lib/utils/cloudinary";
 
 /**
@@ -57,6 +57,7 @@ export async function deleteUserAccount() {
       Simulation.deleteMany({ userId }),
       RoutineLog.deleteMany({ userId }),
       Report.deleteMany({ userId }),
+      Feedback.deleteMany({ userId }),
       RateLimit.deleteMany({ identifier: String(userId) }),
       User.findByIdAndDelete(userId),
     ]);

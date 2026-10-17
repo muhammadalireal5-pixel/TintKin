@@ -28,7 +28,7 @@ export function ToastProvider({ children }) {
       {children}
       <div
         aria-live="assertive"
-        className="pointer-events-none fixed inset-0 flex px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:p-6 z-[300] flex-col gap-2 justify-start"
+        className="pointer-events-none fixed inset-0 flex px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-6 sm:pt-6 sm:px-6 z-[300] flex-col gap-2 justify-end sm:justify-start"
       >
         {toasts.map((toast) => (
           <div key={toast.id} className="flex w-full flex-col items-center sm:items-end">

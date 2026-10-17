@@ -6,9 +6,7 @@ export const metadata = {
 export default function AdminLayout({ children }) {
   return (
     <>
-      {/* Hide the main app header on admin pages */}
       <style>{`
-        header.sticky { display: none !important; }
         body.tk-body {
           background: var(--tk-bg) !important;
           color: var(--tk-text-primary) !important;

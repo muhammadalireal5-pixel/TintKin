@@ -58,6 +58,7 @@ import {
 import { resolvePeriod } from "@/lib/utils/quota-period";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import { EMAIL_VERIFICATION_ENABLED } from "./feature-flags";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_TIMEOUT_MS = 20000;
@@ -1979,7 +1980,9 @@ export async function getUserProfile() {
       optInComparison: user.optInComparison || false,
       standardPlanFrequency: user.standardPlanFrequency || "flexible",
       photoPrivacy: user.photoPrivacy || "store",
-      emailVerified: Boolean(user.emailVerified),
+      // Reported as verified while confirmation emails are switched off, so no
+      // "please confirm your email" prompt shows.
+      emailVerified: EMAIL_VERIFICATION_ENABLED ? Boolean(user.emailVerified) : true,
     };
   } catch {
     return null;
@@ -2339,6 +2342,46 @@ export async function getReportStatus() {
     const user = await findSessionUser(decoded);
     if (!user?.onboardingComplete) return null;
     return getReportProgress(await countScansSinceLastReport(user._id));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Small snapshot the on-screen companion uses to decide what to say (first
+ * scan guidance, "no scan today", unfinished routine steps...). Cheap on
+ * purpose: counts and lengths only. Never redirects — null when signed out.
+ */
+export async function getCompanionState() {
+  try {
+    await connectDb();
+    const decoded = await getAuthenticatedUser().catch(() => null);
+    if (!decoded) return null;
+    const user = await findSessionUser(decoded);
+    if (!user?.onboardingComplete) return null;
+
+    const tz = normalizeTimezone(user.timezone);
+    const todayStart = getLocalDayStart(tz);
+
+    const [scanCount, latest, latestAnalyzed, todayLog, report] = await Promise.all([
+      Selfie.countDocuments({ userId: user._id }),
+      Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 }).select("takenAt").lean(),
+      Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }).select("amRoutine pmRoutine").lean(),
+      RoutineLog.findOne({ userId: user._id, date: { $gte: todayStart } }).select("amCompleted pmCompleted").lean(),
+      getReportProgress(await countScansSinceLastReport(user._id)),
+    ]);
+
+    const amTotal = latestAnalyzed?.amRoutine?.length || 0;
+    const pmTotal = latestAnalyzed?.pmRoutine?.length || 0;
+    return {
+      firstName: (user.displayName || "").trim().split(/s+/)[0] || "",
+      scanCount,
+      scannedToday: Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart),
+      streak: computeDisplayStreak(user, tz),
+      am: { done: Math.min(amTotal, todayLog?.amCompleted?.length || 0), total: amTotal },
+      pm: { done: Math.min(pmTotal, todayLog?.pmCompleted?.length || 0), total: pmTotal },
+      reportReady: Boolean(report?.ready),
+    };
   } catch {
     return null;
   }

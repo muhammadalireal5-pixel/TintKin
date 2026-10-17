@@ -1,5 +1,6 @@
 import { KeyRound, XCircle } from "lucide-react";
 import Link from "next/link";
+import AuthLayout from "@/app/components/AuthLayout";
 import { exchangeResetToken } from "./actions";
 
 const STATUS_MESSAGES = {
@@ -12,42 +13,31 @@ export default async function ExchangePage({ searchParams }) {
 
   if (status || !token || typeof token !== "string") {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-        <div className="w-full max-w-md p-8 tk-glass rounded-2xl shadow-sm text-center">
-          <XCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-red-600 mb-2">
-            {status ? "Invalid or Expired Link" : "Invalid Reset Link"}
-          </h2>
-          <p className="text-sm text-gray-600 mb-6">
-            {STATUS_MESSAGES[status] || "The password reset link is missing required parameters."}
-          </p>
-          <Link
-            href="/reset-password"
-            className="inline-block w-full bg-primary text-white py-3 rounded-xl hover:bg-primary/90 transition"
-          >
-            Request New Reset Link
-          </Link>
+      <AuthLayout
+        title={status ? "Invalid or Expired Link" : "Invalid Reset Link"}
+        subtitle={STATUS_MESSAGES[status] || "The password reset link is missing required parameters."}
+      >
+        <div className="flex justify-center">
+          <span className="tk-icon-circle w-14 h-14 bg-danger-soft text-danger"><XCircle className="w-7 h-7" /></span>
         </div>
-      </div>
+        <Link href="/reset-password" className="tk-pill-btn tk-btn-primary w-full">
+          Request New Reset Link
+        </Link>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-base px-4 py-8">
-      <form action={exchangeResetToken} className="w-full max-w-md p-8 tk-glass rounded-2xl shadow-sm text-center">
+    <AuthLayout title="Reset Your Password" subtitle="Continue to choose a new password. This link can only be used once.">
+      <form action={exchangeResetToken} className="space-y-4">
         <input type="hidden" name="token" value={token} />
-        <KeyRound className="w-12 h-12 text-sage mx-auto mb-4" />
-        <h2 className="text-xl font-medium text-primary mb-2">Reset Your Password</h2>
-        <p className="text-sm text-gray-600 mb-6">
-          Continue to choose a new password. This link can only be used once.
-        </p>
-        <button
-          type="submit"
-          className="inline-block w-full bg-primary text-white py-3 rounded-xl hover:bg-primary/90 transition"
-        >
+        <div className="flex justify-center">
+          <span className="tk-icon-circle w-14 h-14 bg-accent-soft text-accent"><KeyRound className="w-7 h-7" /></span>
+        </div>
+        <button type="submit" className="tk-pill-btn tk-btn-primary w-full">
           Continue
         </button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

@@ -1,47 +1,138 @@
 @import "tailwindcss";
 
+/* ──────────────────────────────────────────────────────────────────────────
+   TintKin design system — warm cream / cocoa / rose clay.
+   ONE palette block (:root) drives everything. Tailwind utility names that
+   older pages already use (primary, base, lavender, sage, muted, faint) are
+   kept as aliases so they re-skin automatically; new code should prefer the
+   semantic names: cream, surface, blush, accent, accent-deep, accent-soft,
+   cocoa, line, success, danger.
+   ────────────────────────────────────────────────────────────────────────── */
 @theme {
-  --color-base: #FDFBF7;
-  --color-primary: #2C3E50;
-  --color-lavender: #E6E6FA;
-  --color-sage: #8A9A5B;
+  --color-base: #FCF4F2;
+  --color-cream: #FCF4F2;
+  --color-surface: #FFFBFA;
+  --color-blush: #F6E2E2;
+  --color-line: #EFDCDC;
 
-  --font-display: var(--font-playfair);
+  --color-primary: #4A2530;     /* ink: text + dark UI */
+  --color-cocoa: #6B3342;       /* active segment / dark chips */
+  --color-muted: #7E5B64;
+  --color-faint: #B09AA0;
+
+  --color-accent: #B5546A;      /* rose clay: primary buttons, links, FAB */
+  --color-accent-deep: #9A4156;
+  --color-accent-soft: #F8DCE1;
+
+  --color-success: #2F8F5B;
+  --color-success-soft: #E3F2E8;
+  --color-danger: #B3261E;
+  --color-danger-soft: #FBE7E4;
+
+  /* legacy aliases (pre-redesign class names) */
+  --color-lavender: #F6E2E2;
+  --color-sage: #B5546A;
+
+  --font-display: var(--font-outfit);
   --font-body: var(--font-outfit);
+  --font-wordmark: var(--font-playfair);
 }
 
 :root {
-  --tk-bg: #FDFBF7;
-  --tk-text-primary: #2C3E50;
-  --tk-text-muted: #5B6D7F;
-  --tk-text-faint: #8E9BAA;
-  
-  --tk-accent-lavender: #E6E6FA;
-  --tk-accent-sage: #8A9A5B;
-  --tk-accent-peach: #FFDAB9;
-  
-  --tk-gradient-mesh: radial-gradient(at 0% 0%, rgba(230,230,250, 0.4) 0px, transparent 50%),
-                      radial-gradient(at 100% 0%, rgba(255,218,185, 0.4) 0px, transparent 50%),
-                      radial-gradient(at 100% 100%, rgba(230,230,250, 0.4) 0px, transparent 50%),
-                      radial-gradient(at 0% 100%, rgba(255,218,185, 0.4) 0px, transparent 50%);
+  --tk-bg: #FCF4F2;
+  --tk-bg-top: #F9E6E6;
+  --tk-text-primary: #4A2530;
+  --tk-text-muted: #7E5B64;
+  --tk-text-faint: #B09AA0;
 
-  --tk-gradient-pastel: linear-gradient(135deg, rgba(230,230,250,0.6) 0%, rgba(255,218,185,0.6) 100%);
+  --tk-accent: #B5546A;
+  --tk-accent-deep: #9A4156;
+  --tk-accent-soft: #F8DCE1;
+  --tk-cocoa: #6B3342;
+  --tk-blush: #F6E2E2;
+  --tk-success: #2F8F5B;
+  --tk-danger: #B3261E;
 
-  --tk-surface-glass: rgba(255, 255, 255, 0.4);
-  --tk-surface-card: #FFFFFF;
-  --tk-shadow-card: 0 1px 2px rgba(44, 62, 80, 0.04), 0 8px 24px -12px rgba(44, 62, 80, 0.12);
-  --tk-border-glass: rgba(255, 255, 255, 0.2);
-  --tk-border-solid: rgba(44, 62, 80, 0.08);
+  /* legacy names still referenced inline in a few components */
+  --tk-accent-lavender: #F6E2E2;
+  --tk-accent-sage: #B5546A;
+  --tk-accent-peach: #F8DCE1;
 
-  --tk-glow-card: 0 8px 32px rgba(44, 62, 80, 0.05), 0 0 0 1px var(--tk-border-glass);
-  --tk-glow-focus: 0 0 40px rgba(230,230,250,0.6);
-  
-  --font-display: var(--font-playfair, 'Playfair Display', serif);
+  --tk-surface-card: #FFFBFA;
+  --tk-border-solid: #EFDCDC;
+  --tk-border-glass: #EFDCDC;
+  --tk-shadow-card: 0 1px 2px rgb(var(--tk-ink-rgb) / 0.04), 0 10px 28px -14px rgb(var(--tk-ink-rgb) / 0.18);
+  --tk-shadow-pop: 0 12px 30px -10px rgb(var(--tk-accent-rgb) / 0.55);
+  --tk-glow-card: var(--tk-shadow-card);
+  --tk-glow-focus: 0 0 0 4px rgb(var(--tk-accent-rgb) / 0.18);
+
+  /* soft page wash: peach at the top fading to cream, like the reference */
+  --tk-page-bg: linear-gradient(180deg, #F9E6E6 0%, #FCF4F2 320px, #FCF4F2 100%);
+  --tk-gradient-mesh: var(--tk-page-bg);
+  --tk-gradient-pastel: linear-gradient(135deg, #F8DCE1 0%, #F6E2E2 100%);
+
+  --tk-accent-rgb: 181 84 106;
+  --tk-ink-rgb: 74 37 48;
+  --tk-border-strong: #EBD3D6;
+  --tk-soft-hover: #F3CFD6;
+  --tk-cocoa-deep: #5A2A38;
+  --tk-scroll: #E9CFD3;
+
+  --tk-sidebar-w: 264px;
+  --tk-nav-h: 68px;
+
+  --font-display: var(--font-outfit, 'Outfit', system-ui, sans-serif);
   --font-body: var(--font-outfit, 'Outfit', system-ui, sans-serif);
+  --font-wordmark: var(--font-playfair, 'Playfair Display', serif);
+}
+
+/* ── Alternate theme: terracotta (warm brown) ─────────────────────────────
+   Default (no attribute) is rose clay. <html data-theme="terracotta"> swaps
+   every colour token; components never hard-code the palette, so nothing else
+   changes. Add another theme by copying this block. */
+html[data-theme="terracotta"] {
+  --color-base: #FBF3EE;
+  --color-cream: #FBF3EE;
+  --color-surface: #FFFBF8;
+  --color-blush: #F7E6DC;
+  --color-line: #F0DFD4;
+  --color-primary: #4A2A1F;
+  --color-cocoa: #6E3B2B;
+  --color-muted: #86685A;
+  --color-faint: #AE968A;
+  --color-accent: #B7543A;
+  --color-accent-deep: #9C432C;
+  --color-accent-soft: #F8DFD3;
+  --color-lavender: #F7E6DC;
+  --color-sage: #B7543A;
+
+  --tk-bg: #FBF3EE;
+  --tk-bg-top: #FBE9DF;
+  --tk-text-primary: #4A2A1F;
+  --tk-text-muted: #86685A;
+  --tk-text-faint: #AE968A;
+  --tk-accent: #B7543A;
+  --tk-accent-deep: #9C432C;
+  --tk-accent-soft: #F8DFD3;
+  --tk-cocoa: #6E3B2B;
+  --tk-blush: #F7E6DC;
+  --tk-accent-lavender: #F7E6DC;
+  --tk-accent-sage: #B7543A;
+  --tk-accent-peach: #F8DFD3;
+  --tk-surface-card: #FFFBF8;
+  --tk-border-solid: #F0DFD4;
+  --tk-border-glass: #F0DFD4;
+  --tk-accent-rgb: 183 84 58;
+  --tk-ink-rgb: 110 59 43;
+  --tk-border-strong: #EBD6CA;
+  --tk-soft-hover: #F4D2C3;
+  --tk-cocoa-deep: #5A2F22;
+  --tk-scroll: #E9D2C6;
+  --tk-page-bg: linear-gradient(180deg, #FBE9DF 0%, #FBF3EE 320px, #FBF3EE 100%);
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -119,17 +210,21 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-::-webkit-scrollbar { width: 6px; }
+::selection { background: var(--tk-accent-soft); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--tk-accent-lavender);
+  background: var(--tk-scroll);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--tk-text-faint); }
 
-/* Hide scrollbar but keep scroll (for mobile nav) */
+/* Hide scrollbar but keep scroll (for horizontal rails) */
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -139,67 +234,214 @@ h1, h2, h3, h4, h5, h6 {
 /* Mobile safe-area helper */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0); }
 
-/* Reserves room above the fixed mobile bottom nav bar so content never sits underneath it */
-.pb-safe-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0)); }
+/* Reserves room above the fixed mobile bottom nav so content never sits under
+   it; desktop uses the sidebar instead, so no reserve there. */
+.pb-safe-nav { padding-bottom: calc(var(--tk-nav-h) + 20px + env(safe-area-inset-bottom, 0)); }
 @media (min-width: 768px) {
   .pb-safe-nav { padding-bottom: 0; }
 }
 
-/* Solid card surface used across the app. .tk-glass is kept as an alias so
-   older markup picks up the same look (the frosted-glass style was retired). */
+/* ── Page backdrop ─────────────────────────────────────────────────────── */
+.tk-page,
+.tk-mesh-bg {
+  background-color: var(--tk-bg);
+  background-image: var(--tk-page-bg);
+  background-repeat: no-repeat;
+}
+
+/* Standard page container: comfortable gutters on phone, wide on desktop. */
+.tk-container {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 768px) { .tk-container { padding-inline: 2rem; } }
+@media (min-width: 1280px) { .tk-container { padding-inline: 2.5rem; } }
+
+/* ── Surfaces ──────────────────────────────────────────────────────────── */
+/* .tk-glass is kept as an alias so older markup picks up the same look. */
 @layer components {
   .tk-card,
   .tk-glass {
     background: var(--tk-surface-card);
     border: 1px solid var(--tk-border-solid);
     box-shadow: var(--tk-shadow-card);
-    border-radius: 1.5rem;
+    border-radius: 1.25rem;
+  }
+  .tk-card-flat {
+    background: var(--tk-surface-card);
+    border: 1px solid var(--tk-border-solid);
+    border-radius: 1.25rem;
+  }
+  /* small rounded tile (Today's Plan, metric cells) */
+  .tk-tile {
+    background: var(--tk-surface-card);
+    border: 1px solid var(--tk-border-solid);
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgb(var(--tk-ink-rgb) / 0.03);
+  }
+  /* round tinted icon holder */
+  .tk-icon-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--tk-accent-soft);
+    color: var(--tk-accent);
+  }
+  .tk-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--tk-text-muted);
+  }
+  .tk-section-title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--tk-text-primary);
   }
 }
 
+/* ── Buttons ───────────────────────────────────────────────────────────── */
 .tk-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   border-radius: 9999px;
   padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
   font-family: var(--font-body);
 }
 
+/* Rose clay fill — the main call to action everywhere. */
 .tk-btn-primary {
-  background-color: var(--tk-text-primary);
-  color: var(--tk-bg);
+  background-color: var(--tk-accent);
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgb(var(--tk-accent-rgb) / 0.6);
+}
+.tk-btn-primary:hover {
+  background-color: var(--tk-accent-deep);
+  transform: translateY(-1px);
+}
+.tk-btn-primary:active { transform: translateY(0) scale(0.98); }
+.tk-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* Cocoa fill — secondary strong action / active segment. */
+.tk-btn-dark {
+  background-color: var(--tk-cocoa);
+  color: #FFFFFF;
   border: none;
   cursor: pointer;
 }
-.tk-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(44, 62, 80, 0.15);
+.tk-btn-dark:hover { background-color: var(--tk-cocoa-deep); transform: translateY(-1px); }
+
+/* Soft tinted fill — tertiary action. */
+.tk-btn-soft {
+  background: var(--tk-accent-soft);
+  color: var(--tk-accent-deep);
+  border: none;
+  cursor: pointer;
 }
+.tk-btn-soft:hover { background: var(--tk-soft-hover); }
 
 .tk-btn-ghost {
   background: transparent;
-  border: 1px solid var(--tk-border-solid);
+  border: 1px solid var(--tk-border-strong);
   color: var(--tk-text-primary);
   cursor: pointer;
 }
 .tk-btn-ghost:hover {
-  background: rgba(44, 62, 80, 0.03);
-  transform: translateY(-1px);
+  background: rgb(var(--tk-accent-rgb) / 0.06);
 }
 
-.tk-anim-1 { animation: fadeInUp 0.8s ease both; }
-.tk-anim-2 { animation: fadeInUp 0.8s 0.15s ease both; }
-.tk-anim-3 { animation: fadeInUp 0.8s 0.3s ease both; }
-.tk-anim-4 { animation: fadeInUp 0.8s 0.45s ease both; }
-.tk-anim-5 { animation: fadeInUp 0.8s 0.6s ease both; }
-.tk-anim-6 { animation: fadeInUp 0.8s 0.75s ease both; }
-
-.tk-mesh-bg {
-  background-color: var(--tk-bg);
-  background-image: var(--tk-gradient-mesh);
-  background-size: 200% 200%;
-  animation: meshShift 15s ease infinite;
+/* ── Form fields ───────────────────────────────────────────────────────── */
+.tk-input {
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid var(--tk-border-strong);
+  border-radius: 0.875rem;
+  padding: 0.8rem 1rem;
+  color: var(--tk-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+.tk-input::placeholder { color: var(--tk-text-faint); }
+.tk-input:focus {
+  outline: none;
+  border-color: var(--tk-accent);
+  box-shadow: var(--tk-glow-focus);
+}
+
+/* ── Segmented control (Skin | Hair style toggle in the reference) ─────── */
+.tk-segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: #FFFFFF;
+  border: 1px solid var(--tk-border-solid);
+  box-shadow: 0 1px 2px rgb(var(--tk-ink-rgb) / 0.04);
+}
+.tk-segmented-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--tk-text-primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.tk-segmented-item[aria-selected="true"],
+.tk-segmented-item.is-active {
+  background: var(--tk-cocoa);
+  color: #FFFFFF;
+}
+
+/* ── Chips / pills ─────────────────────────────────────────────────────── */
+.tk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--tk-accent-soft);
+  color: var(--tk-accent-deep);
+}
+.tk-chip-success { background: #E3F2E8; color: #1F7A48; }
+.tk-chip-danger { background: #FBE7E4; color: var(--tk-danger); }
+
+/* ── Brand wordmark ("tintkin" set in Playfair, like the reference logo) ── */
+.tk-wordmark {
+  font-family: var(--font-wordmark);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--tk-cocoa);
+}
+
+.tk-anim-1 { animation: fadeInUp 0.6s ease both; }
+.tk-anim-2 { animation: fadeInUp 0.6s 0.1s ease both; }
+.tk-anim-3 { animation: fadeInUp 0.6s 0.2s ease both; }
+.tk-anim-4 { animation: fadeInUp 0.6s 0.3s ease both; }
+.tk-anim-5 { animation: fadeInUp 0.6s 0.4s ease both; }
+.tk-anim-6 { animation: fadeInUp 0.6s 0.5s ease both; }
 
 /* Brand loader (app/components/BrandLoader.jsx) */
 .tk-loader {
@@ -213,7 +455,7 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(230,230,250,0.9) 0%, rgba(255,218,185,0.45) 55%, transparent 72%);
+  background: radial-gradient(circle, var(--tk-accent-soft) 0%, var(--tk-blush) 55%, transparent 72%);
   filter: blur(6px);
   animation: tkLoaderBreathe 2.4s ease-in-out infinite;
 }
@@ -225,16 +467,16 @@ h1, h2, h3, h4, h5, h6 {
   display: grid;
   place-items: center;
   font-size: 22px;
-  color: var(--tk-text-primary);
-  background: linear-gradient(135deg, var(--tk-accent-lavender) 0%, var(--tk-accent-peach) 100%);
-  box-shadow: 0 6px 24px rgba(230,230,250,0.9), inset 0 1px 0 rgba(255,255,255,0.7);
+  color: #FFFFFF;
+  background: var(--tk-accent);
+  box-shadow: var(--tk-shadow-pop);
   animation: tkLoaderPulse 2.4s ease-in-out infinite;
 }
 .tk-loader-orbit {
   position: absolute;
   inset: 4px;
   border-radius: 9999px;
-  border: 1px dashed rgba(138,154,91,0.3);
+  border: 1px dashed rgb(var(--tk-accent-rgb) / 0.3);
   animation: tkLoaderSpin 2.8s linear infinite;
 }
 .tk-loader-dot {
@@ -245,8 +487,8 @@ h1, h2, h3, h4, h5, h6 {
   height: 8px;
   margin-left: -4px;
   border-radius: 9999px;
-  background: var(--tk-accent-sage);
-  box-shadow: 0 0 10px rgba(138,154,91,0.6);
+  background: var(--tk-accent);
+  box-shadow: 0 0 10px rgb(var(--tk-accent-rgb) / 0.5);
 }
 .tk-loader-dot--sm {
   top: auto;
@@ -284,4 +526,38 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 0;
   overflow: hidden;
   word-break: break-word;
+}
+
+/* ── App shell (sidebar on desktop, bottom nav on phone) ───────────────── */
+.tk-shell-main { min-width: 0; }
+@media (min-width: 768px) {
+  .tk-shell-main { margin-left: var(--tk-sidebar-w); }
+}
+
+/* Floating centre "Scan" button in the bottom nav */
+.tk-fab {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: var(--tk-accent);
+  color: #FFFFFF;
+  border: 4px solid var(--tk-bg);
+  box-shadow: var(--tk-shadow-pop);
+}
+
+/* Companion tour spotlight: the element Kin is currently talking about. */
+[data-tour-active="true"] {
+  outline: 3px solid var(--tk-accent);
+  outline-offset: 4px;
+  border-radius: 1rem;
+  animation: tkTourPulse 1.4s ease-in-out infinite;
+}
+@keyframes tkTourPulse {
+  0%, 100% { outline-color: var(--tk-accent); }
+  50% { outline-color: rgb(var(--tk-accent-rgb) / 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tour-active="true"] { animation: none; }
 }

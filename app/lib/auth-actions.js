@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { checkRateLimit, checkOriginAwareRateLimit, getCompositeKey, RATE_LIMIT_CONFIGS } from "./rate-limit";
 import { getClientIp } from "./request-ip";
 import { getAuthenticatedUser } from "./auth-server";
+import { EMAIL_VERIFICATION_ENABLED } from "./feature-flags";
 import { getBaseUrl } from "./url";
 
 let resendClient = null;
@@ -129,9 +130,11 @@ export async function registerUser({ email, password, name } = {}) {
   // Best-effort: a failed send never blocks account creation. Defense-in-depth
   // (M21 in AUDIT.md) — the account pre-hijacking exploit this would also
   // guard against is already closed by the Google email_verified check (H1).
-  await sendVerificationEmail(newUser).catch((err) => {
-    Sentry.captureException(err, { tags: { scope: "verification-email" } });
-  });
+  if (EMAIL_VERIFICATION_ENABLED) {
+    await sendVerificationEmail(newUser).catch((err) => {
+      Sentry.captureException(err, { tags: { scope: "verification-email" } });
+    });
+  }
 
   return { success: true };
 }
@@ -201,6 +204,7 @@ export async function verifyEmailToken(rawToken) {
  * email isn't verified yet. Rate-limited the same as password-reset requests.
  */
 export async function resendVerificationEmail() {
+  if (!EMAIL_VERIFICATION_ENABLED) return { success: true };
   let decoded;
   try {
     decoded = await getAuthenticatedUser();

@@ -113,11 +113,11 @@ export default function TrophyCase({
   };
 
   return (
-    <div className="tk-glass p-6 sm:p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
+    <div className="tk-card p-5 sm:p-7 relative overflow-hidden flex flex-col justify-between">
       {/* Landscape Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-black/[0.06]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-line">
         <div className="flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-sage/15 border border-sage/20 flex items-center justify-center shrink-0 text-sage shadow-sm">
+          <div className="tk-icon-circle w-11 h-11 shrink-0">
             <Trophy size={22} strokeWidth={2.2} />
           </div>
           <div>
@@ -125,12 +125,12 @@ export default function TrophyCase({
               <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted">
                 Trophy Case
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/5 text-muted font-semibold">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blush text-muted font-semibold">
                 7 Milestones
               </span>
             </div>
-            <h3 className="text-xl sm:text-2xl font-display font-medium text-primary">
-              Milestones &amp; <span className="italic text-sage">Longevity</span>
+            <h3 className="text-xl sm:text-2xl font-semibold text-primary">
+              Milestones &amp; <span className="text-accent">Longevity</span>
             </h3>
             <p className="text-xs text-muted mt-0.5 hidden sm:block">
               Unlock badges by logging scans, completing routines, and exploring simulations. Click any badge to inspect &amp; share.
@@ -139,16 +139,16 @@ export default function TrophyCase({
         </div>
 
         {/* Progress Tracker */}
-        <div className="flex items-center sm:flex-col sm:items-end gap-3 sm:gap-1.5 shrink-0 bg-white/50 sm:bg-transparent p-3 sm:p-0 rounded-2xl border sm:border-0 border-black/5">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sage/15 border border-sage/30 text-xs font-bold text-sage shadow-sm">
+        <div className="flex items-center sm:flex-col sm:items-end gap-3 sm:gap-1.5 shrink-0 bg-blush/60 sm:bg-transparent p-3 sm:p-0 rounded-2xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent-soft text-xs font-bold text-accent-deep">
             <Award size={14} />
             <span>
               {unlockedCount} of {totalCount} Unlocked ({completionPercent}%)
             </span>
           </div>
-          <div className="w-28 sm:w-36 h-2 bg-black/[0.08] rounded-full overflow-hidden">
+          <div className="w-28 sm:w-36 h-2 bg-line rounded-full overflow-hidden">
             <div
-              className="h-full bg-sage rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
               style={{ width: `${completionPercent}%` }}
             />
           </div>
@@ -165,10 +165,10 @@ export default function TrophyCase({
             <button
               key={badge.id}
               onClick={() => setSelectedBadge(badge)}
-              className={`group p-4 rounded-2xl text-left flex flex-col justify-between transition-all duration-300 relative overflow-hidden border shrink-0 w-[145px] sm:w-auto snap-start ${
+              className={`group p-4 rounded-[1.25rem] text-left flex flex-col justify-between transition-all duration-300 relative overflow-hidden border shrink-0 w-[145px] sm:w-auto snap-start ${
                 isUnlocked
-                  ? "bg-white/80 hover:bg-white shadow-sm hover:shadow-md border-black/10 hover:border-black/20 hover:-translate-y-1 cursor-pointer"
-                  : "bg-black/[0.02] border-black/5 opacity-60 hover:opacity-85 hover:-translate-y-0.5 cursor-pointer"
+                  ? "bg-surface hover:bg-white shadow-sm hover:shadow-md border-line hover:border-accent/40 hover:-translate-y-1 cursor-pointer"
+                  : "bg-blush/60 border-line opacity-70 grayscale hover:opacity-90 hover:-translate-y-0.5 cursor-pointer"
               }`}
               style={{ minHeight: "155px" }}
             >
@@ -185,8 +185,8 @@ export default function TrophyCase({
                 <div
                   className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-inner transition-transform duration-300 group-hover:scale-110"
                   style={{
-                    backgroundColor: isUnlocked ? `${badge.accentColor}1A` : "rgba(0,0,0,0.04)",
-                    color: isUnlocked ? badge.accentColor : "#94A3B8",
+                    backgroundColor: isUnlocked ? `${badge.accentColor}1A` : "var(--tk-border-solid)",
+                    color: isUnlocked ? badge.accentColor : "var(--tk-text-faint)",
                   }}
                 >
                   <Icon size={22} strokeWidth={2.2} />
@@ -199,7 +199,7 @@ export default function TrophyCase({
                     <Check size={12} strokeWidth={3} />
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-black/5 flex items-center justify-center text-muted">
+                  <div className="w-5 h-5 rounded-full bg-line flex items-center justify-center text-muted">
                     <Lock size={11} />
                   </div>
                 )}
@@ -210,15 +210,15 @@ export default function TrophyCase({
                 <span
                   className="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5 shadow-2xs"
                   style={{
-                    backgroundColor: isUnlocked ? `${badge.accentColor}15` : "rgba(0,0,0,0.05)",
-                    color: isUnlocked ? badge.accentColor : "#64748B",
+                    backgroundColor: isUnlocked ? `${badge.accentColor}15` : "var(--tk-border-solid)",
+                    color: isUnlocked ? badge.accentColor : "var(--tk-text-muted)",
                   }}
                 >
                   {badge.rarity}
                 </span>
 
                 <h4
-                  className={`text-xs font-display font-semibold leading-tight mb-1 line-clamp-2 ${
+                  className={`text-xs font-semibold leading-tight mb-1 line-clamp-2 ${
                     isUnlocked ? "text-primary" : "text-muted"
                   }`}
                 >
@@ -227,7 +227,7 @@ export default function TrophyCase({
 
                 <p
                   className={`text-[10px] leading-tight truncate ${
-                    isUnlocked ? "text-emerald-700 font-medium" : "text-muted"
+                    isUnlocked ? "text-success font-medium" : "text-muted"
                   }`}
                 >
                   {isUnlocked ? "✓ Unlocked" : badge.progress || badge.subtitle}
@@ -239,12 +239,12 @@ export default function TrophyCase({
       </div>
 
       {/* Footer Info */}
-      <div className="mt-5 pt-3.5 border-t border-black/[0.05] flex flex-col sm:flex-row items-center justify-between text-[11px] text-muted gap-2">
+      <div className="mt-5 pt-3.5 border-t border-line flex flex-col sm:flex-row items-center justify-between text-[11px] text-muted gap-2">
         <span className="flex items-center gap-1.5">
-          <Share2 size={13} className="text-sage" />
+          <Share2 size={13} className="text-accent" />
           <span>Click any badge to view the full certificate and export as a shareable PNG image.</span>
         </span>
-        <span className="text-[10px] uppercase font-semibold tracking-wider text-sage">
+        <span className="text-[10px] uppercase font-semibold tracking-wider text-accent">
           Your Badge for Your Skin
         </span>
       </div>
@@ -253,7 +253,7 @@ export default function TrophyCase({
       {selectedBadge && mounted &&
         createPortal(
           <div
-            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 bg-[#2C3E50]/50 animate-in fade-in"
+            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 bg-primary/30 animate-in fade-in"
             onClick={() => setSelectedBadge(null)}
           >
             <div
@@ -263,15 +263,15 @@ export default function TrophyCase({
               {/* The Exportable HTML Certificate Card (Golden Ratio Proportions & Swiss Typographic Rhythm) */}
               <div
                 ref={badgeCardRef}
-                className="w-full rounded-[2rem] p-6 sm:p-7 text-center relative overflow-hidden border shadow-2xl flex flex-col items-center bg-gradient-to-b from-[#FAF8F5] via-white to-[#F5F2EB]"
+                className="w-full rounded-[2rem] p-6 sm:p-7 text-center relative overflow-hidden border shadow-2xl flex flex-col items-center bg-gradient-to-b from-[var(--tk-surface-card)] via-white to-[var(--tk-blush)]"
                 style={{
-                  borderColor: selectedBadge.isUnlocked ? `${selectedBadge.accentColor}40` : "#E2E8F0",
+                  borderColor: selectedBadge.isUnlocked ? `${selectedBadge.accentColor}40` : "var(--tk-border-solid)",
                 }}
               >
                 {/* Close Button inside card top-right (excluded from PNG export) */}
                 <button
                   onClick={() => setSelectedBadge(null)}
-                  className="no-export absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-muted hover:text-primary transition-colors z-20 cursor-pointer"
+                  className="no-export absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-blush hover:bg-line flex items-center justify-center text-muted hover:text-primary transition-colors z-20 cursor-pointer"
                   title="Close"
                 >
                   <X size={15} />
@@ -302,11 +302,11 @@ export default function TrophyCase({
                   <div
                     className="w-20 h-20 sm:w-22 sm:h-22 rounded-full flex items-center justify-center relative shadow-lg border-3 transition-transform"
                     style={{
-                      borderColor: selectedBadge.isUnlocked ? selectedBadge.accentColor : "#CBD5E1",
+                      borderColor: selectedBadge.isUnlocked ? selectedBadge.accentColor : "var(--tk-border-solid)",
                       backgroundColor: selectedBadge.isUnlocked
                         ? `${selectedBadge.accentColor}12`
-                        : "#F1F5F9",
-                      color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "#94A3B8",
+                        : "var(--tk-blush)",
+                      color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "var(--tk-text-faint)",
                     }}
                   >
                     {selectedBadge.isUnlocked ? (
@@ -335,14 +335,14 @@ export default function TrophyCase({
                     style={{
                       backgroundColor: selectedBadge.isUnlocked
                         ? `${selectedBadge.accentColor}18`
-                        : "#E2E8F0",
-                      color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "#64748B",
+                        : "var(--tk-border-solid)",
+                      color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "var(--tk-text-muted)",
                     }}
                   >
                     {selectedBadge.isUnlocked ? `${selectedBadge.rarity} Badge` : "Locked Badge"}
                   </span>
 
-                  <h3 className="text-xl sm:text-2xl font-display font-medium text-primary mt-1.5 tracking-tight">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-primary mt-1.5 tracking-tight">
                     {selectedBadge.title}
                   </h3>
                   <p className="text-xs text-muted max-w-[270px] mt-1 leading-relaxed">
@@ -351,7 +351,7 @@ export default function TrophyCase({
                 </div>
 
                 {/* Certificate Footer Details */}
-                <div className="relative z-10 w-full pt-3.5 mt-4 border-t border-black/[0.06] flex items-center justify-between text-[10px] text-muted">
+                <div className="relative z-10 w-full pt-3.5 mt-4 border-t border-line flex items-center justify-between text-[10px] text-muted">
                   <div className="text-left">
                     <span className="block font-semibold uppercase tracking-wider text-[9px] text-primary/60">
                       Recipient
@@ -364,7 +364,7 @@ export default function TrophyCase({
                     </span>
                     <span
                       className="font-bold text-[11px]"
-                      style={{ color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "#64748B" }}
+                      style={{ color: selectedBadge.isUnlocked ? selectedBadge.accentColor : "var(--tk-text-muted)" }}
                     >
                       {selectedBadge.isUnlocked ? "Unlocked & Verified" : "In Progress"}
                     </span>
@@ -376,7 +376,7 @@ export default function TrophyCase({
               <div className="mt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-center gap-2.5 w-full">
                 <button
                   onClick={() => setSelectedBadge(null)}
-                  className="px-5 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold text-primary bg-[#FDFBF7] hover:bg-white border border-[rgba(44,62,80,0.08)] shadow-md transition-all active:scale-95 cursor-pointer"
+                  className="px-5 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold tk-btn-ghost bg-surface shadow-md transition-all active:scale-95 cursor-pointer"
                 >
                   Close
                 </button>
@@ -384,7 +384,7 @@ export default function TrophyCase({
                   <button
                     onClick={handleDownloadBadge}
                     disabled={downloading}
-                    className="flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition shadow-lg shadow-black/10 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    className="flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-full text-sm sm:text-xs font-semibold tk-btn-primary transition shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     <Download size={14} />
                     <span>{downloading ? "Rendering PNG..." : "Download Badge PNG"}</span>

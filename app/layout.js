@@ -1,25 +1,25 @@
 import { AuthProvider } from "./context/AuthContext";
 import { PwaProvider } from "./context/PwaContext";
-import { HeaderAuth } from "./components/HeaderAuth";
 import { Outfit, Playfair_Display } from "next/font/google";
-import Link from "next/link";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { ToastProvider } from "./components/ToastProvider";
-import PageTransition from "./components/PageTransition";
+import AppShell from "./components/AppShell";
 import "./globals.css";
 
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const viewport = {
-  themeColor: "#2C3E50",
+  themeColor: "#FCF4F2",
   // Pinch-to-zoom off, per explicit request — makes the installed PWA feel
   // like a native app instead of a zoomable web page. iOS Safari's
   // auto-zoom-on-input-focus is handled separately (globals.css forces
@@ -113,41 +113,29 @@ const rootStructuredData = {
   ]
 };
 
+// Same cookie names proxy.js checks. Only used to pick the right shell before
+// the client session resolves; real auth is still enforced server-side.
+const SESSION_COOKIES = [
+  "authjs.session-token",
+  "__Secure-authjs.session-token",
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+];
+
 export default async function RootLayout({ children }) {
   const nonce = (await headers()).get("x-nonce") || undefined;
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("tk-theme")?.value === "terracotta" ? "terracotta" : undefined;
+  const initialAuthed = cookieStore
+    .getAll()
+    .some((c) => c.value && SESSION_COOKIES.some((n) => c.name === n || c.name.startsWith(`${n}.`)));
   return (
-    <html lang="en" dir="ltr" className={`${outfit.variable} ${playfair.variable} h-full`}>
+    <html lang="en" dir="ltr" data-theme={theme} className={`${outfit.variable} ${playfair.variable} h-full`}>
       <body className="tk-body min-h-screen min-h-[100dvh] flex flex-col">
         <PwaProvider>
         <AuthProvider>
           <ToastProvider>
-            <header className="sticky top-0 z-50 bg-[#FDFBF7] border-b border-[rgba(44,62,80,0.08)] transition-all duration-300 shrink-0">
-              <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-4">
-
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-1.5 flex-shrink-0 text-primary hover:opacity-80 transition-opacity min-w-0">
-                  <img src="/icon.png" alt="TintKin Logo" className="w-28 sm:w-40 h-auto object-contain" />
-                </Link>
-
-                <HeaderAuth />
-              </div>
-            </header>
-
-            <PageTransition>{children}</PageTransition>
-
-            <footer className="mt-auto border-t border-black/5 bg-base shrink-0">
-              <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-lavender text-primary shadow-[0_2px_8px_rgba(230,230,250,0.8)] flex-shrink-0 text-[10px]">✦</span>
-                  <span className="text-sm font-display text-primary font-medium">© {new Date().getFullYear()} TintKin. All rights reserved.</span>
-                </div>
-                <div className="flex items-center gap-6">
-                  <Link href="/privacy" className="text-sm text-muted hover:text-primary transition-colors">Privacy Policy</Link>
-                  <Link href="/terms" className="text-sm text-muted hover:text-primary transition-colors">Terms of Service</Link>
-                  <a href="mailto:muhammad0alire@gmail.com" className="text-sm text-muted hover:text-primary transition-colors">Contact</a>
-                </div>
-              </div>
-            </footer>
+            <AppShell initialAuthed={initialAuthed}>{children}</AppShell>
 
             <script
               type="application/ld+json"

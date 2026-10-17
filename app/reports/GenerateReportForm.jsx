@@ -28,7 +28,7 @@ export function ScanProgress({ count, required }) {
       {Array.from({ length: required }, (_, i) => (
         <span
           key={i}
-          className={`h-2 flex-1 max-w-8 rounded-full transition-colors ${i < count ? "bg-sage" : "bg-[rgba(44,62,80,0.1)]"}`}
+          className={`h-2 flex-1 max-w-8 rounded-full transition-colors ${i < count ? "bg-accent" : "bg-line"}`}
         />
       ))}
     </div>
@@ -60,13 +60,13 @@ export default function GenerateReportForm({ status, compact = false }) {
       )}
       <SubmitButton ready={ready} />
       {state && !state.success && (
-        <p className="flex items-center gap-1.5 text-sm text-red-600">
+        <p className="flex items-center gap-1.5 text-sm text-danger">
           <AlertCircle size={14} className="shrink-0" />
           {state.error}
         </p>
       )}
       {state?.success && !compact && (
-        <p className="flex items-center gap-1.5 text-sm text-[#5E6B3A]">
+        <p className="flex items-center gap-1.5 text-sm text-success">
           <CheckCircle2 size={14} className="shrink-0" />
           {state.message}
         </p>

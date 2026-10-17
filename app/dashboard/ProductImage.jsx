@@ -24,7 +24,7 @@ export default function ProductImage({ type, alt, className, ...props }) {
   if (!matchedType || hasError) {
     return (
       <div 
-        className={`w-full h-full flex flex-col items-center justify-center bg-sage/10 text-sage/80 ${className || ''}`}
+        className={`w-full h-full flex flex-col items-center justify-center bg-accent-soft text-accent ${className || ''}`}
         aria-label={alt || type || 'Product placeholder'}
       >
         <Sparkles className="w-8 h-8 stroke-[1.5]" />

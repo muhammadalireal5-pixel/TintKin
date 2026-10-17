@@ -55,7 +55,7 @@ function PackForm({ initial, onCancel, onSubmit, submitting }) {
         <button type="button" onClick={onCancel} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-[var(--tk-border-solid)] text-[var(--tk-text-muted)] hover:bg-black/5">
           <X size={14} /> Cancel
         </button>
-        <button type="submit" disabled={submitting} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20 disabled:opacity-50">
+        <button type="submit" disabled={submitting} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 disabled:opacity-50">
           <Save size={14} /> {submitting ? "Saving…" : "Save"}
         </button>
       </div>
@@ -174,7 +174,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
   return (
     <div className="space-y-8">
       {loadError && (
-        <div className="bg-red-500/10 text-red-600 text-sm p-3 rounded-lg border border-red-500/20">{loadError}</div>
+        <div className="bg-danger/10 text-danger text-sm p-3 rounded-lg border border-danger/20">{loadError}</div>
       )}
 
       <section>
@@ -194,7 +194,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
             <label className={labelStyle}>Max credits</label>
             <input className={inputStyle} type="number" min="1" step="1" value={maxCredits} onChange={(e) => setMaxCredits(e.target.value)} required />
           </div>
-          <button type="submit" disabled={savingSettings} className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20 disabled:opacity-50">
+          <button type="submit" disabled={savingSettings} className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 disabled:opacity-50">
             <Save size={14} /> {savingSettings ? "Saving…" : "Save"}
           </button>
         </form>
@@ -209,7 +209,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider">Credit Packs</h2>
           {!addingPack && (
-            <button onClick={() => setAddingPack(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20">
+            <button onClick={() => setAddingPack(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20">
               <Plus size={14} /> Add Pack
             </button>
           )}
@@ -261,7 +261,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
                       <button
                         onClick={() => handleDeletePack(pack)}
                         disabled={busyPackId === pack.id}
-                        className="p-2 rounded-lg border border-red-500/20 text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                        className="p-2 rounded-lg border border-danger/20 text-danger hover:bg-danger/10 disabled:opacity-50"
                         aria-label="Remove pack"
                       >
                         <Trash2 size={14} />
@@ -271,7 +271,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
                     <button
                       onClick={() => handleRestorePack(pack)}
                       disabled={busyPackId === pack.id}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-sage/20 text-sage hover:bg-sage/10 disabled:opacity-50"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-accent/20 text-accent hover:bg-accent/10 disabled:opacity-50"
                     >
                       Restore
                     </button>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import {
-  RadarChart, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip
+  RadarChart, PolarAngleAxis, PolarGrid, Radar, ResponsiveContainer, Tooltip
 } from "recharts";
 import { METRIC_LABELS } from "@/lib/constants/metrics";
 
@@ -10,9 +10,9 @@ const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-[rgba(44,62,80,0.08)]">
-        <p className="text-primary font-medium">{data.subject}</p>
-        <p className="text-sage text-sm">{data.tag}</p>
+      <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-line">
+        <p className="text-primary font-medium">{data.subject}: {data.value}</p>
+        <p className="text-accent text-sm">{data.tag}</p>
       </div>
     );
   }
@@ -20,10 +20,8 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function RadarChartClient({ scores }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // false on the server and during hydration, true afterwards: charts need a measured container.
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   if (!scores) return null;
 
@@ -37,35 +35,30 @@ export default function RadarChartClient({ scores }) {
     return "Needs love";
   };
 
-  const data = Object.entries(scores).map(([subject, value]) => ({ 
-    subject: METRIC_LABELS[subject] || subject, 
+  const data = Object.entries(scores).map(([subject, value]) => ({
+    subject: METRIC_LABELS[subject] || subject,
     value,
     tag: getSupportiveTag(value)
   }));
 
   return (
-    <div className="h-full w-full absolute inset-0 pb-6">
+    <div className="h-full w-full absolute inset-0">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+        <RadarChart data={data} margin={{ top: 16, right: 28, bottom: 16, left: 28 }}>
+          <PolarGrid stroke="var(--tk-border-solid)" />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fontSize: 11, fill: '#8A9A5B', fontFamily: 'var(--font-outfit, inherit)', fontWeight: 600 }}
+            tick={{ fontSize: 12, fill: 'var(--tk-text-muted)', fontFamily: 'var(--font-outfit, inherit)', fontWeight: 500 }}
             tickLine={false}
           />
           <Tooltip content={<CustomTooltip />} />
           <Radar
             dataKey="value"
-            stroke="#8A9A5B"
-            fill="url(#radarGradient)"
-            fillOpacity={0.7}
-            strokeWidth={3}
+            stroke="var(--tk-accent)"
+            fill="var(--tk-accent)"
+            fillOpacity={0.22}
+            strokeWidth={2.5}
           />
-          <defs>
-            <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#8A9A5B" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#E6E6FA" stopOpacity={0.4} />
-            </linearGradient>
-          </defs>
         </RadarChart>
       </ResponsiveContainer>
     </div>

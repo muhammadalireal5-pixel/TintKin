@@ -1,3 +1,4 @@
+import Wordmark from "@/app/components/ui/Wordmark";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verifyAdminSession } from "@/app/lib/admin-auth";
@@ -19,7 +20,7 @@ export default async function AdminShopPage() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "#FDFBF7",
+          background: "var(--tk-bg)",
           borderBottom: "1px solid var(--tk-border-solid)",
           padding: "0 24px",
         }}
@@ -35,12 +36,12 @@ export default async function AdminShopPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <img src="/icon.png" alt="TintKin Admin Logo" style={{ width: "288px", height: "auto", objectFit: "contain", marginLeft: "-8px" }} />
+            <Wordmark asLink={false} className="text-3xl" />
             <span
               style={{
                 fontSize: "18px",
                 fontWeight: 600,
-                fontFamily: "var(--font-display, 'Playfair Display', serif)",
+                fontFamily: "var(--font-body, 'Outfit', system-ui, sans-serif)",
                 color: "var(--tk-text-primary)",
                 letterSpacing: "-0.5px",
               }}

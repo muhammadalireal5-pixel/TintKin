@@ -96,21 +96,21 @@ export default function LocationPrompt({ user }) {
   if (!show) return null;
 
   return (
-    <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-sage/15 via-white/80 to-lavender/20 border border-sage/30 rounded-3xl shadow-xs relative tk-anim-1">
+    <div className="mb-6 p-4 sm:p-5 bg-accent-soft border border-accent/20 rounded-[1.25rem] relative tk-anim-1">
       <button 
         onClick={handleDismiss} 
-        className="absolute top-3.5 right-3.5 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors cursor-pointer"
+        className="absolute top-3.5 right-3.5 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-surface transition-colors cursor-pointer"
         aria-label="Dismiss location banner"
       >
         <X size={15} />
       </button>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pr-6 sm:pr-8">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-sage/20 border border-sage/30 flex items-center justify-center shrink-0 text-sage mt-0.5">
+          <div className="tk-icon-circle bg-surface text-accent w-10 h-10 shrink-0 mt-0.5">
             <Sun size={19} />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-display font-semibold text-primary">
+            <h3 className="text-sm sm:text-base font-semibold text-primary">
               Want weather-aware skincare advice?
             </h3>
             <p className="text-xs text-muted max-w-xl mt-0.5 leading-relaxed">
@@ -122,7 +122,7 @@ export default function LocationPrompt({ user }) {
           <button
             onClick={handleUseGeolocation}
             disabled={loading}
-            className="px-3.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-full hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+            className="tk-pill-btn tk-btn-primary !px-4 !py-1.5 !text-xs disabled:opacity-50 cursor-pointer"
           >
             {loading ? "Locating..." : "Use My Location"}
           </button>
@@ -132,12 +132,12 @@ export default function LocationPrompt({ user }) {
               placeholder="City / Zip"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-28 sm:w-32 px-3 py-1.5 text-xs bg-white/90 border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-sage"
+              className="w-28 sm:w-32 px-3 py-1.5 text-xs bg-surface border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <button
               type="submit"
               disabled={loading || !city.trim()}
-              className="px-3 py-1.5 bg-sage text-white text-xs font-semibold rounded-full hover:bg-sage/90 transition-colors disabled:opacity-50 cursor-pointer"
+              className="tk-pill-btn tk-btn-dark !px-4 !py-1.5 !text-xs disabled:opacity-50 cursor-pointer"
             >
               Save
             </button>

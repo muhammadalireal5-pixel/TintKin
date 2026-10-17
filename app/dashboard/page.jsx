@@ -1,342 +1,72 @@
-
 import { getLatestData, getReportStatus } from "@/app/lib/actions";
-import { SkeletonRoutine, SkeletonScoreCard, SkeletonRadar, SkeletonChart, SkeletonTrophy } from "./SkeletonLoader";
 import { redirect } from "next/navigation";
-import { RadarChartClient, ProgressChart } from "./LazyCharts";
-import ScoreCarousel from "./ScoreCarousel";
-import Link from "next/link";
-import ProductGuideCard from "./ProductGuideCard";
-import { Sparkles, ArrowRight, Dumbbell, Flame, Share2, Trophy as TrophyIcon, LineChart } from "lucide-react";
+import { RadarChartClient } from "./LazyCharts";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
 import EmailVerificationBanner from "./EmailVerificationBanner";
 import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
-import RoutineChecklist from "./RoutineChecklist";
-import TrophyCase from "./TrophyCase";
-import LeaderboardCard from "./LeaderboardCard";
-import DashboardSection from "./DashboardSection";
-import { StaggerContainer, StaggerItem } from "./StaggerReveal";
+import TodayView from "./TodayView";
+import { buildSkinSummary } from "./skin-summary";
+import { EMAIL_VERIFICATION_ENABLED } from "@/app/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, todayRoutineLog, habitConsistency, achievements, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
     const reportStatus = await getReportStatus();
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
-    const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout, adviceStatus } = sourceData;
-
-    const hasSkinAge = typeof skinAge === "number";
-    const hasRealAge = typeof realAge === "number";
-    const skinOlder = hasSkinAge && hasRealAge && skinAge > realAge;
-    const ageDelta = hasSkinAge && hasRealAge ? Math.abs(skinAge - realAge) : null;
-
-    const firstName = (user?.displayName || "").trim().split(/\s+/)[0] || "";
-
-    const hasPersonalizedProducts = Array.isArray(latestSelfie?.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
-    const products = hasPersonalizedProducts
-        ? latestSelfie.recommendedProducts
-        : [
-            {
-                type: "Cleanser",
-                formula: "Gentle Hydrating Cleanser",
-                description: "Mild cleanser that maintains your skin barrier.",
-                isStarter: true
-            },
-            {
-                type: "Serum",
-                formula: "Vitamin C + Niacinamide",
-                description: "Brightens tone and fades dark spots.",
-                isStarter: true
-            },
-            {
-                type: "Moisturizer",
-                formula: "Ceramide Cream",
-                description: "Locks in moisture and strengthens barrier.",
-                isStarter: true
-            },
-        ];
+    const summary = buildSkinSummary({
+        user,
+        sourceData,
+        latestSelfie,
+        allSelfies,
+        realAge,
+        weeklyAverage,
+        todayRoutineLog,
+        achievementStats,
+        reportReady: Boolean(reportStatus?.ready),
+    });
 
     return (
-        <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
-            <div className="max-w-6xl mx-auto">
-                <EmailVerificationBanner user={user} />
-                <LocationPrompt user={user} />
-                <ReportReadyPrompt status={reportStatus} />
+        <div className="tk-container pt-1 sm:pt-4 pb-10">
+            <TodayView
+                data={summary}
+                banners={
+                    <>
+                        {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
+                        <LocationPrompt user={user} />
+                        <ReportReadyPrompt status={reportStatus} />
+                        {latestSelfie.isAnalyzed === false && (
+                            <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
+                        )}
+                    </>
+                }
+                radar={
+                    <ComponentErrorFallback title="Radar Chart">
+                        <RadarChartClient scores={sourceData.scores} />
+                    </ComponentErrorFallback>
+                }
+            />
+        </div>
+    );
+}
 
-                {/* Page Title */}
-                <div className="mb-6">
-                    <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted mb-2">
-                        {firstName ? `Hi ${firstName}, welcome back` : "Your Skin Journal"}
-                    </p>
-                    <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary">
-                        Today&apos;s <span className="italic text-sage">Insight</span>
-                    </h1>
+function DashboardFallback() {
+    return (
+        <div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true">
+            <div className="max-w-xl space-y-4 animate-pulse">
+                <div className="h-4 w-28 rounded-full bg-blush" />
+                <div className="h-9 w-48 rounded-full bg-blush" />
+                <div className="h-12 rounded-full bg-blush" />
+                <div className="h-44 rounded-[1.25rem] bg-blush" />
+                <div className="grid grid-cols-4 gap-2">
+                    {[0, 1, 2, 3].map((i) => <div key={i} className="h-20 rounded-2xl bg-blush" />)}
                 </div>
-
-                {latestSelfie && latestSelfie.isAnalyzed === false && (
-                    <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
-                )}
-
-                <StaggerContainer className="flex flex-col gap-5 sm:gap-6">
-
-                    {/* Overall Harmony — hero score, shown first so the opening moment is
-                        an affirming read on her skin rather than a to-do list */}
-                    <StaggerItem>
-                        <div className="tk-glass p-6 sm:p-7 flex flex-col relative">
-                            <div className="flex justify-between items-start mb-1.5 gap-2">
-                                <p className="text-xs font-semibold tracking-widest uppercase text-muted">Overall Harmony</p>
-                                <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-end">
-                                    {user?.currentStreak > 0 && (
-                                        <span className="inline-flex items-center gap-1.5 bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 text-xs font-bold whitespace-nowrap">
-                                            <Flame size={12} className="text-orange-500 tk-anim-flame" /> {user.currentStreak} Day Streak
-                                        </span>
-                                    )}
-                                    <Link href="/share" className="text-xs font-semibold text-sage hover:text-primary transition-colors flex items-center gap-1.5 bg-sage/10 px-3 py-1 rounded-full border border-sage/20">
-                                        <Share2 size={12} /> Share Card
-                                    </Link>
-                                    <Link href="/history" className="text-xs font-medium text-muted hover:text-primary transition-colors flex items-center gap-1">
-                                        History <ArrowRight size={13} />
-                                    </Link>
-                                </div>
-                            </div>
-                            <p className="text-xs sm:text-sm text-primary mb-4">Your skin&apos;s overall balance and vitality.</p>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-5 sm:gap-x-6 my-2">
-                                {/* Today */}
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Today</p>
-                                    <div className="flex items-end gap-1.5">
-                                        <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
-                                            {typeof overallScore === 'number' ? overallScore : "—"}
-                                        </h2>
-                                        <span className="text-base text-muted mb-0.5">/ 100</span>
-                                    </div>
-                                </div>
-
-                                {/* This Week */}
-                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">This Week</p>
-                                    {weeklyAverage?.overallScore != null ? (
-                                        <>
-                                            <div className="flex items-end gap-1.5">
-                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-sage leading-none">
-                                                    {weeklyAverage.overallScore}
-                                                </h2>
-                                                <span className="text-base text-muted mb-0.5">/ 100</span>
-                                            </div>
-                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                                {weeklyAverage.scanCount} {weeklyAverage.scanCount === 1 ? 'scan' : 'scans'}
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-end gap-1.5">
-                                                <h2 className="text-2xl sm:text-3xl font-display font-medium text-muted/60 leading-none">
-                                                    —
-                                                </h2>
-                                            </div>
-                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                                First scan this week
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Skin Age vs real age */}
-                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Skin Age</p>
-                                    <div className="flex items-end gap-1.5">
-                                        <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
-                                            {hasSkinAge ? skinAge : "—"}
-                                        </h2>
-                                        {ageDelta != null && (
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold mb-1 ${skinOlder ? 'bg-sage/15 text-sage' : 'bg-lavender/50 text-[#792CA2]'}`}>
-                                                {skinOlder ? `+${ageDelta}` : `-${ageDelta}`}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                        {hasRealAge ? `vs. real age ${realAge}` : 'Add birth date to compare'}
-                                    </p>
-                                </div>
-
-                                {/* Yesterday's habits + consistency */}
-                                <div className="lg:pl-6 lg:border-l lg:border-black/10">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Yesterday</p>
-                                    {habitConsistency?.yesterdayDone != null && habitConsistency.yesterdayTotal > 0 ? (
-                                        <>
-                                            <div className="flex items-end gap-1.5">
-                                                <h2 className="text-3xl sm:text-4xl font-display font-medium text-primary leading-none">
-                                                    {habitConsistency.yesterdayDone}
-                                                </h2>
-                                                <span className="text-base text-muted mb-0.5">/ {habitConsistency.yesterdayTotal}</span>
-                                            </div>
-                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                                {habitConsistency.consistencyPct != null ? `${habitConsistency.consistencyPct}% consistency` : 'habits done'}
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-end gap-1.5">
-                                                <h2 className="text-2xl sm:text-3xl font-display font-medium text-muted/60 leading-none">
-                                                    —
-                                                </h2>
-                                            </div>
-                                            <p className="text-[10px] text-muted mt-0.5 uppercase tracking-wider font-semibold">
-                                                No routine logged
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="mt-4 pt-3.5 border-t border-solid border-black/5">
-                                <p className="text-xs sm:text-sm text-muted leading-relaxed">
-                                    {critique || (adviceStatus === 'error' ? 'AI personalized advice is temporarily updating and will refresh on your next scan.' : typeof overallScore === 'number' && overallScore >= 80 ? 'Beautifully balanced. Keep nurturing it.' : typeof overallScore === 'number' && overallScore >= 60 ? 'A steady glow. Small tweaks can help.' : 'Take a moment for some extra care today.')}
-                                </p>
-                            </div>
-                        </div>
-                    </StaggerItem>
-
-                    {/* Today's action, second — once she's seen an affirming read on her skin */}
-                    <StaggerItem>
-                        <RoutineChecklist
-                            amRoutine={amRoutine}
-                            pmRoutine={pmRoutine}
-                            completedAm={todayRoutineLog?.amCompleted || []}
-                            completedPm={todayRoutineLog?.pmCompleted || []}
-                        />
-                    </StaggerItem>
-
-                    {/* Insights strip — swipeable on mobile, grid on desktop */}
-                    <StaggerItem>
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2.5 px-0.5">Insights</p>
-                        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:mx-0 md:px-0">
-                            {/* Community board */}
-                            <div className="shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none flex flex-col">
-                                <LeaderboardCard />
-                            </div>
-
-                            {/* Profile radar */}
-                            <div className="tk-glass shrink-0 w-[78vw] max-w-[300px] snap-start md:w-auto md:max-w-none p-5 flex flex-col">
-                                <p className="text-xs font-semibold tracking-widest uppercase text-muted mb-2">Profile Radar</p>
-                                <div className="flex-1 w-full relative min-h-[220px]">
-                                    <ComponentErrorFallback title="Radar Chart">
-                                        <RadarChartClient scores={scores} />
-                                    </ComponentErrorFallback>
-                                </div>
-                            </div>
-                        </div>
-                    </StaggerItem>
-
-                    {/* Trophy Case — collapsible, collapsed by default on mobile */}
-                    <StaggerItem>
-                        <DashboardSection title="Your Trophies" icon={<TrophyIcon size={14} className="text-sage" />}>
-                            <TrophyCase
-                                badges={user?.badges}
-                                achievements={achievements}
-                                achievementStats={achievementStats}
-                                userName={user?.displayName || "Wellness Seeker"}
-                            />
-                        </DashboardSection>
-                    </StaggerItem>
-
-                    {/* Journey Chart — collapsible, collapsed by default on mobile */}
-                    <StaggerItem>
-                        <DashboardSection title="Journey" icon={<LineChart size={14} className="text-sage" />}>
-                            <div className="tk-glass p-6 sm:p-8 min-h-[360px] flex flex-col">
-                                <p className="text-sm text-primary mb-4">Your progress over time.</p>
-                                <div className="flex-1 w-full relative">
-                                    <ComponentErrorFallback title="Progress Chart">
-                                        <ProgressChart allSelfies={allSelfies} hasMore={Boolean(hasMoreSelfies)} />
-                                    </ComponentErrorFallback>
-                                </div>
-                            </div>
-                        </DashboardSection>
-                    </StaggerItem>
-
-                    {/* Facial Workout */}
-                    <StaggerItem>
-                        <div className="tk-glass p-6 sm:p-7 flex flex-col">
-                            <div className="flex items-center gap-2.5 mb-4">
-                                <div className="w-8 h-8 rounded-xl bg-sage/15 flex items-center justify-center shrink-0">
-                                    <Dumbbell size={16} className="text-sage" />
-                                </div>
-                                <p className="text-xs font-semibold tracking-widest uppercase text-muted">Targeted Facial Workout</p>
-                            </div>
-                            {facialWorkout ? (
-                                <div className="bg-sage/10 p-5 rounded-2xl border border-sage/20">
-                                    {facialWorkout.includes(':') ? (
-                                        <>
-                                            <p className="font-display text-base font-medium text-primary mb-2">
-                                                {facialWorkout.split(':')[0].trim()}
-                                            </p>
-                                            <p className="text-sm text-muted leading-relaxed">
-                                                {facialWorkout.split(':').slice(1).join(':').trim()}
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <p className="text-sm text-primary leading-relaxed">{facialWorkout}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="bg-white/50 p-5 rounded-2xl border border-lavender/50 text-center text-muted text-sm italic">
-                                    Analyze a new selfie to get a personalized facial workout.
-                                </div>
-                            )}
-                        </div>
-                    </StaggerItem>
-
-                    {/* Core Metrics Carousel */}
-                    <StaggerItem>
-                        <ComponentErrorFallback title="Score Carousel">
-                            <ScoreCarousel scores={scores} weeklyScores={weeklyAverage?.scores} />
-                        </ComponentErrorFallback>
-                    </StaggerItem>
-
-                    {/* Recommended Products + What-If CTA */}
-                    <StaggerItem className="space-y-6">
-                        <p className="text-xs font-semibold tracking-widest uppercase text-muted">
-                            {hasPersonalizedProducts ? "Recommended Products" : "Starter Kit"}
-                        </p>
-                        <div className="text-sm text-muted">
-                            <p>
-                                {hasPersonalizedProducts
-                                    ? "Your routine for 30 days (consider a 1-month supply)."
-                                    : "A general starting routine — scan again to get picks personalized to your results."}
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {products.map((prod, idx) => (
-                                <ProductGuideCard
-                                    key={idx}
-                                    type={prod.type}
-                                    formula={prod.formula}
-                                    description={prod.description}
-                                />
-                            ))}
-                        </div>
-
-                        <Link href="/what-if" className="block mt-4">
-                            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sage/20 via-lavender/30 to-sage/20 p-8 text-center transition-all hover:scale-[1.01] hover:shadow-lg border border-white/40 cursor-pointer">
-                                <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
-                                <div className="relative z-10 flex flex-col items-center justify-center">
-                                    <Sparkles size={32} strokeWidth={2} className="text-sage mb-4" />
-                                    <h3 className="text-2xl lg:text-3xl font-display text-primary mb-2">Curious about your progress?</h3>
-                                    <p className="text-muted mb-4 max-w-md mx-auto">See how these recommendations could transform your skin over the next 6 months.</p>
-                                    <span className="inline-block bg-white px-6 py-3 rounded-full text-sm font-medium text-primary shadow-sm hover:bg-sage/10 transition-colors">
-                                        Try the What-If Simulator
-                                    </span>
-                                </div>
-                            </div>
-                        </Link>
-                    </StaggerItem>
-                </StaggerContainer>
             </div>
         </div>
     );
@@ -353,23 +83,6 @@ export default async function DashboardPage() {
             throw error;
         }
         // If data fails to load, show skeleton loaders
-        return (
-            <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-12">
-                <div className="max-w-6xl mx-auto space-y-6">
-                    <SkeletonRoutine />
-                    <SkeletonScoreCard />
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                        <div className="md:col-span-2 lg:col-span-2"><SkeletonRadar /></div>
-                        <div className="md:col-span-1 lg:col-span-1 space-y-3">
-                            <div className="tk-glass p-3 rounded-2xl animate-pulse h-20 bg-lavender/30"></div>
-                            <div className="tk-glass p-3 rounded-2xl animate-pulse h-20 bg-lavender/30"></div>
-                            <div className="tk-glass p-3 rounded-2xl animate-pulse flex-1 min-h-[120px] bg-lavender/30"></div>
-                        </div>
-                    </div>
-                    <SkeletonTrophy />
-                    <SkeletonChart />
-                </div>
-            </div>
-        );
+        return <DashboardFallback />;
     }
 }

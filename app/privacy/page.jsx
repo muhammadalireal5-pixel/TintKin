@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import PageHeader from "@/app/components/ui/PageHeader";
 
 export const metadata = {
   title: "Privacy Policy",
@@ -16,22 +17,20 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-base py-12 px-6 lg:px-20">
-      <div className="max-w-3xl mx-auto tk-glass p-8 md:p-12">
-        <Link href="/" className="inline-flex items-center text-sm text-sage hover:text-primary transition-colors mb-8">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
-        </Link>
-        <h1 className="text-3xl md:text-5xl font-display font-medium text-primary mb-6">Privacy Policy</h1>
-        <p className="text-sm text-muted mb-10">Last Updated: October 10, 2026</p>
-
-        <div className="space-y-8 text-primary leading-relaxed">
+    <div className="tk-container max-w-3xl py-6 sm:py-10">
+      <Link href="/" className="inline-flex items-center text-sm font-medium text-accent hover:text-accent-deep transition-colors mb-5">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
+      </Link>
+      <PageHeader eyebrow="Last Updated: October 10, 2026" title="Privacy Policy" />
+      <div className="tk-card p-6 sm:p-10">
+        <div className="space-y-8 text-primary leading-relaxed text-[0.95rem]">
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">1. Introduction</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">1. Introduction</h2>
             <p>At TintKin, we take your privacy seriously. This Privacy Policy explains how we collect, use, and protect your personal information when you use our skincare wellness journal and AI analysis tools.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">2. Information We Collect</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">2. Information We Collect</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Account Information:</strong> We collect your email address, name, and profile picture provided during sign-up (or from Google, if you sign in with Google). Passwords are stored only as salted bcrypt hashes.</li>
               <li><strong>Profile Data:</strong> We collect information you provide during onboarding, including birth date, gender, skin type, and skincare goals.</li>
@@ -42,7 +41,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">3. How We Process and Retain Images</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">3. How We Process and Retain Images</h2>
             <p>Your privacy and the security of your biometric data are a top priority. Here is exactly how your photos are handled:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
               <li>When you upload a photo, it is securely transmitted to Cloudinary (using private, authenticated delivery, not a public link) for staging and formatting.</li>
@@ -53,7 +52,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">4. Third-Party Services</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">4. Third-Party Services</h2>
             <p>We rely on trusted third-party services to operate TintKin. These services comply with strict data protection standards:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
               <li><strong>MongoDB Atlas:</strong> For storing your account, profile and analysis data.</li>
@@ -69,18 +68,18 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">5. Cookies and Sessions</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">5. Cookies and Sessions</h2>
             <p>We use a single, essential session cookie to keep you signed in; it contains no data beyond your account ID and session status. If you sign in with Google, Google may also set its own cookies during that sign-in step. We do not use advertising or tracking cookies.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">6. Data Deletion and User Rights</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">6. Data Deletion and User Rights</h2>
             <p>You own your data. From your account Settings, you can, at any time and without contacting anyone: download a copy of your data, have a copy emailed to you, or permanently delete your account and all associated data (journal history, photos, and profile data). You&rsquo;re also welcome to reach out to us directly with any request &mdash; see Contact Us below.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-medium mb-3">7. Contact Us</h2>
-            <p>If you have any questions or concerns about this Privacy Policy or how your data is handled, please contact us at <a href="mailto:muhammad0alire@gmail.com" className="text-sage hover:underline">muhammad0alire@gmail.com</a>.</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">7. Contact Us</h2>
+            <p>If you have any questions or concerns about this Privacy Policy or how your data is handled, please contact us at <a href="mailto:muhammad0alire@gmail.com" className="text-accent hover:underline">muhammad0alire@gmail.com</a>.</p>
           </section>
         </div>
       </div>

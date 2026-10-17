@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage, uploadSelfieServerAction, updateSimulationPrivacy } from "@/app/lib/actions";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
+import PageHeader from "@/app/components/ui/PageHeader";
 import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
 import AnimatedModal from "@/app/components/AnimatedModal";
@@ -291,29 +292,20 @@ export default function WhatIfPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-base tk-mesh-bg py-12 px-4 sm:px-6 lg:px-12 relative overflow-hidden">
-      <div className="max-w-5xl mx-auto relative z-10">
+    <div className="tk-container py-5 sm:py-8 pb-40 sm:pb-8 relative">
+      <div className="relative z-10">
 
-        <div className="mb-10 text-center tk-anim-1">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#FFDAB9]/40 text-orange-400 shadow-[0_8px_32px_rgba(255,218,185,0.8)] mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2v7.31"></path>
-              <path d="M14 9.3V1.99"></path>
-              <path d="M8.5 2h7"></path>
-              <path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path>
-              <path d="M5.52 16h12.96"></path>
-            </svg>
-          </div>
-          <h1 className="text-4xl lg:text-5xl font-display font-medium text-primary mb-3">
-            Product <span className="italic text-orange-400/90">What-If</span> Simulator
-          </h1>
-          <p className="text-muted text-base sm:text-lg max-w-xl mx-auto">
-            Choose from your personalized recommended products to visualize future skin improvements.
-          </p>
-        </div>
+        <PageHeader
+          eyebrow="Simulator"
+          title="Product What-If"
+          subtitle="Choose from your personalized recommended products to visualize future skin improvements."
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
+        <div className="min-w-0">
 
         {(!hasSelfie || customImageUrl) ? (
-          <div className="tk-anim-2 tk-glass p-8 rounded-3xl mb-10 text-center border border-primary/10">
+          <div className="tk-anim-2 tk-card p-8 rounded-3xl mb-10 text-center border border-line">
             <p className="text-primary font-medium text-lg mb-1">
               {customImageUrl ? "Photo Ready for Simulation" : "Photo Required for AI Visuals"}
             </p>
@@ -347,12 +339,12 @@ export default function WhatIfPage() {
             )}
           </div>
         ) : (
-          <div className="tk-anim-2 tk-glass p-6 rounded-3xl mb-10 flex flex-col sm:flex-row items-center justify-between gap-4 border border-primary/10">
+          <div className="tk-anim-2 tk-card p-6 rounded-3xl mb-10 flex flex-col sm:flex-row items-center justify-between gap-4 border border-line">
             <div className="text-center sm:text-left">
               <p className="text-primary font-medium text-sm">Using your latest saved journal photo</p>
               <p className="text-xs text-muted">Simulations will run on your baseline selfie.</p>
             </div>
-            <label className="tk-pill-btn bg-white border border-black/10 text-primary text-xs py-2 inline-flex items-center gap-2 cursor-pointer hover:bg-black/5 transition-colors">
+            <label className="tk-pill-btn tk-btn-ghost text-xs py-2 inline-flex items-center gap-2 cursor-pointer transition-colors">
               {customImageUploading ? "Uploading..." : "Upload New Photo"}
               <input 
                 type="file" 
@@ -366,7 +358,7 @@ export default function WhatIfPage() {
         )}
 
         {/* Step 1: Comparison Mode */}
-        <div className="tk-glass p-6 sm:p-8 rounded-3xl mb-8 tk-anim-2">
+        <div className="tk-card p-6 sm:p-8 rounded-3xl mb-8 tk-anim-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <label className="block text-xs font-semibold uppercase tracking-widest text-muted">
               Step 1: Choose Simulation Comparison Mode
@@ -374,13 +366,13 @@ export default function WhatIfPage() {
             <span className="text-[11px] text-muted">Select how you want to evaluate formulas</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => setSimMode("single")}
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "single"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+                  ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
+                  : "bg-white text-primary border-line hover:border-accent/40"
               }`}
             >
               <FlaskConical size={18} className="text-current" />
@@ -391,8 +383,8 @@ export default function WhatIfPage() {
               onClick={() => setSimMode("compare")}
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "compare"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+                  ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
+                  : "bg-white text-primary border-line hover:border-accent/40"
               }`}
             >
               <Scale size={18} className="text-current" />
@@ -403,8 +395,8 @@ export default function WhatIfPage() {
               onClick={() => setSimMode("full")}
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "full"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+                  ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
+                  : "bg-white text-primary border-line hover:border-accent/40"
               }`}
             >
               <Star size={18} className="text-current" />
@@ -415,8 +407,8 @@ export default function WhatIfPage() {
               onClick={() => setSimMode("custom")}
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "custom"
-                  ? "bg-primary text-white border-primary shadow-md"
-                  : "bg-white/50 text-primary border-white/60 hover:bg-white/80"
+                  ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
+                  : "bg-white text-primary border-line hover:border-accent/40"
               }`}
             >
               <Settings size={18} className="text-current" />
@@ -429,17 +421,17 @@ export default function WhatIfPage() {
         <div className="mb-8 tk-anim-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
-              <h2 className="text-xl font-display font-medium text-primary">Your Recommended Formulations</h2>
+              <h2 className="text-lg font-semibold text-primary">Your Recommended Formulations</h2>
               <p className="text-xs text-muted">Select active formulas below to apply to your simulation</p>
             </div>
             <div className="flex gap-3 items-center">
-              <span className="text-xs font-semibold px-3 py-1 bg-sage/15 text-sage rounded-full border border-sage/20">
+              <span className="text-xs font-semibold px-3 py-1 bg-accent/15 text-accent rounded-full border border-accent/20">
                 {products.length} Active Formulas
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {products.map((prod, idx) => {
               const isSelectedSingle = selectedSingle === idx;
               const isProdA = prodAIndex === idx;
@@ -451,18 +443,18 @@ export default function WhatIfPage() {
                 <div
                   key={idx}
                   className={`
-                    tk-glass rounded-3xl p-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group border
-                    ${simMode === "single" && isSelectedSingle ? "ring-2 ring-sage shadow-lg border-sage/40 bg-white/70 scale-[1.02]" : "border-white/40 hover:border-white/80 hover:shadow-md"}
-                    ${simMode === "compare" && (isProdA || isProdB) ? "ring-2 ring-orange-300 border-orange-300/40 bg-white/70 scale-[1.02]" : ""}
+                    tk-card rounded-3xl p-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group border
+                    ${simMode === "single" && isSelectedSingle ? "ring-2 ring-accent shadow-lg border-accent/40 bg-white scale-[1.02]" : "border-line hover:border-line hover:shadow-md"}
+                    ${simMode === "compare" && (isProdA || isProdB) ? "ring-2 ring-cocoa border-cocoa/40 bg-white scale-[1.02]" : ""}
                   `}
                 >
                   <div className="flex justify-between items-start mb-3 z-10">
                     <div className="flex gap-2 items-center">
-                      <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
+                      <span className="px-3 py-1 bg-accent-soft text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
                         {prod.type || "Product"}
                       </span>
                       {prod.isCustom && (
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                        <span className="px-2 py-0.5 bg-cocoa/10 text-cocoa text-[10px] font-bold rounded-full uppercase tracking-wider">
                           Custom
                         </span>
                       )}
@@ -470,12 +462,12 @@ export default function WhatIfPage() {
                     {simMode === "compare" && (
                       <div className="flex gap-1">
                         {isProdA && (
-                          <span className="px-2 py-0.5 bg-sage text-white text-[10px] font-bold rounded-md shadow-sm">
+                          <span className="px-2 py-0.5 bg-accent text-white text-[10px] font-bold rounded-md shadow-sm">
                             Option A
                           </span>
                         )}
                         {isProdB && (
-                          <span className="px-2 py-0.5 bg-orange-400 text-white text-[10px] font-bold rounded-md shadow-sm">
+                          <span className="px-2 py-0.5 bg-cocoa text-white text-[10px] font-bold rounded-md shadow-sm">
                             Option B
                           </span>
                         )}
@@ -483,17 +475,17 @@ export default function WhatIfPage() {
                     )}
                   </div>
 
-                  <div className="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-white/50 border border-white/60 shadow-inner group-hover:scale-[1.01] transition-transform">
+                  <div className="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-white border border-line shadow-inner group-hover:scale-[1.01] transition-transform">
                     <ProductImage
                       type={prod.type}
                       alt={prod.formula || prod.type}
                       className="object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-60"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-transparent opacity-60"></div>
                   </div>
 
                   <div className="mb-4">
-                    <h3 className="font-display text-base font-semibold text-primary mb-1 line-clamp-1">
+                    <h3 className="text-base font-semibold text-primary mb-1 line-clamp-1">
                       {prod.formula || `${prod.type} Treatment`}
                     </h3>
                     <p className="text-xs text-muted leading-relaxed line-clamp-3">
@@ -501,14 +493,14 @@ export default function WhatIfPage() {
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-black/5 flex flex-col gap-2">
+                  <div className="pt-3 border-t border-line flex flex-col gap-2">
                     {simMode === "single" && (
                       <button
                         onClick={() => setSelectedSingle(idx)}
-                        className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        className={`w-full py-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                           isSelectedSingle
-                            ? "bg-sage text-white shadow-sm"
-                            : "bg-white/60 text-primary hover:bg-white hover:shadow-xs"
+                            ? "bg-accent text-white shadow-sm"
+                            : "bg-white text-primary hover:bg-blush hover:shadow-xs"
                         }`}
                       >
                         {isSelectedSingle ? <span className="flex items-center justify-center gap-1">Selected for Test <Check size={14}/></span> : "Select Product"}
@@ -519,20 +511,20 @@ export default function WhatIfPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => setProdAIndex(idx)}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             isProdA
-                              ? "bg-sage text-white shadow-xs"
-                              : "bg-white/60 text-primary hover:bg-white"
+                              ? "bg-accent text-white shadow-xs"
+                              : "bg-white text-primary hover:bg-blush"
                           }`}
                         >
                           {isProdA ? <span className="flex items-center justify-center gap-1">Set for A <Check size={14}/></span> : "Set Product A"}
                         </button>
                         <button
                           onClick={() => setProdBIndex(idx)}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             isProdB
-                              ? "bg-orange-400 text-white shadow-xs"
-                              : "bg-white/60 text-primary hover:bg-white"
+                              ? "bg-cocoa text-white shadow-xs"
+                              : "bg-white text-primary hover:bg-blush"
                           }`}
                         >
                           {isProdB ? <span className="flex items-center justify-center gap-1">Set for B <Check size={14}/></span> : "Set Product B"}
@@ -544,20 +536,20 @@ export default function WhatIfPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => toggleCustomItem(idx, "A")}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             inCustomA
-                              ? "bg-sage text-white shadow-xs"
-                              : "bg-white/50 text-muted hover:bg-white"
+                              ? "bg-accent text-white shadow-xs"
+                              : "bg-white text-muted hover:bg-blush"
                           }`}
                         >
                           {inCustomA ? <span className="flex items-center justify-center gap-1">In Scenario A <Check size={14}/></span> : "+ Add to A"}
                         </button>
                         <button
                           onClick={() => toggleCustomItem(idx, "B")}
-                          className={`py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             inCustomB
-                              ? "bg-orange-400 text-white shadow-xs"
-                              : "bg-white/50 text-muted hover:bg-white"
+                              ? "bg-cocoa text-white shadow-xs"
+                              : "bg-white text-muted hover:bg-blush"
                           }`}
                         >
                           {inCustomB ? <span className="flex items-center justify-center gap-1">In Scenario B <Check size={14}/></span> : "+ Add to B"}
@@ -566,7 +558,7 @@ export default function WhatIfPage() {
                     )}
 
                     {simMode === "full" && (
-                      <div className="py-2 text-center text-xs font-medium text-sage bg-sage/10 rounded-xl flex items-center justify-center gap-1">
+                      <div className="py-2 text-center text-xs font-medium text-accent bg-accent/10 rounded-xl flex items-center justify-center gap-1">
                         Included in Full Routine <Check size={14}/>
                       </div>
                     )}
@@ -585,15 +577,15 @@ export default function WhatIfPage() {
                   setUpgradeModalOpen(true);
                 }
               }}
-              className="tk-glass rounded-3xl p-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-sage/40 hover:border-sage transition-all min-h-[360px] cursor-pointer group shadow-xs hover:shadow-md relative overflow-hidden"
+              className="tk-card rounded-3xl p-5 flex flex-col items-center justify-center text-center border-2 border-dashed border-accent/40 hover:border-accent transition-all min-h-[360px] cursor-pointer group shadow-xs hover:shadow-md relative overflow-hidden"
             >
-              <div className="w-14 h-14 rounded-2xl bg-sage/15 border border-sage/20 flex items-center justify-center text-sage mb-4 group-hover:scale-110 transition-transform shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/20 flex items-center justify-center text-accent mb-4 group-hover:scale-110 transition-transform shadow-xs">
                 <Plus size={26} strokeWidth={2.2} />
               </div>
               <div className="flex items-center gap-1.5 mb-2">
-                <h3 className="font-display text-base font-semibold text-primary">Add Custom Product</h3>
+                <h3 className="text-base font-semibold text-primary">Add Custom Product</h3>
                 {userTier !== 'premium' && (
-                  <span className="px-2 py-0.5 bg-lavender/60 text-[#792CA2] text-[10px] font-bold rounded-full uppercase tracking-wider">
+                  <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-bold rounded-full uppercase tracking-wider">
                     Pro
                   </span>
                 )}
@@ -601,8 +593,8 @@ export default function WhatIfPage() {
               <p className="text-xs text-muted leading-relaxed max-w-[210px] mb-5">
                 Scan ingredients label from your real skincare products to test custom formulations.
               </p>
-              <div className="mt-auto pt-3 border-t border-black/5 w-full">
-                <span className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-xs font-semibold bg-white/60 text-primary group-hover:bg-sage group-hover:text-white transition-all shadow-xs">
+              <div className="mt-auto pt-3 border-t border-line w-full">
+                <span className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-full text-xs font-semibold bg-white text-primary group-hover:bg-accent group-hover:text-white transition-all shadow-xs">
                   {userTier === 'premium' ? (
                     <>
                       <Sparkles size={14} />
@@ -621,14 +613,14 @@ export default function WhatIfPage() {
         </div>
 
         {/* Step 3: Run Simulation Summary Bar */}
-        <div className="tk-glass p-6 sm:p-7 rounded-3xl mb-10 tk-anim-4">
+        <div className="tk-card p-6 sm:p-7 rounded-3xl mb-10 tk-anim-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-muted">
               {simMode === "single" && (
                 <p>Simulating improvement with <span className="font-semibold text-primary">{products[selectedSingle]?.formula || products[selectedSingle]?.type}</span> versus no treatment.</p>
               )}
               {simMode === "compare" && (
-                <p>Comparing <span className="font-semibold text-sage">{products[prodAIndex]?.type}</span> vs <span className="font-semibold text-orange-400">{products[prodBIndex]?.type}</span> impact side-by-side.</p>
+                <p>Comparing <span className="font-semibold text-accent">{products[prodAIndex]?.type}</span> vs <span className="font-semibold text-cocoa">{products[prodBIndex]?.type}</span> impact side-by-side.</p>
               )}
               {simMode === "full" && (
                 <p>Simulating the maximum combined transformation of using all 3 recommended products together.</p>
@@ -644,7 +636,7 @@ export default function WhatIfPage() {
                 disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
                 className={`
                   tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold cursor-pointer
-                  ${(loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)) ? "bg-primary/70 text-white cursor-not-allowed" : "tk-btn-primary shadow-[0_8px_24px_rgba(44,62,80,0.18)]"}
+                  ${(loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)) ? "bg-accent/50 text-white cursor-not-allowed" : "tk-btn-primary"}
                 `}
               >
                 {loading ? (
@@ -660,7 +652,7 @@ export default function WhatIfPage() {
                 )}
               </button>
               {quotas && (
-                <div className={`text-xs font-bold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-red-50/80 text-red-900 border border-red-200 shadow-sm' : 'bg-primary/5 text-primary border border-primary/10'}`}>
+                <div className={`text-xs font-bold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-danger-soft text-danger border border-danger/20' : 'bg-accent-soft text-accent-deep border border-accent/20'}`}>
                   {quotas.simulations.used >= quotas.simulations.limit ? 'Monthly simulation limit reached.' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
                 </div>
               )}
@@ -668,21 +660,23 @@ export default function WhatIfPage() {
           </div>
         </div>
 
+        </div>
+        <div className="min-w-0 flex flex-col gap-6">
         {error && (
-          <div className="tk-anim-3 bg-red-50/90 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-medium mb-8 text-center shadow-xs">
+          <div className="tk-anim-3 bg-danger-soft border border-danger/20 text-danger px-6 py-4 rounded-2xl text-sm font-medium mb-8 text-center shadow-xs">
             {error}
           </div>
         )}
 
         {loading && (
-          <div className="tk-anim-3 tk-glass p-8 rounded-3xl mb-8 space-y-6">
+          <div className="tk-anim-3 tk-card p-8 rounded-3xl mb-8 space-y-6">
             <div className="flex justify-between items-center">
-              <div className="h-6 w-40 bg-black/10 rounded-full animate-pulse" />
-              <div className="h-6 w-40 bg-black/10 rounded-full animate-pulse" />
+              <div className="h-6 w-40 bg-line rounded-full animate-pulse" />
+              <div className="h-6 w-40 bg-line rounded-full animate-pulse" />
             </div>
-            <div className="h-[420px] w-full bg-black/5 rounded-2xl animate-pulse flex items-center justify-center">
+            <div className="h-[420px] w-full bg-blush rounded-2xl animate-pulse flex items-center justify-center">
               <div className="text-center space-y-2">
-                <div className="w-10 h-10 border-4 border-sage border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
                 <p className="text-xs font-semibold text-muted">Processing facial feature enhancements...</p>
               </div>
             </div>
@@ -693,24 +687,23 @@ export default function WhatIfPage() {
           <div id="simulation-results" className="flex flex-col gap-8 tk-anim-4 scroll-mt-24">
             <ComponentErrorFallback title="Simulation Results">
 
-            <div className="tk-glass rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(44,62,80,0.08)] border">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white/50 border-b border-white/30 gap-3">
-                <div className="inline-flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sage"></span>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sage/15 text-sage border border-sage/20 flex items-center">
-                    <ArrowLeft size={14} className="mr-1" /> {result.scenarioA.label}
+            <div className="tk-card rounded-3xl overflow-hidden border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 sm:p-4 pb-0 sm:pb-0">
+                <div className="rounded-2xl border border-accent/40 bg-accent-soft p-3 flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-accent shrink-0"></span>
+                  <span className="text-xs font-semibold text-accent-deep flex items-center min-w-0">
+                    <ArrowLeft size={14} className="mr-1 shrink-0" /> <span className="truncate">{result.scenarioA.label}</span>
                   </span>
                 </div>
-
-                <div className="inline-flex items-center gap-2 justify-end">
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100/50 text-orange-800 border border-orange-300 flex items-center shadow-sm">
-                    {result.scenarioB.label} <ArrowRight size={14} className="ml-1" />
+                <div className="rounded-2xl bg-cocoa p-3 flex items-center gap-2 justify-end min-w-0">
+                  <span className="text-xs font-semibold text-white flex items-center min-w-0">
+                    <span className="truncate">{result.scenarioB.label}</span> <ArrowRight size={14} className="ml-1 shrink-0" />
                   </span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-white shrink-0"></span>
                 </div>
               </div>
-              
-              <div className="relative min-h-[380px] sm:min-h-[460px] bg-black/5" style={{ aspectRatio: '4/3' }}>
+
+              <div className="relative m-3 sm:m-4 rounded-2xl overflow-hidden min-h-[320px] sm:min-h-[420px] bg-blush" style={{ aspectRatio: '4/3' }}>
                 {result.scenarioA.imageUrl && result.scenarioB.imageUrl ? (
                   <ReactCompareSlider
                     handle={
@@ -718,20 +711,20 @@ export default function WhatIfPage() {
                         buttonStyle={{
                           backdropFilter: 'blur(6px)',
                           background: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid rgba(44,62,80,0.15)',
+                          border: '1px solid var(--tk-border-solid)',
                           boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                          color: '#2C3E50',
+                          color: 'var(--tk-accent)',
                         }}
-                        linesStyle={{ opacity: 0.6, color: '#2C3E50' }}
+                        linesStyle={{ opacity: 0.6, color: '#FFFFFF' }}
                       />
                     }
                     itemOne={<ReactCompareSliderImage src={result.scenarioA.imageUrl} alt={result.scenarioA.label} className="w-full h-full object-cover" />}
                     itemTwo={<ReactCompareSliderImage src={result.scenarioB.imageUrl} alt={result.scenarioB.label} className="w-full h-full object-cover" />}
-                    className="w-full h-full min-h-[380px] sm:min-h-[460px]"
+                    className="w-full h-full min-h-[320px] sm:min-h-[420px]"
                   />
                 ) : (
-                  <div className="w-full h-full min-h-[380px] sm:min-h-[460px] flex flex-col items-center justify-center bg-[#FDFBF7] p-8 text-center border-y border-black/5">
-                    <div className="w-16 h-16 rounded-full bg-sage/10 flex items-center justify-center mb-4 text-sage border border-sage/20">
+                  <div className="w-full h-full min-h-[320px] sm:min-h-[420px] flex flex-col items-center justify-center bg-surface p-8 text-center border-y border-line">
+                    <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4 text-accent border border-accent/20">
                       <Sparkles size={24} />
                     </div>
                     <p className="text-primary font-medium text-lg mb-2">Photos Removed for Privacy</p>
@@ -743,27 +736,27 @@ export default function WhatIfPage() {
                 )}
               </div>
               
-              <div className="flex items-center justify-center gap-2 py-4 bg-white/30 text-xs font-medium text-muted">
+              <div className="flex items-center justify-center gap-2 py-4 bg-blush/40 text-xs font-medium text-muted">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 8 8 12 12 16"></polyline><line x1="16" y1="12" x2="8" y2="12"></line></svg>
                 Drag slider to visually compare outcomes {result.targetAge ? `at age ${result.targetAge}` : "after 1 year"}
               </div>
             </div>
 
-            <div className="tk-glass rounded-3xl overflow-hidden border">
-              <div className="bg-sage/10 border-b border-sage/20 p-4 flex items-center gap-3">
-                <Calendar size={24} className="text-sage" />
+            <div className="tk-card rounded-3xl overflow-hidden border">
+              <div className="bg-accent/10 border-b border-accent/20 p-4 flex items-center gap-3">
+                <Calendar size={24} className="text-accent" />
                 <div>
                   <h4 className="text-sm font-semibold text-primary">Projection: 1 Year of Consistent Use</h4>
                   <p className="text-xs text-muted">Results assume daily use of the selected product(s) for 12 months.</p>
                 </div>
               </div>
-              <div className="p-6 border-b border-white/30 bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-6 border-b border-line bg-blush/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-display font-medium text-primary m-0">
+                  <h3 className="text-lg font-semibold text-primary m-0">
                     Quantitative Impact Analysis
                   </h3>
                 </div>
-                <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-sage/20 text-sage border border-sage/30 self-start sm:self-auto">
+                <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-accent/20 text-accent border border-accent/30 self-start sm:self-auto">
                   Skin Age Difference: {
                     typeof result.deltas?.skinAge === "number"
                       ? result.deltas.skinAge > 0
@@ -776,78 +769,17 @@ export default function WhatIfPage() {
                 </span>
               </div>
               
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/20 bg-white/20">
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted">Metric</th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">{result.scenarioA.label}</th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">{result.scenarioB.label}</th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-widest text-muted text-center">Improvement</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-white/10 hover:bg-white/30 transition-colors">
-                      <td className="px-6 py-4 font-medium text-primary text-sm">Projected Skin Age</td>
-                      <td className="px-6 py-4 text-center text-sage text-sm font-semibold">{result.scenarioA.finalSkinAge} yrs</td>
-                      <td className="px-6 py-4 text-center text-muted text-sm font-semibold">{result.scenarioB.finalSkinAge} yrs</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${
-                          (result.deltas?.skinAge || 0) > 0 ? 'bg-sage/15 text-sage border-sage/20' : (result.deltas?.skinAge || 0) < 0 ? 'bg-red-50/80 text-red-800 border-red-200' : 'bg-gray-100 text-gray-500 border-gray-200'
-                        }`}>
-                          {typeof result.deltas?.skinAge === "number"
-                            ? result.deltas.skinAge > 0
-                              ? `${result.deltas.skinAge} yrs younger`
-                              : result.deltas.skinAge < 0
-                                ? `${Math.abs(result.deltas.skinAge)} yrs older`
-                                : "No difference"
-                            : "—"}
-                        </span>
-                      </td>
-                    </tr>
-                    {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey], idx) => {
-                      const scoreA = result.scenarioA?.projectedScores?.[metricKey];
-                      const scoreB = result.scenarioB?.projectedScores?.[metricKey];
-                      const deltaVal = result.deltas?.[metricKey];
-                      
-                      const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
-                      const humanLabel = labels[metricKey] || metricKey;
-
-                      return (
-                        <tr key={metricKey} className={`border-b border-white/10 hover:bg-white/30 transition-colors ${idx % 2 === 0 ? '' : 'bg-white/5'}`}>
-                          <td className="px-6 py-4 font-medium text-primary text-sm">{humanLabel}</td>
-                          <td className="px-6 py-4 text-center text-sage font-medium text-sm">{scoreA} / 100</td>
-                          <td className="px-6 py-4 text-center text-muted text-sm">{scoreB} / 100</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`inline-flex items-center justify-center min-w-[4rem] px-3 py-1 rounded-full text-xs font-semibold border ${
-                              deltaVal > 0 ? 'bg-sage/15 text-sage border-sage/20' : deltaVal < 0 ? 'bg-red-50/80 text-red-800 border-red-200' : 'bg-gray-100 text-gray-500 border-gray-200'
-                            }`}>
-                              {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="sm:hidden flex flex-col p-4 gap-4">
-                <div className="bg-white/50 border border-white/60 rounded-2xl p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-primary mb-3">Projected Skin Age</div>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioA.label}:</span>
-                    <span className="text-sm font-semibold text-sage">{result.scenarioA.finalSkinAge} yrs</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioB.label}:</span>
-                    <span className="text-sm font-semibold text-muted">{result.scenarioB.finalSkinAge} yrs</span>
-                  </div>
-                  <div className="pt-3 border-t border-black/5 flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted uppercase tracking-wider">Impact</span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                      (result.deltas?.skinAge || 0) > 0 ? 'text-sage bg-sage/15' : (result.deltas?.skinAge || 0) < 0 ? 'text-red-800 bg-red-50/80' : 'text-gray-500 bg-gray-100'
-                    }`}>
+              <div className="p-4 sm:p-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="col-span-2 sm:col-span-4 tk-tile p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="tk-eyebrow mb-1">Projected Skin Age</p>
+                      <p className="text-2xl font-semibold text-primary">
+                        <span className="text-accent">{result.scenarioA.finalSkinAge} yrs</span>
+                        <span className="text-sm font-medium text-muted"> vs {result.scenarioB.finalSkinAge} yrs</span>
+                      </p>
+                    </div>
+                    <span className={`tk-chip ${(result.deltas?.skinAge || 0) > 0 ? 'tk-chip-success' : (result.deltas?.skinAge || 0) < 0 ? 'tk-chip-danger' : ''}`}>
                       {typeof result.deltas?.skinAge === "number"
                         ? result.deltas.skinAge > 0
                           ? `${result.deltas.skinAge} yrs younger`
@@ -857,42 +789,32 @@ export default function WhatIfPage() {
                         : "—"}
                     </span>
                   </div>
-                </div>
+                  {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey]) => {
+                    const scoreA = result.scenarioA?.projectedScores?.[metricKey];
+                    const scoreB = result.scenarioB?.projectedScores?.[metricKey];
+                    const deltaVal = result.deltas?.[metricKey];
+                    const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
+                    const humanLabel = labels[metricKey] || metricKey;
 
-                {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey]) => {
-                  const scoreA = result.scenarioA?.projectedScores?.[metricKey];
-                  const scoreB = result.scenarioB?.projectedScores?.[metricKey];
-                  const deltaVal = result.deltas?.[metricKey];
-                  const labels = { wrinkles: "Wrinkle Smoothness", firmness: "Skin Firmness", spots: "Spot Clarity", radiance: "Radiance & Glow" };
-                  const humanLabel = labels[metricKey] || metricKey;
-
-                  return (
-                    <div key={metricKey} className="bg-white/50 border border-white/60 rounded-2xl p-4 shadow-sm">
-                      <div className="text-sm font-semibold text-primary mb-3">{humanLabel}</div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioA.label}:</span>
-                        <span className="text-sm font-semibold text-sage">{scoreA}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-xs text-muted line-clamp-1 flex-1 pr-2">{result.scenarioB.label}:</span>
-                        <span className="text-sm font-semibold text-muted">{scoreB}</span>
-                      </div>
-                      <div className="pt-3 border-t border-black/5 flex justify-between items-center">
-                        <span className="text-xs font-medium text-muted uppercase tracking-wider">Improvement</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                          deltaVal > 0 ? 'bg-sage/15 text-sage' : deltaVal < 0 ? 'bg-red-50/80 text-red-800 border border-red-200' : 'bg-black/5 text-muted'
-                        }`}>
+                    return (
+                      <div key={metricKey} className="tk-tile p-3.5 flex flex-col gap-1">
+                        <p className="text-[11px] font-medium text-muted leading-tight min-h-[1.75rem]">{humanLabel}</p>
+                        <p className="text-2xl font-semibold text-primary leading-none">
+                          {scoreA}<span className="text-xs font-medium text-muted"> /100</span>
+                        </p>
+                        <p className="text-[11px] text-muted">vs {scoreB} without</p>
+                        <span className={`tk-chip self-start mt-1 ${deltaVal > 0 ? 'tk-chip-success' : deltaVal < 0 ? 'tk-chip-danger' : ''}`}>
                           {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
                         </span>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             {!simConfirmed ? (
-              <div className="tk-glass rounded-3xl p-6 border flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+              <div className="tk-card rounded-3xl p-6 border flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -900,7 +822,7 @@ export default function WhatIfPage() {
                     checked={keepPhoto}
                     onChange={(e) => setKeepPhoto(e.target.checked)}
                     disabled={isSavingPrivacy}
-                    className="w-4 h-4 rounded border-black/20 text-[#8A9A5B] focus:ring-[#8A9A5B]"
+                    className="w-4 h-4 rounded border-line text-accent focus:ring-accent accent-[var(--tk-accent)]"
                   />
                   <label htmlFor="keepPhoto" className="text-sm font-medium text-primary cursor-pointer select-none">
                     Keep this photo attached to my results
@@ -910,17 +832,17 @@ export default function WhatIfPage() {
                   <button
                     onClick={handleDiscardSimulation}
                     disabled={isSavingPrivacy}
-                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold text-muted bg-white/50 hover:bg-white hover:text-red-600 transition-colors border border-white/60 shadow-sm disabled:opacity-50"
+                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-full text-sm font-semibold text-muted bg-white hover:bg-blush hover:text-danger transition-colors border border-line shadow-sm disabled:opacity-50"
                   >
                     Delete Results
                   </button>
                   <button
                     onClick={handleConfirmSimulation}
                     disabled={isSavingPrivacy}
-                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#8A9A5B] hover:bg-[#7A8A4B] transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent-deep transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isSavingPrivacy ? (
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="w-4 h-4 border-2 border-line border-t-white rounded-full animate-spin" />
                     ) : (
                       <Check size={16} />
                     )}
@@ -929,7 +851,7 @@ export default function WhatIfPage() {
                 </div>
               </div>
             ) : (
-              <div className="tk-glass rounded-3xl p-4 border border-sage/20 bg-sage/5 flex items-center gap-3 mt-6 justify-center text-sage text-sm font-medium">
+              <div className="tk-card rounded-3xl p-4 border border-accent/20 bg-accent/5 flex items-center gap-3 mt-6 justify-center text-accent text-sm font-medium">
                 <Check size={16} />
                 Results saved to your history.
               </div>
@@ -939,9 +861,12 @@ export default function WhatIfPage() {
           </div>
         )}
 
+        </div>
+        </div>
+
         {history.length > 0 && (
           <div className="mt-16 tk-anim-5">
-            <h3 className="text-xl font-display font-medium text-primary mb-6 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-primary mb-6 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
               Saved Simulations
             </h3>
@@ -972,32 +897,32 @@ export default function WhatIfPage() {
                     // user had already chosen to keep).
                     setSimConfirmed(true);
                   }}
-                  className={`tk-glass rounded-2xl p-4 text-left border hover:border-sage/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                  className={`tk-card rounded-2xl p-4 text-left border hover:border-accent/40 hover:shadow-lg transition-all group relative ${loading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   <button
                     onClick={(e) => handleDeleteSim(e, simId)}
-                    className="absolute top-3 right-3 p-2 rounded-full bg-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 z-10 shadow-sm sm:focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1"
+                    className="absolute top-3 right-3 p-2 rounded-full bg-danger-soft text-danger hover:bg-danger hover:text-white transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 z-10 shadow-sm sm:focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-1"
                     title="Delete simulation"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                   </button>
                   <p className="text-sm font-semibold text-primary mb-3 line-clamp-2 leading-snug pr-8">
-                    <span className="text-sage">{sim.scenarioA?.label || sim.name?.split(" vs ")[0] || "Scenario A"}</span>
-                    <br/><span className="text-[10px] uppercase font-bold text-muted/70 tracking-wider">vs</span><br/>
-                    <span className="text-orange-500">{sim.scenarioB?.label || sim.name?.split(" vs ")[1] || "Scenario B"}</span>
+                    <span className="text-accent">{sim.scenarioA?.label || sim.name?.split(" vs ")[0] || "Scenario A"}</span>
+                    <br/><span className="text-[10px] uppercase font-bold text-muted tracking-wider">vs</span><br/>
+                    <span className="text-cocoa">{sim.scenarioB?.label || sim.name?.split(" vs ")[1] || "Scenario B"}</span>
                   </p>
-                  <div className="h-24 rounded-lg overflow-hidden bg-black/5 border border-white/50">
+                  <div className="h-24 rounded-lg overflow-hidden bg-blush border border-line">
                     {sim.scenarioA?.imageUrl ? (
                       <img src={sim.scenarioA.imageUrl} className="w-full h-full object-cover" alt="" />
                     ) : (
-                      <div className="w-full h-full bg-[#FDFBF7] flex flex-col items-center justify-center text-sage">
+                      <div className="w-full h-full bg-surface flex flex-col items-center justify-center text-accent">
                         <Sparkles size={16} />
                         <span className="text-[10px] font-medium mt-1 uppercase tracking-widest opacity-60">Private</span>
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 text-xs font-semibold text-sage flex justify-between items-center opacity-80 group-hover:opacity-100 transition-opacity">
-                    <span className="text-muted/60">{formatSimDate(sim.createdAt)}</span>
+                  <div className="mt-4 text-xs font-semibold text-accent flex justify-between items-center opacity-80 group-hover:opacity-100 transition-opacity">
+                    <span className="text-muted">{formatSimDate(sim.createdAt)}</span>
                     <span className="flex items-center gap-1">View Details <ArrowRight size={12} /></span>
                   </div>
                 </div>
@@ -1009,7 +934,7 @@ export default function WhatIfPage() {
       </div>
 
       {/* Sticky Mobile Simulation CTA */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-black/5 z-40 pb-safe">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-line z-40 pb-safe">
         <button
           onClick={handleRunSimulation}
           disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
@@ -1063,23 +988,23 @@ export default function WhatIfPage() {
       >
             <button
               onClick={() => setUpgradeModalOpen(false)}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-black/5 transition-colors cursor-pointer"
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-primary hover:bg-accent-soft transition-colors cursor-pointer"
               aria-label="Close"
             >
               <X size={18} />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-lavender/30 flex items-center justify-center text-[#792CA2] mb-4 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-accent-soft flex items-center justify-center text-accent mb-4 shadow-sm">
               <Sparkles size={24} />
             </div>
 
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-lavender/50 text-[#792CA2]">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-accent-soft text-accent">
                 Pro Feature
               </span>
             </div>
 
-            <h2 className="text-2xl font-display font-medium text-primary mb-2">
+            <h2 className="text-2xl font-semibold text-primary mb-2">
               Custom Product Scanning
             </h2>
 
@@ -1087,17 +1012,17 @@ export default function WhatIfPage() {
               Upgrade to <strong>Pro</strong> to scan ingredient labels from any vanity skincare product and simulate how your exact routine impacts facial aging.
             </p>
 
-            <div className="space-y-2.5 mb-6 bg-white p-4 rounded-2xl border border-sage/25 text-sm sm:text-xs text-primary">
+            <div className="space-y-2.5 mb-6 bg-white p-4 rounded-2xl border border-accent/25 text-sm sm:text-xs text-primary">
               <div className="flex items-center gap-2">
-                <span className="text-sage font-bold">✓</span>
+                <span className="text-accent font-bold">✓</span>
                 <span>Unlimited custom formula label scans</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sage font-bold">✓</span>
+                <span className="text-accent font-bold">✓</span>
                 <span>Side-by-side A/B intervention testing</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sage font-bold">✓</span>
+                <span className="text-accent font-bold">✓</span>
                 <span>5 full AI aging simulations per month</span>
               </div>
             </div>
@@ -1105,7 +1030,7 @@ export default function WhatIfPage() {
             <div className="flex flex-col gap-2.5">
               <Link
                 href="/pricing"
-                className="w-full py-3.5 sm:py-3 bg-primary text-white font-semibold text-center rounded-xl hover:bg-primary/90 transition shadow-sm"
+                className="tk-pill-btn tk-btn-primary w-full py-3.5 text-center"
               >
                 View Pro Membership
               </Link>

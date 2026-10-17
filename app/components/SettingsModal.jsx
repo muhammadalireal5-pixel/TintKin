@@ -510,11 +510,11 @@ export default function SettingsModal({ isOpen, onClose }) {
       panelClassName="flex flex-col max-h-[calc(92dvh-env(safe-area-inset-bottom))] sm:max-h-none sm:h-full"
     >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#5B6D7F]">Settings</p>
+        <div className="flex items-center justify-between px-5 pt-6 pb-4 sm:pt-5 border-b border-line shrink-0 bg-white">
+          <p className="text-lg font-semibold text-primary">Settings</p>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-[#5B6D7F] hover:text-[#2C3E50]"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-blush transition-colors text-muted hover:text-primary"
             aria-label="Close settings"
           >
             <X size={18} />
@@ -522,32 +522,32 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-base px-4 py-4 space-y-3">
           {/* Account */}
-          <div className="px-6 py-5 border-b border-black/5">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA] mb-3">
+          <div className="tk-card px-5 py-4">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
               Account
             </p>
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-[#E6E6FA] flex items-center justify-center shrink-0 overflow-hidden border border-white/50 shadow-sm">
+              <div className="w-11 h-11 rounded-full bg-blush flex items-center justify-center shrink-0 overflow-hidden border border-line">
                 <UserAvatar
                   photoURL={user?.photoURL || profile?.photoURL}
                   name={user?.displayName || profile?.displayName}
                   email={user?.email || profile?.email}
-                  className="text-base text-[#2C3E50]"
+                  className="text-base text-primary"
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-[#2C3E50] truncate">
+                <p className="text-sm font-medium text-primary truncate">
                   {user?.displayName || profile?.displayName || "Your Name"}
                 </p>
-                <p className="text-xs text-[#5B6D7F] truncate">{user?.email || profile?.email}</p>
+                <p className="text-xs text-muted truncate">{user?.email || profile?.email}</p>
               </div>
             </div>
 
             {profile?.emailVerified === false && (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
-                <p className="text-xs text-amber-800">
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-accent-soft border border-accent/20 px-3 py-2">
+                <p className="text-xs text-accent-deep">
                   {verifyEmailState === "sent" ? "Confirmation email sent — check your inbox." : "Please confirm your email address."}
                 </p>
                 {verifyEmailState !== "sent" && (
@@ -555,7 +555,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     type="button"
                     onClick={handleResendVerification}
                     disabled={verifyEmailState === "sending"}
-                    className="shrink-0 text-xs font-semibold text-amber-800 underline disabled:opacity-50"
+                    className="shrink-0 text-xs font-semibold text-accent-deep underline disabled:opacity-50"
                   >
                     {verifyEmailState === "sending" ? "Sending…" : "Resend"}
                   </button>
@@ -564,11 +564,11 @@ export default function SettingsModal({ isOpen, onClose }) {
             )}
 
             {/* Plan / Tier status */}
-            <div className="mt-3.5 pt-3 border-t border-black/5 flex items-center justify-between">
+            <div className="mt-3.5 pt-3 border-t border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Crown size={14} className="text-amber-500" />
-                <span className="text-xs text-[#5B6D7F]">Plan:</span>
-                <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-[#2C3E50]">
+                <Crown size={14} className="text-accent" />
+                <span className="text-xs text-muted">Plan:</span>
+                <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-line text-primary">
                   {TIER_NAMES[profile?.tier] || "Free"}
                 </span>
               </div>
@@ -576,7 +576,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <Link
                   href="/pricing"
                   onClick={onClose}
-                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors flex items-center gap-0.5"
+                  className="text-xs font-medium text-accent hover:text-primary transition-colors flex items-center gap-0.5"
                 >
                   Change Plan <ChevronRight size={12} />
                 </Link>
@@ -585,13 +585,13 @@ export default function SettingsModal({ isOpen, onClose }) {
 
             {/* Credit balance (shop top-ups, spent after the plan's own quota) */}
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-[#5B6D7F]">Credits:</span>
+              <span className="text-xs text-muted">Credits:</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-[#2C3E50]">{profile?.creditBalance ?? 0}</span>
+                <span className="text-xs font-semibold text-primary">{profile?.creditBalance ?? 0}</span>
                 <Link
                   href="/shop"
                   onClick={onClose}
-                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors"
+                  className="text-xs font-medium text-accent hover:text-primary transition-colors"
                 >
                   Buy more
                 </Link>
@@ -599,12 +599,12 @@ export default function SettingsModal({ isOpen, onClose }) {
             </div>
 
             {ACTIVE_SUBSCRIPTION_TIERS.includes(profile?.tier) && (
-              <div className="mt-3 pt-3 border-t border-black/5 flex items-center gap-2">
+              <div className="mt-3 pt-3 border-t border-line flex items-center gap-2">
                 {profile.tier === TIERS.STANDARD && (
                   <button
                     onClick={() => handleChangeTier(TIERS.PREMIUM)}
                     disabled={tierChangeState === "changing"}
-                    className="flex-1 py-1.5 px-2 rounded bg-[#2C3E50] text-white text-[11px] font-medium transition-colors disabled:opacity-50"
+                    className="flex-1 py-1.5 px-2 rounded-full bg-accent text-white text-[11px] font-medium transition-colors disabled:opacity-50"
                   >
                     {tierChangeState === "changing" ? "Upgrading…" : "Upgrade to Pro"}
                   </button>
@@ -613,7 +613,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <button
                     onClick={() => handleChangeTier(TIERS.STANDARD)}
                     disabled={tierChangeState === "changing"}
-                    className="flex-1 py-1.5 px-2 rounded border border-black/10 text-[#5B6D7F] text-[11px] font-medium transition-colors hover:border-black/20 disabled:opacity-50"
+                    className="flex-1 py-1.5 px-2 rounded border border-line text-muted text-[11px] font-medium transition-colors hover:border-line disabled:opacity-50"
                   >
                     {tierChangeState === "changing" ? "Switching…" : "Switch to Standard"}
                   </button>
@@ -621,7 +621,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <button
                   onClick={handleManageBilling}
                   disabled={isOpeningBillingPortal}
-                  className="flex-1 py-1.5 px-2 rounded border border-black/10 text-[#5B6D7F] text-[11px] font-medium transition-colors hover:border-black/20 disabled:opacity-50"
+                  className="flex-1 py-1.5 px-2 rounded border border-line text-muted text-[11px] font-medium transition-colors hover:border-line disabled:opacity-50"
                 >
                   Manage Billing
                 </button>
@@ -629,15 +629,15 @@ export default function SettingsModal({ isOpen, onClose }) {
             )}
 
             {profile?.tier === TIERS.STANDARD && (
-              <div className="mt-3 pt-3 border-t border-black/5">
-                <label className="text-xs text-[#5B6D7F] block mb-2">Scan Pacing</label>
+              <div className="mt-3 pt-3 border-t border-line">
+                <label className="text-xs text-muted block mb-2">Scan Pacing</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleFrequencyChange(STANDARD_PACING.EVERY_OTHER_DAY)}
                     className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
                       standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY
-                        ? "bg-[#2C3E50] text-white border-[#2C3E50]"
-                        : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
+                        ? "bg-accent text-white border-accent"
+                        : "bg-white text-muted border-line hover:border-accent/40"
                     }`}
                   >
                     Every Other Day
@@ -646,8 +646,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                     onClick={() => handleFrequencyChange(STANDARD_PACING.FLEXIBLE)}
                     className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
                       standardPlanFrequency === STANDARD_PACING.FLEXIBLE
-                        ? "bg-[#2C3E50] text-white border-[#2C3E50]"
-                        : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
+                        ? "bg-accent text-white border-accent"
+                        : "bg-white text-muted border-line hover:border-accent/40"
                     }`}
                   >
                     Flexible
@@ -659,15 +659,15 @@ export default function SettingsModal({ isOpen, onClose }) {
 
           {/* Install App */}
           {(canInstall || isInstalled || isIOS) && (
-            <div className="px-6 py-5 border-b border-black/5">
+            <div className="tk-card px-5 py-4">
               <div className="flex items-center gap-2 mb-3">
-                <MonitorSmartphone size={14} className="text-[#8A9A5B]" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+                <MonitorSmartphone size={14} className="text-accent" />
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
                   App
                 </p>
               </div>
               {isInstalled ? (
-                <div className="flex items-center gap-2 text-sm text-[#8A9A5B] font-medium">
+                <div className="flex items-center gap-2 text-sm text-accent font-medium">
                   <Check size={14} /> Installed on this device
                 </div>
               ) : canInstall ? (
@@ -675,13 +675,13 @@ export default function SettingsModal({ isOpen, onClose }) {
                   type="button"
                   onClick={handleInstallClick}
                   disabled={installing}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#2C3E50] text-white text-sm font-medium hover:bg-[#2C3E50]/90 transition-colors disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-deep transition-colors disabled:opacity-60"
                 >
                   <Download size={15} />
                   {installing ? "Opening install prompt…" : "Install TintKin App"}
                 </button>
               ) : (
-                <p className="text-xs text-[#5B6D7F] leading-relaxed">
+                <p className="text-xs text-muted leading-relaxed">
                   Tap <Share2 size={12} className="inline -mt-0.5" /> <strong>Share</strong>, then <strong>&quot;Add to Home Screen&quot;</strong> to install TintKin on this device.
                 </p>
               )}
@@ -689,17 +689,17 @@ export default function SettingsModal({ isOpen, onClose }) {
           )}
 
           {/* Skin Profile & Preferences */}
-          <div className="px-6 py-5 border-b border-black/5">
+          <div className="tk-card px-5 py-4">
             <div className="flex items-center gap-2 mb-3">
-              <SlidersHorizontal size={14} className="text-[#8A9A5B]" />
-              <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+              <SlidersHorizontal size={14} className="text-accent" />
+              <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
                 Skin Profile
               </p>
             </div>
 
             {/* Skin Type selector */}
             <div className="mb-4">
-              <label className="text-xs text-[#5B6D7F] block mb-2">Skin Type</label>
+              <label className="text-xs text-muted block mb-2">Skin Type</label>
               <div className="flex flex-wrap gap-1.5">
                 {SKIN_TYPES.map((type) => {
                   const isSelected = skinType?.toLowerCase() === type;
@@ -710,8 +710,8 @@ export default function SettingsModal({ isOpen, onClose }) {
                       onClick={() => handleSkinTypeChange(type)}
                       className={`px-2.5 py-1 rounded-full text-xs capitalize transition-all border ${
                         isSelected
-                          ? "bg-[#2C3E50] text-white border-[#2C3E50] font-medium shadow-sm"
-                          : "bg-white text-[#5B6D7F] border-black/10 hover:border-black/20"
+                          ? "bg-accent text-white border-accent font-medium shadow-sm"
+                          : "bg-white text-muted border-line hover:border-accent/40"
                       }`}
                     >
                       {type}
@@ -722,10 +722,10 @@ export default function SettingsModal({ isOpen, onClose }) {
             </div>
 
             {/* Community Rank Opt-in */}
-            <div className="flex items-center justify-between pt-3 border-t border-black/5">
+            <div className="flex items-center justify-between pt-3 border-t border-line">
               <div>
-                <p className="text-xs font-medium text-[#2C3E50]">Peer Comparison</p>
-                <p className="text-[11px] text-[#8E9BAA]">Anonymous ranking with age peers</p>
+                <p className="text-xs font-medium text-primary">Peer Comparison</p>
+                <p className="text-[11px] text-muted">Anonymous ranking with age peers</p>
               </div>
               <button
                 type="button"
@@ -733,7 +733,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 aria-checked={optIn}
                 onClick={handleOptInToggle}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  optIn ? "bg-[#8A9A5B]" : "bg-black/15"
+                  optIn ? "bg-accent" : "bg-line"
                 }`}
               >
                 <span
@@ -747,21 +747,21 @@ export default function SettingsModal({ isOpen, onClose }) {
 
           {/* Notifications */}
           {VAPID_PUBLIC_KEY && (
-            <div className="px-6 py-5 border-b border-black/5">
+            <div className="tk-card px-5 py-4">
               <div className="flex items-center gap-2 mb-3">
-                <Bell size={14} className="text-[#8A9A5B]" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+                <Bell size={14} className="text-accent" />
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
                   Notifications
                 </p>
               </div>
               {!notifSupported ? (
-                <p className="text-xs text-[#8E9BAA] italic">Not supported in this browser.</p>
+                <p className="text-xs text-muted italic">Not supported in this browser.</p>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-medium text-[#2C3E50]">Push Notifications</p>
-                      <p className="text-[11px] text-[#8E9BAA]">
+                      <p className="text-xs font-medium text-primary">Push Notifications</p>
+                      <p className="text-[11px] text-muted">
                         {notifPermission === "denied"
                           ? "Blocked — enable in your browser settings"
                           : "Get notified right on this device"}
@@ -774,7 +774,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                       disabled={notifBusy || notifPermission === "denied"}
                       onClick={notifSubscribed ? handleDisableNotifications : handleEnableNotifications}
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-                        notifSubscribed ? "bg-[#8A9A5B]" : "bg-black/15"
+                        notifSubscribed ? "bg-accent" : "bg-line"
                       }`}
                     >
                       <span
@@ -789,7 +789,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                       type="button"
                       onClick={handleSendTestNotification}
                       disabled={testNotifState === "sending"}
-                      className="mt-3 text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors disabled:opacity-50"
+                      className="mt-3 text-xs font-medium text-accent hover:text-primary transition-colors disabled:opacity-50"
                     >
                       {testNotifState === "sending" ? "Sending…" : "Send test notification"}
                     </button>
@@ -800,18 +800,18 @@ export default function SettingsModal({ isOpen, onClose }) {
           )}
 
           {/* Location */}
-          <div className="px-6 py-5 border-b border-black/5">
+          <div className="tk-card px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-[#8A9A5B]" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA]">
+                <MapPin size={14} className="text-accent" />
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
                   Location
                 </p>
               </div>
               {locationMode === "idle" && (
                 <button
                   onClick={() => setLocationMode("editing")}
-                  className="text-xs font-medium text-[#8A9A5B] hover:text-[#2C3E50] transition-colors"
+                  className="text-xs font-medium text-accent hover:text-primary transition-colors"
                 >
                   {currentCity ? "Update" : "Set location"}
                 </button>
@@ -819,14 +819,14 @@ export default function SettingsModal({ isOpen, onClose }) {
             </div>
 
             {locationMode === "idle" && (
-              <p className="text-sm text-[#2C3E50]">
+              <p className="text-sm text-primary">
                 {currentCity ? (
                   <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#8A9A5B] inline-block"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block"></span>
                     {currentCity}
                   </span>
                 ) : (
-                  <span className="text-[#8E9BAA] italic text-xs">
+                  <span className="text-muted italic text-xs">
                     Not set — add your city for weather-aware advice
                   </span>
                 )}
@@ -834,27 +834,27 @@ export default function SettingsModal({ isOpen, onClose }) {
             )}
 
             {locationMode === "saved" && (
-              <div className="flex items-center gap-2 text-sm text-[#8A9A5B] font-medium">
+              <div className="flex items-center gap-2 text-sm text-accent font-medium">
                 <Check size={14} /> Location saved!
               </div>
             )}
 
             {locationMode === "loading" && (
-              <p className="text-sm text-[#8E9BAA] italic">Saving…</p>
+              <p className="text-sm text-muted italic">Saving…</p>
             )}
 
             {locationMode === "editing" && (
               <div className="space-y-2 mt-1">
                 <button
                   onClick={handleUseGeolocation}
-                  className="w-full py-2 rounded-xl bg-[#2C3E50] text-white text-sm font-medium hover:bg-[#2C3E50]/90 transition-colors"
+                  className="w-full py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-deep transition-colors"
                 >
                   Use My Location
                 </button>
-                <div className="flex items-center gap-2 text-xs text-[#8E9BAA]">
-                  <div className="flex-1 h-px bg-black/5"></div>
+                <div className="flex items-center gap-2 text-xs text-muted">
+                  <div className="flex-1 h-px bg-line"></div>
                   or
-                  <div className="flex-1 h-px bg-black/5"></div>
+                  <div className="flex-1 h-px bg-line"></div>
                 </div>
                 <form onSubmit={handleManualSubmit} className="flex gap-2">
                   <input
@@ -862,19 +862,19 @@ export default function SettingsModal({ isOpen, onClose }) {
                     placeholder="Enter city name…"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-black/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8A9A5B]/40 bg-white"
+                    className="flex-1 px-3 py-2 text-sm border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/40 bg-white"
                     autoFocus
                   />
                   <button
                     type="submit"
-                    className="px-3 py-2 bg-[#8A9A5B]/15 text-[#8A9A5B] font-medium text-sm rounded-xl hover:bg-[#8A9A5B]/25 transition-colors"
+                    className="px-3 py-2 bg-accent-soft text-accent-deep font-medium text-sm rounded-xl hover:bg-accent/25 transition-colors"
                   >
                     Save
                   </button>
                 </form>
                 <button
                   onClick={() => setLocationMode("idle")}
-                  className="text-xs text-[#8E9BAA] hover:text-[#5B6D7F] w-full text-center mt-1"
+                  className="text-xs text-muted hover:text-muted w-full text-center mt-1"
                 >
                   Cancel
                 </button>
@@ -883,8 +883,8 @@ export default function SettingsModal({ isOpen, onClose }) {
           </div>
 
           {/* Privacy & Photo Retention */}
-          <div className="px-6 py-5 border-b border-black/5">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA] mb-3">
+          <div className="tk-card px-5 py-4">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
               Photo Privacy
             </p>
             <div className="space-y-4">
@@ -896,13 +896,13 @@ export default function SettingsModal({ isOpen, onClose }) {
                     value={PHOTO_PRIVACY.STORE}
                     checked={photoPrivacy === PHOTO_PRIVACY.STORE}
                     onChange={handlePrivacyChange}
-                    className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
+                    className="appearance-none w-4 h-4 rounded-full border border-line checked:border-accent transition-colors"
                   />
-                  {photoPrivacy === PHOTO_PRIVACY.STORE && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                  {photoPrivacy === PHOTO_PRIVACY.STORE && <div className="absolute w-2 h-2 rounded-full bg-accent" />}
                 </div>
-                <div className="flex-1 text-sm text-[#2C3E50]">
-                  <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Store photo till next scan (Recommended)</p>
-                  <p className="text-xs text-[#8E9BAA] mt-0.5">Keep your latest selfie for fast "What-If" simulations and journal display.</p>
+                <div className="flex-1 text-sm text-primary">
+                  <p className="font-medium group-hover:text-accent transition-colors">Store photo till next scan (Recommended)</p>
+                  <p className="text-xs text-muted mt-0.5">Keep your latest selfie for fast &quot;What-If&quot; simulations and journal display.</p>
                 </div>
               </label>
 
@@ -914,89 +914,89 @@ export default function SettingsModal({ isOpen, onClose }) {
                     value={PHOTO_PRIVACY.DELETE}
                     checked={photoPrivacy === PHOTO_PRIVACY.DELETE}
                     onChange={handlePrivacyChange}
-                    className="appearance-none w-4 h-4 rounded-full border border-black/20 checked:border-[#8A9A5B] transition-colors"
+                    className="appearance-none w-4 h-4 rounded-full border border-line checked:border-accent transition-colors"
                   />
-                  {photoPrivacy === PHOTO_PRIVACY.DELETE && <div className="absolute w-2 h-2 rounded-full bg-[#8A9A5B]" />}
+                  {photoPrivacy === PHOTO_PRIVACY.DELETE && <div className="absolute w-2 h-2 rounded-full bg-accent" />}
                 </div>
-                <div className="flex-1 text-sm text-[#2C3E50]">
-                  <p className="font-medium group-hover:text-[#8A9A5B] transition-colors">Delete immediately</p>
-                  <p className="text-xs text-[#8E9BAA] mt-0.5">For privacy. Your photo is analyzed and instantly deleted. Simulations will require a new upload.</p>
+                <div className="flex-1 text-sm text-primary">
+                  <p className="font-medium group-hover:text-accent transition-colors">Delete immediately</p>
+                  <p className="text-xs text-muted mt-0.5">For privacy. Your photo is analyzed and instantly deleted. Simulations will require a new upload.</p>
                 </div>
               </label>
             </div>
           </div>
 
           {/* Quick Links */}
-          <div className="px-6 py-5 border-b border-black/5">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E9BAA] mb-3">
+          <div className="tk-card px-5 py-4">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
               Quick Access
             </p>
             <div className="space-y-1">
               <Link
                 href="/leaderboard"
                 onClick={onClose}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <Trophy size={16} className="text-[#8A9A5B]" />
-                  <span className="text-sm font-medium text-[#2C3E50]">Community Board</span>
+                  <Trophy size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-primary">Community Board</span>
                 </div>
-                <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
               </Link>
 
               <Link
                 href="/history"
                 onClick={onClose}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <History size={16} className="text-[#8A9A5B]" />
-                  <span className="text-sm font-medium text-[#2C3E50]">Scan History</span>
+                  <History size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-primary">Scan History</span>
                 </div>
-                <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
               </Link>
 
               <Link
                 href="/share"
                 onClick={onClose}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <Share2 size={16} className="text-[#8A9A5B]" />
-                  <span className="text-sm font-medium text-[#2C3E50]">Share My Card</span>
+                  <Share2 size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-primary">Share My Card</span>
                 </div>
-                <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
               </Link>
 
               <Link
                 href="/pricing"
                 onClick={onClose}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <Sparkles size={16} className="text-[#8A9A5B]" />
-                  <span className="text-sm font-medium text-[#2C3E50]">Upgrade Plan</span>
+                  <Sparkles size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-primary">Upgrade Plan</span>
                 </div>
-                <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
               </Link>
 
               <button
                 type="button"
                 onClick={handleExportData}
                 disabled={isExporting}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group text-left disabled:opacity-60"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group text-left disabled:opacity-60"
               >
                 <div className="flex items-center gap-3">
-                  <Download size={16} className="text-[#8A9A5B]" />
+                  <Download size={16} className="text-accent" />
                   <div>
-                    <span className="text-sm font-medium text-[#2C3E50]">Download My Data</span>
-                    <p className="text-[11px] text-[#8E9BAA]">GDPR / CCPA data & photos (.zip)</p>
+                    <span className="text-sm font-medium text-primary">Download My Data</span>
+                    <p className="text-[11px] text-muted">GDPR / CCPA data & photos (.zip)</p>
                   </div>
                 </div>
                 {isExporting ? (
-                  <Loader2 size={14} className="animate-spin text-[#8A9A5B]" />
+                  <Loader2 size={14} className="animate-spin text-accent" />
                 ) : (
-                  <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                  <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
                 )}
               </button>
 
@@ -1004,30 +1004,30 @@ export default function SettingsModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleEmailExport}
                 disabled={isEmailingExport}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/[0.03] transition-colors group text-left disabled:opacity-60"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group text-left disabled:opacity-60"
               >
                 <div className="flex items-center gap-3">
-                  <Mail size={16} className="text-[#8A9A5B]" />
+                  <Mail size={16} className="text-accent" />
                   <div>
-                    <span className="text-sm font-medium text-[#2C3E50]">Email My Data</span>
-                    <p className="text-[11px] text-[#8E9BAA]">Same export, sent to your inbox</p>
+                    <span className="text-sm font-medium text-primary">Email My Data</span>
+                    <p className="text-[11px] text-muted">Same export, sent to your inbox</p>
                   </div>
                 </div>
                 {isEmailingExport ? (
-                  <Loader2 size={14} className="animate-spin text-[#8A9A5B]" />
+                  <Loader2 size={14} className="animate-spin text-accent" />
                 ) : (
-                  <ChevronRight size={14} className="text-[#8E9BAA] group-hover:text-[#5B6D7F] transition-colors" />
+                  <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
                 )}
               </button>
             </div>
           </div>
 
           {/* Danger Zone */}
-          <div className="px-6 py-5 border-b border-black/5">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-red-500 mb-1.5">
+          <div className="tk-card px-5 py-4">
+            <p className="text-[10px] font-semibold tracking-widest uppercase text-danger mb-1.5">
               Danger Zone
             </p>
-            <p className="text-xs text-[#5B6D7F] mb-3">
+            <p className="text-xs text-muted mb-3">
               Permanently erase your account, all uploaded selfies, simulations, and journal history.
             </p>
             <button
@@ -1036,7 +1036,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 setDeleteConfirmText("");
                 setShowDeleteConfirm(true);
               }}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50/70 transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-danger bg-danger-soft hover:opacity-90 transition-all flex items-center gap-1.5"
             >
               <Trash2 size={13} />
               Delete Account
@@ -1045,7 +1045,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         {/* Sign out — pinned to bottom */}
-        <div className="px-6 py-5 border-t border-black/5 shrink-0 bg-[#FDFBF7]">
+        <div className="px-5 py-4 border-t border-line shrink-0 bg-white pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={async () => {
               try {
@@ -1056,7 +1056,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 showToast({ type: 'error', title: 'Sign Out Failed', message: "Something went wrong — please try again." });
               }
             }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-danger-soft text-danger hover:opacity-90 transition-colors text-sm font-medium"
           >
             <LogOut size={15} />
             Sign Out
@@ -1075,32 +1075,32 @@ export default function SettingsModal({ isOpen, onClose }) {
         zIndex={250}
         role="alertdialog"
         ariaLabel="Permanently Delete Account?"
-        panelClassName="p-6 pt-7 sm:pt-6 text-[#2C3E50]"
+        panelClassName="p-6 pt-7 sm:pt-6 text-primary"
       >
-            <div className="flex items-center gap-3 mb-3 text-red-600">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 mb-3 text-danger">
+              <div className="w-10 h-10 rounded-full bg-danger-soft flex items-center justify-center shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h3 className="text-base font-semibold">Permanently Delete Account?</h3>
-                <p className="text-xs text-[#5B6D7F]">This action cannot be undone.</p>
+                <p className="text-xs text-muted">This action cannot be undone.</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#5B6D7F] leading-relaxed mb-4">
+            <p className="text-xs text-muted leading-relaxed mb-4">
               All your skin analysis data, uploaded photos, simulations, routine streaks, and account credentials will be immediately and irreversibly wiped.
             </p>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-[#2C3E50] mb-1.5">
-                Type <span className="font-bold text-red-600">DELETE</span> to confirm:
+              <label className="block text-xs font-medium text-primary mb-1.5">
+                Type <span className="font-bold text-danger">DELETE</span> to confirm:
               </label>
               <input
                 type="text"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-danger/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-danger bg-white"
                 autoFocus
               />
             </div>
@@ -1113,7 +1113,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   setDeleteConfirmText("");
                 }}
                 disabled={isDeleting}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-muted hover:bg-blush transition-colors"
               >
                 Cancel
               </button>
@@ -1121,7 +1121,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirmText.trim() !== "DELETE" || isDeleting}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-danger hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
               >
                 {isDeleting && <Loader2 size={13} className="animate-spin" />}
                 {isDeleting ? "Erasing Data..." : "Permanently Delete"}
@@ -1137,19 +1137,19 @@ export default function SettingsModal({ isOpen, onClose }) {
         zIndex={250}
         role="alertdialog"
         ariaLabel="Delete photo immediately?"
-        panelClassName="p-6 pt-7 sm:pt-6 text-[#2C3E50]"
+        panelClassName="p-6 pt-7 sm:pt-6 text-primary"
       >
-            <div className="flex items-center gap-3 mb-3 text-red-600">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 mb-3 text-danger">
+              <div className="w-10 h-10 rounded-full bg-danger-soft flex items-center justify-center shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div>
                 <h3 className="text-base font-semibold">Delete photo immediately?</h3>
-                <p className="text-xs text-[#5B6D7F]">This also deletes what&apos;s already stored.</p>
+                <p className="text-xs text-muted">This also deletes what&apos;s already stored.</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#5B6D7F] leading-relaxed mb-5">
+            <p className="text-xs text-muted leading-relaxed mb-5">
               Switching to this option will immediately and permanently delete any photo currently stored
               from your previous scans. Future scans will be analyzed and instantly deleted — simulations
               will need a fresh upload each time.
@@ -1160,7 +1160,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 type="button"
                 onClick={() => setShowDeleteEverytimeConfirm(false)}
                 disabled={isSavingPrivacy}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-[#5B6D7F] hover:bg-black/5 transition-colors"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-medium text-muted hover:bg-blush transition-colors"
               >
                 Cancel
               </button>
@@ -1168,7 +1168,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 type="button"
                 onClick={handleConfirmDeleteEverytime}
                 disabled={isSavingPrivacy}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 rounded-xl text-sm sm:text-xs font-semibold text-white bg-danger hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 shadow-xs"
               >
                 {isSavingPrivacy && <Loader2 size={13} className="animate-spin" />}
                 {isSavingPrivacy ? "Deleting…" : "Delete Stored Photo & Confirm"}
