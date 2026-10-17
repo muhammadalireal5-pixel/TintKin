@@ -235,7 +235,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
                 submitting={submitting}
               />
             ) : (
-              <div key={pack.id} className={`${cardStyle} flex items-center justify-between gap-4`}>
+              <div key={pack.id} className={`${cardStyle} flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4`}>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-[var(--tk-text-primary)]">{pack.label}</span>

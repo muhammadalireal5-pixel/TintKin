@@ -335,8 +335,174 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
     });
   }, [users, searchTerm, filter]);
 
+  const renderDetails = (user) => (
+      <div className="px-4 sm:px-6 py-5 sm:py-6 border-l-2 border-accent ml-[2px] animate-in slide-in-from-top-2 fade-in duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={14} /> Analytics
+            </h4>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)]">
+              <div className="flex flex-col items-center">
+                <ScoreCircle score={user.latestScore} />
+                <span className="text-xs text-[var(--tk-text-muted)] mt-2">Latest Score</span>
+              </div>
+              <div className="h-10 w-px bg-black/10" />
+              <div>
+                <div className="text-2xl font-semibold text-[var(--tk-text-primary)]">
+                  {user.latestSkinAge !== null && user.latestSkinAge !== undefined ? user.latestSkinAge : <span className="text-[var(--tk-text-faint)] text-lg">N/A</span>}
+                </div>
+                <span className="text-xs text-[var(--tk-text-muted)]">Skin Age</span>
+              </div>
+              <div className="h-10 w-px bg-black/10" />
+              <div>
+                <div className="text-2xl font-semibold text-[var(--tk-text-primary)]">{user.simulationCount || 0}</div>
+                <span className="text-xs text-[var(--tk-text-muted)]">Simulations</span>
+              </div>
+            </div>
+            <div className="pt-2">
+              <button
+                onClick={() => handleAddExtraScans(user._id, 1)}
+                disabled={togglingMap[user._id]}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-accent/10 hover:bg-accent/20 text-accent text-sm font-semibold rounded-lg transition-colors border border-accent/20 disabled:opacity-50"
+              >
+                <Plus size={16} /> Add Extra Scan
+              </button>
+            </div>
+            {user.isSubscribed && (
+              <div className="pt-2">
+                {refundPreview[user._id] ? (
+                  <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                    <p className="text-xs text-[var(--tk-text-muted)]">
+                      Suggested refund (order total minus {refundPreview[user._id].scansUsed} scans + {refundPreview[user._id].simsUsed} sims used this period, at our YouCam cost):
+                    </p>
+                    <p className="text-lg font-semibold text-[var(--tk-text-primary)]">
+                      ${(refundPreview[user._id].suggestedAmountCents / 100).toFixed(2)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleConfirmRefund(user._id)}
+                        disabled={togglingMap[user._id] || refundPreview[user._id].suggestedAmountCents <= 0}
+                        className="flex-1 py-1.5 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
+                      >
+                        Confirm Refund
+                      </button>
+                      <button
+                        onClick={() => setRefundPreview(prev => ({ ...prev, [user._id]: null }))}
+                        className="flex-1 py-1.5 bg-black/5 hover:bg-black/10 text-[var(--tk-text-muted)] text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handlePreviewRefund(user._id)}
+                    disabled={togglingMap[user._id]}
+                    className="w-full flex items-center justify-center gap-2 py-2 bg-danger/10 hover:bg-danger/15 text-danger text-sm font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
+                  >
+                    <Undo2 size={16} /> Issue Refund
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="pt-2">
+              {creditOrders[user._id] === undefined ? (
+                <button
+                  onClick={() => handleLoadCreditOrders(user._id)}
+                  disabled={creditOrdersLoading[user._id]}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-black/5 hover:bg-black/10 text-[var(--tk-text-primary)] text-sm font-semibold rounded-lg transition-colors border border-[var(--tk-border-solid)] disabled:opacity-50"
+                >
+                  <CreditCard size={16} /> {creditOrdersLoading[user._id] ? "Checking…" : "Check Credit Purchases"}
+                </button>
+              ) : creditOrders[user._id].length === 0 ? (
+                <p className="text-xs text-[var(--tk-text-muted)] text-center">No refundable credit purchases.</p>
+              ) : (
+                <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                  <p className="text-xs text-[var(--tk-text-muted)]">Refundable credit purchases:</p>
+                  {creditOrders[user._id].map((order) => (
+                    <div key={order.orderId} className="flex items-center justify-between gap-2 py-1">
+                      <div className="text-xs text-[var(--tk-text-primary)]">
+                        <span className="font-semibold">{order.credits} credits</span> — ${(order.refundableAmountCents / 100).toFixed(2)}
+                        <span className="block text-[var(--tk-text-faint)]">{formatDate(order.createdAt)}</span>
+                      </div>
+                      <button
+                        onClick={() => handleRefundCreditOrder(user._id, order.orderId)}
+                        disabled={creditOrdersLoading[order.orderId]}
+                        className="shrink-0 py-1.5 px-3 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
+                      >
+                        Refund
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
+              <Target size={14} /> Profile & Goals
+            </h4>
+            <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
+              <div>
+                <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Skin Goals</span>
+                {user.goals && user.goals.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {user.goals.map((goal, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded text-xs bg-black/5 text-[var(--tk-text-primary)] border border-black/5">
+                        {goal}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-[var(--tk-text-faint)] italic">None specified</span>
+                )}
+              </div>
+              {user.customGoal && (
+                <div>
+                  <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Custom Goal</span>
+                  <p className="text-sm text-[var(--tk-text-primary)] bg-black/5 p-2 rounded-lg border border-black/5">
+                    &quot;{user.customGoal}&quot;
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
+              <Calendar size={14} /> Timeline
+            </h4>
+            <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--tk-text-muted)]">Birth Date</span>
+                <span className="text-[var(--tk-text-primary)]">{formatDate(user.birthDate)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--tk-text-muted)]">Last Scan</span>
+                <span className="text-[var(--tk-text-primary)]">{formatDate(user.lastScan)}</span>
+              </div>
+              {user.isSubscribed && (
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-[var(--tk-border-solid)]">
+                  <span className="text-[#eab308] flex items-center gap-1 font-medium">
+                    <Crown size={12} /> Subscribed Since
+                  </span>
+                  <span className="text-[#eab308] font-medium">{formatDate(user.subscribedAt)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+  );
+
+  const userName = (user) => (user.firstName || user.lastName ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Unnamed User");
+
   return (
-    <div className="min-h-screen bg-base text-[var(--tk-text-primary)] p-6 md:p-8 font-sans selection:bg-accent/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-base text-[var(--tk-text-primary)] p-4 sm:p-6 md:p-8 font-sans selection:bg-accent/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
       
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>
@@ -368,7 +534,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
           />
         </div>
         
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           {['All', 'Active', 'Inactive', 'Subscribed'].map(f => (
             <button
               key={f}
@@ -388,7 +554,94 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         </div>
       </div>
 
-      <div className="bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
+      {/* Phone: one card per user (the wide table is for md and up). */}
+      <ul className="md:hidden space-y-3">
+        {filteredUsers.length > 0 ? (
+          filteredUsers.map((user) => {
+            const isExpanded = expandedRows.has(user._id);
+            return (
+              <li key={user._id} className="bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-black/5 to-black/10 flex items-center justify-center border border-black/10 overflow-hidden shrink-0">
+                      {user.imageUrl ? (
+                        <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-semibold text-[var(--tk-text-muted)]">
+                          {getInitials(user.firstName, user.lastName, user.email)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-[var(--tk-text-primary)] flex items-center gap-1.5">
+                        <span className="truncate">{userName(user)}</span>
+                        {user.isSubscribed && <Crown size={14} className="text-[#eab308] fill-[#eab308]/20 shrink-0" />}
+                      </p>
+                      <p className="text-xs text-[var(--tk-text-faint)] truncate">{user.email}</p>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs shrink-0 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${user.isActive ? "bg-[#22c55e]" : "bg-faint"}`} />
+                      <span className={user.isActive ? "text-[var(--tk-text-primary)]" : "text-[var(--tk-text-faint)]"}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </span>
+                  </div>
+
+                  <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-black/[0.03] py-2">
+                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Scans</dt>
+                      <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{user.scanCount || 0}</dd>
+                    </div>
+                    <div className="rounded-xl bg-black/[0.03] py-2">
+                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Last active</dt>
+                      <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{formatRelativeTime(user.lastSignInAt || user.lastScan)}</dd>
+                    </div>
+                    <div className="rounded-xl bg-black/[0.03] py-2">
+                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Joined</dt>
+                      <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{formatDate(user.createdAt)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <label className="sr-only" htmlFor={`tier-${user._id}`}>Subscription</label>
+                    <select
+                      id={`tier-${user._id}`}
+                      value={user.tier || "free"}
+                      onChange={(e) => handleChangeTier(user._id, e.target.value)}
+                      disabled={togglingMap[user._id]}
+                      className="flex-1 text-sm border border-line rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+                    >
+                      <option value="free">Free</option>
+                      <option value="pending">Pending</option>
+                      <option value="standard">Standard</option>
+                      <option value="premium">Premium</option>
+                    </select>
+                    <button
+                      onClick={() => toggleExpand(user._id)}
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? "Hide details" : "Show details"}
+                      className="p-2.5 rounded-xl bg-black/5 hover:bg-black/10 text-[var(--tk-text-muted)]"
+                    >
+                      {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+                  </div>
+                </div>
+                {isExpanded && <div className="bg-black/5 border-t border-[var(--tk-border-solid)]">{renderDetails(user)}</div>}
+              </li>
+            );
+          })
+        ) : (
+          <li className="bg-white border border-[var(--tk-border-solid)] rounded-2xl px-6 py-10 text-center text-[var(--tk-text-faint)]">
+            <AlertCircle size={28} className="opacity-50 mx-auto mb-2" />
+            <p>No users found matching your criteria.</p>
+            <button onClick={() => { setSearchTerm(""); setFilter("All"); }} className="mt-2 text-sm text-accent hover:underline font-medium">
+              Clear filters
+            </button>
+          </li>
+        )}
+      </ul>
+
+      <div className="hidden md:block bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-black/[0.02] border-b border-[var(--tk-border-solid)] text-[var(--tk-text-muted)]">
@@ -479,167 +732,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                       {isExpanded && (
                         <tr className="bg-black/5 border-b-0">
                           <td colSpan="8" className="p-0">
-                            <div className="px-6 py-6 border-l-2 border-accent ml-[2px] animate-in slide-in-from-top-2 fade-in duration-300">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                
-                                <div className="space-y-4">
-                                  <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
-                                    <Sparkles size={14} /> Analytics
-                                  </h4>
-                                  <div className="flex items-center gap-6 bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)]">
-                                    <div className="flex flex-col items-center">
-                                      <ScoreCircle score={user.latestScore} />
-                                      <span className="text-xs text-[var(--tk-text-muted)] mt-2">Latest Score</span>
-                                    </div>
-                                    <div className="h-10 w-px bg-black/10" />
-                                    <div>
-                                      <div className="text-2xl font-semibold text-[var(--tk-text-primary)]">
-                                        {user.latestSkinAge !== null && user.latestSkinAge !== undefined ? user.latestSkinAge : <span className="text-[var(--tk-text-faint)] text-lg">N/A</span>}
-                                      </div>
-                                      <span className="text-xs text-[var(--tk-text-muted)]">Skin Age</span>
-                                    </div>
-                                    <div className="h-10 w-px bg-black/10" />
-                                    <div>
-                                      <div className="text-2xl font-semibold text-[var(--tk-text-primary)]">{user.simulationCount || 0}</div>
-                                      <span className="text-xs text-[var(--tk-text-muted)]">Simulations</span>
-                                    </div>
-                                  </div>
-                                  <div className="pt-2">
-                                    <button
-                                      onClick={() => handleAddExtraScans(user._id, 1)}
-                                      disabled={togglingMap[user._id]}
-                                      className="w-full flex items-center justify-center gap-2 py-2 bg-accent/10 hover:bg-accent/20 text-accent text-sm font-semibold rounded-lg transition-colors border border-accent/20 disabled:opacity-50"
-                                    >
-                                      <Plus size={16} /> Add Extra Scan
-                                    </button>
-                                  </div>
-                                  {user.isSubscribed && (
-                                    <div className="pt-2">
-                                      {refundPreview[user._id] ? (
-                                        <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
-                                          <p className="text-xs text-[var(--tk-text-muted)]">
-                                            Suggested refund (order total minus {refundPreview[user._id].scansUsed} scans + {refundPreview[user._id].simsUsed} sims used this period, at our YouCam cost):
-                                          </p>
-                                          <p className="text-lg font-semibold text-[var(--tk-text-primary)]">
-                                            ${(refundPreview[user._id].suggestedAmountCents / 100).toFixed(2)}
-                                          </p>
-                                          <div className="flex gap-2">
-                                            <button
-                                              onClick={() => handleConfirmRefund(user._id)}
-                                              disabled={togglingMap[user._id] || refundPreview[user._id].suggestedAmountCents <= 0}
-                                              className="flex-1 py-1.5 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
-                                            >
-                                              Confirm Refund
-                                            </button>
-                                            <button
-                                              onClick={() => setRefundPreview(prev => ({ ...prev, [user._id]: null }))}
-                                              className="flex-1 py-1.5 bg-black/5 hover:bg-black/10 text-[var(--tk-text-muted)] text-xs font-semibold rounded-lg transition-colors"
-                                            >
-                                              Cancel
-                                            </button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          onClick={() => handlePreviewRefund(user._id)}
-                                          disabled={togglingMap[user._id]}
-                                          className="w-full flex items-center justify-center gap-2 py-2 bg-danger/10 hover:bg-danger/15 text-danger text-sm font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
-                                        >
-                                          <Undo2 size={16} /> Issue Refund
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="pt-2">
-                                    {creditOrders[user._id] === undefined ? (
-                                      <button
-                                        onClick={() => handleLoadCreditOrders(user._id)}
-                                        disabled={creditOrdersLoading[user._id]}
-                                        className="w-full flex items-center justify-center gap-2 py-2 bg-black/5 hover:bg-black/10 text-[var(--tk-text-primary)] text-sm font-semibold rounded-lg transition-colors border border-[var(--tk-border-solid)] disabled:opacity-50"
-                                      >
-                                        <CreditCard size={16} /> {creditOrdersLoading[user._id] ? "Checking…" : "Check Credit Purchases"}
-                                      </button>
-                                    ) : creditOrders[user._id].length === 0 ? (
-                                      <p className="text-xs text-[var(--tk-text-muted)] text-center">No refundable credit purchases.</p>
-                                    ) : (
-                                      <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
-                                        <p className="text-xs text-[var(--tk-text-muted)]">Refundable credit purchases:</p>
-                                        {creditOrders[user._id].map((order) => (
-                                          <div key={order.orderId} className="flex items-center justify-between gap-2 py-1">
-                                            <div className="text-xs text-[var(--tk-text-primary)]">
-                                              <span className="font-semibold">{order.credits} credits</span> — ${(order.refundableAmountCents / 100).toFixed(2)}
-                                              <span className="block text-[var(--tk-text-faint)]">{formatDate(order.createdAt)}</span>
-                                            </div>
-                                            <button
-                                              onClick={() => handleRefundCreditOrder(user._id, order.orderId)}
-                                              disabled={creditOrdersLoading[order.orderId]}
-                                              className="shrink-0 py-1.5 px-3 bg-danger/10 hover:bg-danger/15 text-danger text-xs font-semibold rounded-lg transition-colors border border-danger/20 disabled:opacity-50"
-                                            >
-                                              Refund
-                                            </button>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                  <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
-                                    <Target size={14} /> Profile & Goals
-                                  </h4>
-                                  <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
-                                    <div>
-                                      <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Skin Goals</span>
-                                      {user.goals && user.goals.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {user.goals.map((goal, i) => (
-                                            <span key={i} className="px-2 py-0.5 rounded text-xs bg-black/5 text-[var(--tk-text-primary)] border border-black/5">
-                                              {goal}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-sm text-[var(--tk-text-faint)] italic">None specified</span>
-                                      )}
-                                    </div>
-                                    {user.customGoal && (
-                                      <div>
-                                        <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Custom Goal</span>
-                                        <p className="text-sm text-[var(--tk-text-primary)] bg-black/5 p-2 rounded-lg border border-black/5">
-                                          &quot;{user.customGoal}&quot;
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                  <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
-                                    <Calendar size={14} /> Timeline
-                                  </h4>
-                                  <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                      <span className="text-[var(--tk-text-muted)]">Birth Date</span>
-                                      <span className="text-[var(--tk-text-primary)]">{formatDate(user.birthDate)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                      <span className="text-[var(--tk-text-muted)]">Last Scan</span>
-                                      <span className="text-[var(--tk-text-primary)]">{formatDate(user.lastScan)}</span>
-                                    </div>
-                                    {user.isSubscribed && (
-                                      <div className="flex justify-between items-center text-sm pt-2 border-t border-[var(--tk-border-solid)]">
-                                        <span className="text-[#eab308] flex items-center gap-1 font-medium">
-                                          <Crown size={12} /> Subscribed Since
-                                        </span>
-                                        <span className="text-[#eab308] font-medium">{formatDate(user.subscribedAt)}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                              </div>
-                            </div>
+                            {renderDetails(user)}
                           </td>
                         </tr>
                       )}
