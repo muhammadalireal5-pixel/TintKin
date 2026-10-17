@@ -66,10 +66,7 @@ function PublicShell({ children }) {
       <header className="sticky top-0 z-50 bg-base/90 backdrop-blur border-b border-line shrink-0">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
           <Wordmark className="text-3xl sm:text-4xl" />
-          <div className="flex items-center gap-3 sm:gap-4">
-            <ThemeToggle variant="compact" />
-            <PublicActions />
-          </div>
+          <PublicActions />
         </div>
       </header>
       <main className="flex-1 flex flex-col w-full">

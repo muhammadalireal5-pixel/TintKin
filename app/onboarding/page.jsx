@@ -49,7 +49,7 @@ export default function OnboardingPage() {
         try {
             const res = await completeOnboarding(formData);
             if (res.success) {
-                router.push("/pricing");
+                router.replace("/dashboard");
             } else {
                 setError(res.error || "Something went wrong.");
                 setLoading(false);

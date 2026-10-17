@@ -1,5 +1,4 @@
 import { getLatestData, getReportStatus } from "@/app/lib/actions";
-import { redirect } from "next/navigation";
 import { RadarChartClient } from "./LazyCharts";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
@@ -7,6 +6,7 @@ import EmailVerificationBanner from "./EmailVerificationBanner";
 import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import TodayView from "./TodayView";
+import FirstScanWelcome from "./FirstScanWelcome";
 import { buildSkinSummary } from "./skin-summary";
 import { EMAIL_VERIFICATION_ENABLED } from "@/app/lib/feature-flags";
 
@@ -16,7 +16,9 @@ const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
-    if (!latestSelfie) redirect("/capture");
+    // Brand-new account: show a welcome with one clear next step (Kin adds its own
+    // prompt) instead of bouncing straight to the camera.
+    if (!latestSelfie) return <FirstScanWelcome firstName={(user?.displayName || "").trim().split(/\s+/)[0]} />;
     const reportStatus = await getReportStatus();
 
     const sourceData = latestAnalyzedSelfie || latestSelfie;
