@@ -30,7 +30,7 @@ export async function GET(request) {
     user = null;
   }
   if (!user) {
-    return NextResponse.redirect(new URL("/sign-in?next=/shop", request.url));
+    return NextResponse.redirect(new URL("/sign-in?redirect=/shop", request.url));
   }
 
   const successUrl = new URL("/shop", request.url);

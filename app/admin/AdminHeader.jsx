@@ -58,8 +58,8 @@ export default function AdminHeader({ current, email }) {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
         <div className="h-14 sm:h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Wordmark asLink={false} className="text-3xl" />
-            <span className="px-2 py-0.5 rounded-full bg-blush text-[11px] font-semibold text-muted">Admin</span>
+            <Wordmark asLink={false} className="h-9" />
+            <span className="px-2 py-0.5 rounded-full bg-blush tk-text-micro font-semibold text-muted">Admin</span>
             {email && <span className="hidden lg:inline text-xs text-muted truncate">{email}</span>}
           </div>
 

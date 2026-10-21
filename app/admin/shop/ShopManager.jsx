@@ -240,7 +240,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-[var(--tk-text-primary)]">{pack.label}</span>
                     {!pack.active && (
-                      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-black/5 text-[var(--tk-text-faint)]">Removed</span>
+                      <span className="tk-text-micro uppercase tracking-wide px-2 py-0.5 rounded-full bg-black/5 text-[var(--tk-text-faint)]">Removed</span>
                     )}
                   </div>
                   <p className="text-xs text-[var(--tk-text-muted)]">

@@ -11,7 +11,7 @@ export const metadata = {
 // Vercel's default 10s function timeout; without this, a slow provider
 // response gets killed mid-request and the quota-slot release in the catch
 // block never runs.
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export default function WhatIfLayout({ children }) {
   return <>{children}</>;

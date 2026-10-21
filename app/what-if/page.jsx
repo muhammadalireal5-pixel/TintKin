@@ -125,6 +125,14 @@ export default function WhatIfPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [simToDelete, setSimToDelete] = useState(null);
   const [quotas, setQuotas] = useState(null);
+  // canSimulate already accounts for extra simulations and credits; the raw
+  // used/limit comparison alone would block users who can still run one.
+  const simBlocked = Boolean(
+    quotas &&
+      (typeof quotas.simulations.canSimulate === "boolean"
+        ? !quotas.simulations.canSimulate
+        : quotas.simulations.used >= quotas.simulations.limit)
+  );
   const [userTier, setUserTier] = useState('free');
 
   useEffect(() => {
@@ -363,7 +371,7 @@ export default function WhatIfPage() {
             <label className="block text-xs font-semibold uppercase tracking-widest text-muted">
               Step 1: Choose Simulation Comparison Mode
             </label>
-            <span className="text-[11px] text-muted">Select how you want to evaluate formulas</span>
+            <span className="tk-text-micro text-muted">Select how you want to evaluate formulas</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -454,7 +462,7 @@ export default function WhatIfPage() {
                         {prod.type || "Product"}
                       </span>
                       {prod.isCustom && (
-                        <span className="px-2 py-0.5 bg-cocoa/10 text-cocoa text-[10px] font-bold rounded-full uppercase tracking-wider">
+                        <span className="px-2 py-0.5 bg-cocoa/10 text-cocoa tk-text-micro font-bold rounded-full uppercase tracking-wider">
                           Custom
                         </span>
                       )}
@@ -462,12 +470,12 @@ export default function WhatIfPage() {
                     {simMode === "compare" && (
                       <div className="flex gap-1">
                         {isProdA && (
-                          <span className="px-2 py-0.5 bg-accent text-white text-[10px] font-bold rounded-md shadow-sm">
+                          <span className="px-2 py-0.5 bg-accent text-white tk-text-micro font-bold rounded-md shadow-sm">
                             Option A
                           </span>
                         )}
                         {isProdB && (
-                          <span className="px-2 py-0.5 bg-cocoa text-white text-[10px] font-bold rounded-md shadow-sm">
+                          <span className="px-2 py-0.5 bg-cocoa text-white tk-text-micro font-bold rounded-md shadow-sm">
                             Option B
                           </span>
                         )}
@@ -585,7 +593,7 @@ export default function WhatIfPage() {
               <div className="flex items-center gap-1.5 mb-2">
                 <h3 className="text-base font-semibold text-primary">Add Custom Product</h3>
                 {userTier !== 'premium' && (
-                  <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-bold rounded-full uppercase tracking-wider">
+                  <span className="px-2 py-0.5 bg-accent-soft text-accent tk-text-micro font-bold rounded-full uppercase tracking-wider">
                     Pro
                   </span>
                 )}
@@ -633,10 +641,10 @@ export default function WhatIfPage() {
             <div className="flex flex-col gap-2 items-center sm:items-end w-full sm:w-auto">
               <button
                 onClick={handleRunSimulation}
-                disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
+                disabled={loading || simBlocked}
                 className={`
                   tk-pill-btn w-full sm:w-auto min-w-[210px] flex items-center justify-center gap-2 py-3 px-6 text-sm font-semibold cursor-pointer
-                  ${(loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)) ? "bg-accent/50 text-white cursor-not-allowed" : "tk-btn-primary"}
+                  ${(loading || simBlocked) ? "bg-accent/50 text-white cursor-not-allowed" : "tk-btn-primary"}
                 `}
               >
                 {loading ? (
@@ -652,8 +660,8 @@ export default function WhatIfPage() {
                 )}
               </button>
               {quotas && (
-                <div className={`text-xs font-bold px-3 py-1.5 rounded-full ${quotas.simulations.used >= quotas.simulations.limit ? 'bg-danger-soft text-danger border border-danger/20' : 'bg-accent-soft text-accent-deep border border-accent/20'}`}>
-                  {quotas.simulations.used >= quotas.simulations.limit ? 'Monthly simulation limit reached.' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
+                <div className={`text-xs font-bold px-3 py-1.5 rounded-full ${simBlocked ? 'bg-danger-soft text-danger border border-danger/20' : 'bg-accent-soft text-accent-deep border border-accent/20'}`}>
+                  {simBlocked ? 'Monthly simulation limit reached.' : `${quotas.simulations.used}/${quotas.simulations.limit} simulations used`}
                 </div>
               )}
             </div>
@@ -798,11 +806,11 @@ export default function WhatIfPage() {
 
                     return (
                       <div key={metricKey} className="tk-tile p-3.5 flex flex-col gap-1">
-                        <p className="text-[11px] font-medium text-muted leading-tight min-h-[1.75rem]">{humanLabel}</p>
+                        <p className="tk-text-micro font-medium text-muted leading-tight min-h-[1.75rem]">{humanLabel}</p>
                         <p className="text-2xl font-semibold text-primary leading-none">
                           {scoreA}<span className="text-xs font-medium text-muted"> /100</span>
                         </p>
-                        <p className="text-[11px] text-muted">vs {scoreB} without</p>
+                        <p className="tk-text-micro text-muted">vs {scoreB} without</p>
                         <span className={`tk-chip self-start mt-1 ${deltaVal > 0 ? 'tk-chip-success' : deltaVal < 0 ? 'tk-chip-danger' : ''}`}>
                           {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
                         </span>
@@ -839,7 +847,7 @@ export default function WhatIfPage() {
                   <button
                     onClick={handleConfirmSimulation}
                     disabled={isSavingPrivacy}
-                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-accent hover:bg-accent-deep transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="tk-pill-btn tk-btn-primary flex-1 sm:flex-none px-5 py-2.5 text-sm"
                   >
                     {isSavingPrivacy ? (
                       <span className="w-4 h-4 border-2 border-line border-t-white rounded-full animate-spin" />
@@ -908,7 +916,7 @@ export default function WhatIfPage() {
                   </button>
                   <p className="text-sm font-semibold text-primary mb-3 line-clamp-2 leading-snug pr-8">
                     <span className="text-accent">{sim.scenarioA?.label || sim.name?.split(" vs ")[0] || "Scenario A"}</span>
-                    <br/><span className="text-[10px] uppercase font-bold text-muted tracking-wider">vs</span><br/>
+                    <br/><span className="tk-text-micro uppercase font-bold text-muted tracking-wider">vs</span><br/>
                     <span className="text-cocoa">{sim.scenarioB?.label || sim.name?.split(" vs ")[1] || "Scenario B"}</span>
                   </p>
                   <div className="h-24 rounded-lg overflow-hidden bg-blush border border-line">
@@ -917,7 +925,7 @@ export default function WhatIfPage() {
                     ) : (
                       <div className="w-full h-full bg-surface flex flex-col items-center justify-center text-accent">
                         <Sparkles size={16} />
-                        <span className="text-[10px] font-medium mt-1 uppercase tracking-widest opacity-60">Private</span>
+                        <span className="tk-text-micro font-medium mt-1 uppercase tracking-widest opacity-60">Private</span>
                       </div>
                     )}
                   </div>
@@ -937,7 +945,7 @@ export default function WhatIfPage() {
       <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-base border-t border-line z-40 pb-safe">
         <button
           onClick={handleRunSimulation}
-          disabled={loading || (quotas && quotas.simulations.used >= quotas.simulations.limit)}
+          disabled={loading || simBlocked}
           className="tk-pill-btn tk-btn-primary w-full shadow-lg flex items-center justify-center gap-2 text-sm font-semibold py-3"
         >
           {loading ? (
@@ -999,7 +1007,7 @@ export default function WhatIfPage() {
             </div>
 
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-accent-soft text-accent">
+              <span className="tk-text-micro font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-accent-soft text-accent">
                 Pro Feature
               </span>
             </div>

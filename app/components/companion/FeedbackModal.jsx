@@ -61,14 +61,19 @@ export default function FeedbackModal() {
     if (status === "sending") return;
     setStatus("sending");
     setError("");
-    const res = await submitFeedback({
-      type,
-      rating: rating || null,
-      message,
-      page: pathname,
-      viewport: `${window.innerWidth}x${window.innerHeight}`,
-      theme: document.documentElement.dataset.theme || "rose",
-    });
+    let res;
+    try {
+      res = await submitFeedback({
+        type,
+        rating: rating || null,
+        message,
+        page: pathname,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        theme: document.documentElement.dataset.theme || "sage",
+      });
+    } catch {
+      res = null;
+    }
     if (res?.success) {
       setStatus("sent");
     } else {

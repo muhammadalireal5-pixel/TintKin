@@ -158,7 +158,7 @@ function PhonePreview() {
 
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-primary">Today&rsquo;s Plan</p>
-          <p className="text-[10px] text-muted">2 of 12 completed</p>
+          <p className="tk-text-micro text-muted">2 of 12 completed</p>
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           {PLAN.map(({ label, icon: Icon }, i) => (

@@ -525,7 +525,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-base px-4 py-4 space-y-3">
           {/* Account */}
           <div className="tk-card px-5 py-4">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted mb-3">
               Account
             </p>
             <div className="flex items-center gap-3">
@@ -604,7 +604,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <button
                     onClick={() => handleChangeTier(TIERS.PREMIUM)}
                     disabled={tierChangeState === "changing"}
-                    className="flex-1 py-1.5 px-2 rounded-full bg-accent text-white text-[11px] font-medium transition-colors disabled:opacity-50"
+                    className="flex-1 py-1.5 px-2 rounded-full bg-accent text-white tk-text-micro font-medium transition-colors disabled:opacity-50"
                   >
                     {tierChangeState === "changing" ? "Upgrading…" : "Upgrade to Pro"}
                   </button>
@@ -613,7 +613,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <button
                     onClick={() => handleChangeTier(TIERS.STANDARD)}
                     disabled={tierChangeState === "changing"}
-                    className="flex-1 py-1.5 px-2 rounded border border-line text-muted text-[11px] font-medium transition-colors hover:border-line disabled:opacity-50"
+                    className="flex-1 py-1.5 px-2 rounded border border-line text-muted tk-text-micro font-medium transition-colors hover:border-line disabled:opacity-50"
                   >
                     {tierChangeState === "changing" ? "Switching…" : "Switch to Standard"}
                   </button>
@@ -621,7 +621,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <button
                   onClick={handleManageBilling}
                   disabled={isOpeningBillingPortal}
-                  className="flex-1 py-1.5 px-2 rounded border border-line text-muted text-[11px] font-medium transition-colors hover:border-line disabled:opacity-50"
+                  className="flex-1 py-1.5 px-2 rounded border border-line text-muted tk-text-micro font-medium transition-colors hover:border-line disabled:opacity-50"
                 >
                   Manage Billing
                 </button>
@@ -634,7 +634,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleFrequencyChange(STANDARD_PACING.EVERY_OTHER_DAY)}
-                    className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
+                    className={`flex-1 py-1.5 px-2 rounded border tk-text-micro font-medium transition-colors ${
                       standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY
                         ? "bg-accent text-white border-accent"
                         : "bg-white text-muted border-line hover:border-accent/40"
@@ -644,7 +644,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   </button>
                   <button
                     onClick={() => handleFrequencyChange(STANDARD_PACING.FLEXIBLE)}
-                    className={`flex-1 py-1.5 px-2 rounded border text-[10px] font-medium transition-colors ${
+                    className={`flex-1 py-1.5 px-2 rounded border tk-text-micro font-medium transition-colors ${
                       standardPlanFrequency === STANDARD_PACING.FLEXIBLE
                         ? "bg-accent text-white border-accent"
                         : "bg-white text-muted border-line hover:border-accent/40"
@@ -662,7 +662,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <div className="tk-card px-5 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <MonitorSmartphone size={14} className="text-accent" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
+                <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
                   App
                 </p>
               </div>
@@ -675,7 +675,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   type="button"
                   onClick={handleInstallClick}
                   disabled={installing}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-deep transition-colors disabled:opacity-60"
+                  className="tk-pill-btn tk-btn-primary w-full py-2.5 text-sm"
                 >
                   <Download size={15} />
                   {installing ? "Opening install prompt…" : "Install TintKin App"}
@@ -692,7 +692,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           <div className="tk-card px-5 py-4">
             <div className="flex items-center gap-2 mb-3">
               <SlidersHorizontal size={14} className="text-accent" />
-              <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
+              <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
                 Skin Profile
               </p>
             </div>
@@ -725,7 +725,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <div className="flex items-center justify-between pt-3 border-t border-line">
               <div>
                 <p className="text-xs font-medium text-primary">Peer Comparison</p>
-                <p className="text-[11px] text-muted">Anonymous ranking with age peers</p>
+                <p className="tk-text-micro text-muted">Anonymous ranking with age peers</p>
               </div>
               <button
                 type="button"
@@ -750,7 +750,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <div className="tk-card px-5 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <Bell size={14} className="text-accent" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
+                <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
                   Notifications
                 </p>
               </div>
@@ -761,7 +761,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs font-medium text-primary">Push Notifications</p>
-                      <p className="text-[11px] text-muted">
+                      <p className="tk-text-micro text-muted">
                         {notifPermission === "denied"
                           ? "Blocked — enable in your browser settings"
                           : "Get notified right on this device"}
@@ -804,7 +804,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-accent" />
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">
+                <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
                   Location
                 </p>
               </div>
@@ -847,7 +847,7 @@ export default function SettingsModal({ isOpen, onClose }) {
               <div className="space-y-2 mt-1">
                 <button
                   onClick={handleUseGeolocation}
-                  className="w-full py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-deep transition-colors"
+                  className="tk-pill-btn tk-btn-primary w-full py-2 text-sm"
                 >
                   Use My Location
                 </button>
@@ -884,7 +884,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
           {/* Privacy & Photo Retention */}
           <div className="tk-card px-5 py-4">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted mb-3">
               Photo Privacy
             </p>
             <div className="space-y-4">
@@ -928,7 +928,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
           {/* Quick Links */}
           <div className="tk-card px-5 py-4">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-3">
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted mb-3">
               Quick Access
             </p>
             <div className="space-y-1">
@@ -990,7 +990,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <Download size={16} className="text-accent" />
                   <div>
                     <span className="text-sm font-medium text-primary">Download My Data</span>
-                    <p className="text-[11px] text-muted">GDPR / CCPA data & photos (.zip)</p>
+                    <p className="tk-text-micro text-muted">GDPR / CCPA data & photos (.zip)</p>
                   </div>
                 </div>
                 {isExporting ? (
@@ -1010,7 +1010,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   <Mail size={16} className="text-accent" />
                   <div>
                     <span className="text-sm font-medium text-primary">Email My Data</span>
-                    <p className="text-[11px] text-muted">Same export, sent to your inbox</p>
+                    <p className="tk-text-micro text-muted">Same export, sent to your inbox</p>
                   </div>
                 </div>
                 {isEmailingExport ? (
@@ -1024,7 +1024,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
           {/* Danger Zone */}
           <div className="tk-card px-5 py-4">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-danger mb-1.5">
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-danger mb-1.5">
               Danger Zone
             </p>
             <p className="text-xs text-muted mb-3">

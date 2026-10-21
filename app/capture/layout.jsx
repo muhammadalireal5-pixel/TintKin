@@ -10,7 +10,7 @@ export const metadata = {
 // longer than Vercel's default 10s function timeout; without this, a slow
 // provider response gets killed mid-request and the catch block (which
 // releases the reserved quota slot and cleans up the upload) never runs.
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export default function CaptureLayout({ children }) {
   return <>{children}</>;

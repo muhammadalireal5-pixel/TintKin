@@ -51,7 +51,7 @@ function Stars({ value }) {
 function Meta({ label, value }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] uppercase tracking-wide text-[var(--tk-text-muted)]">{label}</p>
+      <p className="tk-text-micro uppercase tracking-wide text-[var(--tk-text-muted)]">{label}</p>
       <p className="text-sm text-[var(--tk-text-primary)] break-words">{value || "—"}</p>
     </div>
   );

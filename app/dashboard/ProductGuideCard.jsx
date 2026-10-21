@@ -80,7 +80,7 @@ export default function ProductGuideCard({ type, formula, description }) {
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Clock size={12} className="text-accent" />
-                  <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">When to use it</p>
+                  <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">When to use it</p>
                 </div>
                 <p className="text-xs text-primary leading-relaxed">{guidance.when}</p>
               </div>
@@ -89,7 +89,7 @@ export default function ProductGuideCard({ type, formula, description }) {
                 <div>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <ListChecks size={12} className="text-accent" />
-                    <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">How to use it</p>
+                    <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">How to use it</p>
                   </div>
                   <ul className="space-y-1">
                     {guidance.how.map((step, i) => (
@@ -106,7 +106,7 @@ export default function ProductGuideCard({ type, formula, description }) {
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
                     <HelpCircle size={12} className="text-accent" />
-                    <p className="text-[10px] font-semibold tracking-widest uppercase text-muted">Common questions</p>
+                    <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">Common questions</p>
                   </div>
                   <div>
                     {guidance.faqs.map((faq, i) => (

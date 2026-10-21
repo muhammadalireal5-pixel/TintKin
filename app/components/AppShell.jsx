@@ -35,7 +35,7 @@ function ReportBell({ ready }) {
     >
       <Bell size={18} />
       {ready && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-base">
+        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white tk-text-micro font-bold flex items-center justify-center ring-2 ring-base">
           1
         </span>
       )}
@@ -65,7 +65,7 @@ function PublicShell({ children }) {
     <>
       <header className="sticky top-0 z-50 bg-base/90 backdrop-blur border-b border-line shrink-0">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
-          <Wordmark className="text-3xl sm:text-4xl" />
+          <Wordmark className="h-9 sm:h-11" />
           <PublicActions />
         </div>
       </header>
@@ -75,7 +75,7 @@ function PublicShell({ children }) {
       <footer className="mt-auto border-t border-line bg-base shrink-0">
         <div className="max-w-7xl mx-auto px-5 py-8 sm:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Wordmark className="text-2xl" asLink={false} />
+            <Wordmark className="h-8" asLink={false} />
             <span className="text-sm text-muted">© {new Date().getFullYear()} All rights reserved.</span>
           </div>
           <div className="flex items-center gap-6">
@@ -99,7 +99,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
       aria-label="Primary"
     >
       <div className="px-2">
-        <Wordmark href="/dashboard" className="text-4xl" />
+        <Wordmark href="/dashboard" className="h-12" />
       </div>
 
       <Link href="/capture" className="tk-pill-btn tk-btn-primary mt-7 w-full py-3.5 text-[15px]">
@@ -166,7 +166,7 @@ function TopBar({ user, reportReady, focus }) {
     <header className="sticky top-0 z-30 bg-base/85 backdrop-blur-md md:bg-transparent md:backdrop-blur-none">
       <div className="h-16 px-5 md:px-8 flex items-center justify-between gap-3">
         <div className={focus ? "" : "md:hidden"}>
-          <Wordmark href="/dashboard" className="text-[2rem]" />
+          <Wordmark href="/dashboard" className="h-10" />
         </div>
         {!focus && (
           <div className="flex items-center gap-2.5 ml-auto">
@@ -199,7 +199,7 @@ function BottomNav() {
       >
         <motion.span whileTap={{ scale: 0.88 }} className={`flex flex-col items-center gap-1 ${active ? "text-accent" : "text-muted"}`}>
           <Icon size={22} strokeWidth={active ? 2.3 : 1.8} />
-          <span className={`text-[11px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{label}</span>
+          <span className={`tk-text-micro leading-none ${active ? "font-semibold" : "font-medium"}`}>{label}</span>
         </motion.span>
       </Link>
     );

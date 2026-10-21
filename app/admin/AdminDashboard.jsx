@@ -589,15 +589,15 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
 
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-xl bg-black/[0.03] py-2">
-                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Scans</dt>
+                      <dt className="tk-text-micro text-[var(--tk-text-muted)]">Scans</dt>
                       <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{user.scanCount || 0}</dd>
                     </div>
                     <div className="rounded-xl bg-black/[0.03] py-2">
-                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Last active</dt>
+                      <dt className="tk-text-micro text-[var(--tk-text-muted)]">Last active</dt>
                       <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{formatRelativeTime(user.lastSignInAt || user.lastScan)}</dd>
                     </div>
                     <div className="rounded-xl bg-black/[0.03] py-2">
-                      <dt className="text-[11px] text-[var(--tk-text-muted)]">Joined</dt>
+                      <dt className="tk-text-micro text-[var(--tk-text-muted)]">Joined</dt>
                       <dd className="text-sm font-semibold text-[var(--tk-text-primary)]">{formatDate(user.createdAt)}</dd>
                     </div>
                   </dl>

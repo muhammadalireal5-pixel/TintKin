@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X, Camera, Sparkles, FileText, Trophy, ShoppingBag, Crown, Lightbulb, MessageSquareHeart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,7 @@ import { useAuthContext } from "@/app/context/AuthContext";
 import { getCompanionState } from "@/app/lib/actions";
 import { useCompanionPrefs, updateCompanionPrefs, isQuietNow } from "./store";
 import { pickMessage, nextTip, dayKeyNow, TOURS, pageGreeting } from "./brain";
+import { getPushAskStatus, enablePush } from "./push-client";
 import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
 
@@ -95,6 +96,7 @@ export default function Companion() {
   const prefs = useCompanionPrefs();
 
   const [state, setState] = useState(null);
+  const [pushCanAsk, setPushCanAsk] = useState(false);
   const [bubble, setBubble] = useState(null); // { id, text, cta?, tour? }
   const [tour, setTour] = useState(null); // { key, step }
   const [pos, setPos] = useState(null);
@@ -142,6 +144,21 @@ export default function Companion() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [visible, pathname, load]);
+
+  // Offer reminders at most 3 times, at least 4 days apart, only after the
+  // first scan, and only where the browser can actually do push.
+  const scanned = (state?.scanCount || 0) > 0;
+  useEffect(() => {
+    if (!visible || !scanned) return;
+    getPushAskStatus().then((s) => setPushCanAsk(s.canAsk));
+  }, [visible, scanned]);
+
+  const askState = useMemo(() => {
+    if (!state) return state;
+    const ask = prefs.pushAsk;
+    const gapDays = ask?.last ? (Date.parse(dayKeyNow()) - Date.parse(ask.last)) / 86400000 : Infinity;
+    return { ...state, pushAskDue: pushCanAsk && (ask?.count || 0) < 3 && gapDays >= 4 };
+  }, [state, pushCanAsk, prefs.pushAsk]);
 
   /* ── lottie ───────────────────────────────────────────────────────── */
   const play = useCallback(() => {
@@ -262,6 +279,9 @@ export default function Companion() {
     if (!msg.tour) {
       updateCompanionPrefs((p) => ({ seen: { ...p.seen, [msg.id]: dayKeyNow() } }));
     }
+    if (msg.id === "push-ask") {
+      updateCompanionPrefs((p) => ({ pushAsk: { count: (p.pushAsk?.count || 0) + 1, last: dayKeyNow() } }));
+    }
   }, [play]);
 
   useEffect(() => {
@@ -270,7 +290,7 @@ export default function Companion() {
       // Unprompted nudges respect quiet hours; the first-scan offer and tours are exempt.
       const quiet = isQuietNow(live.current.prefs);
       const msg = pickMessage({
-        state,
+        state: askState,
         pathname,
         hour: new Date().getHours(),
         seen: prefs.seen,
@@ -379,7 +399,7 @@ export default function Companion() {
 
   const showTip = () => {
     const msg = state
-      ? pickMessage({ state, pathname, hour: new Date().getHours(), seen: prefs.seen, tours: prefs.tours, today: dayKeyNow() })
+      ? pickMessage({ state: askState, pathname, hour: new Date().getHours(), seen: prefs.seen, tours: prefs.tours, today: dayKeyNow() })
       : null;
     if (msg) {
       show(msg);
@@ -554,7 +574,18 @@ export default function Companion() {
               {bubble?.cta ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    if (bubble.cta.action === "enable-push") {
+                      setBubble(null);
+                      const result = await enablePush();
+                      setPushCanAsk(false);
+                      if (result === "enabled") say("Lovely! I'll send a gentle nudge now and then.", true);
+                      else if (result === "denied") {
+                        updateCompanionPrefs({ pushAsk: { count: 3, last: dayKeyNow() } });
+                        say("No problem. You can turn reminders on in Settings anytime.", true);
+                      }
+                      return;
+                    }
                     router.push(bubble.cta.href);
                     setBubble(null);
                   }}

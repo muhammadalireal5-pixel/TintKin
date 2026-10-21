@@ -178,7 +178,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
                 tintkin
               </span>
             </div>
-            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-[#EFDCDC] shadow-sm text-[10px] font-bold tracking-widest uppercase text-primary mb-1">
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white border border-[#EFDCDC] shadow-sm tk-text-micro font-bold tracking-widest uppercase text-primary mb-1">
               <Sparkles size={11} className="text-accent" />
               <span>Skin Longevity Journal</span>
             </div>
@@ -189,7 +189,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
 
           {/* Core Score Hero Pill */}
           <div className="bg-white p-6 rounded-3xl border border-[#EFDCDC] shadow-lg text-center mx-1">
-            <p className="text-[11px] font-semibold tracking-widest uppercase text-muted mb-1">Overall Skin Health</p>
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted mb-1">Overall Skin Health</p>
             <div className="flex items-baseline justify-center gap-2">
               <span className="text-6xl sm:text-7xl font-semibold text-primary leading-none tracking-tight">
                 {hasValidScore ? overallScore : "—"}
@@ -201,16 +201,16 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
           {/* Real Age vs Skin Age */}
           <div className="grid grid-cols-2 gap-3 mx-1">
             <div className="bg-white p-4 rounded-2xl border border-[#EFDCDC] shadow-sm">
-              <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Real Age</p>
+              <p className="tk-text-micro uppercase tracking-widest text-muted font-semibold mb-1">Real Age</p>
               <p className="text-2xl font-semibold text-primary leading-tight">{hasRealAge ? realAge : "—"}</p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-[#EFDCDC] shadow-sm relative overflow-hidden">
-              <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-1">Skin Age</p>
+              <p className="tk-text-micro uppercase tracking-widest text-muted font-semibold mb-1">Skin Age</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-2xl font-semibold text-primary leading-tight">{hasSkinAge ? skinAge : "—"}</p>
                 {hasBothAges && ageDelta > 0 && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                    className={`tk-text-micro px-1.5 py-0.5 rounded-full font-bold ${
                       skinYounger ? "bg-success-soft text-success" : "bg-accent-soft text-accent-deep"
                     }`}
                   >
@@ -253,7 +253,7 @@ export default function ShareCard({ scores, overallScore, skinAge, realAge, user
 
           {/* Watermark Footer */}
           <div className="pt-2 pb-1 px-2 flex items-center justify-between text-cocoa">
-            <span className="text-[11px] font-medium tracking-wide">Track your skin journey</span>
+            <span className="tk-text-micro font-medium tracking-wide">Track your skin journey</span>
             <span className="text-xs font-bold tracking-wider underline decoration-[#B5546A]/40">tintkin.com</span>
           </div>
         </div>

@@ -264,7 +264,7 @@ export default function PricingClient({ demoMode = false }) {
                                 className="w-full text-left p-4 rounded-2xl border-2 border-accent bg-accent-soft/50 hover:bg-accent-soft transition-colors relative group"
                             >
                                 <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2">
-                                    <span className="bg-accent text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                    <span className="bg-accent text-white tk-text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
                                         Recommended
                                     </span>
                                 </div>

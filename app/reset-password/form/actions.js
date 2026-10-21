@@ -84,7 +84,7 @@ export async function submitNewPassword(newPassword) {
     );
 
     // Clear the session cookie after successful use
-    cookieStore.delete("reset-session");
+    cookieStore.delete({ name: "reset-session", path: "/reset-password/form" });
 
     return { success: true };
   } catch (error) {

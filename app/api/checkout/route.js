@@ -30,7 +30,7 @@ export async function GET(request) {
     user = null;
   }
   if (!user) {
-    return NextResponse.redirect(new URL("/sign-in?next=/pricing", request.url));
+    return NextResponse.redirect(new URL("/sign-in?redirect=/pricing", request.url));
   }
 
   // external_customer_id ties the Polar customer back to our Mongo user, so

@@ -21,7 +21,7 @@ export async function GET(request) {
     user = null;
   }
   if (!user) {
-    return NextResponse.redirect(new URL("/sign-in?next=/dashboard", request.url));
+    return NextResponse.redirect(new URL("/sign-in?redirect=/dashboard", request.url));
   }
 
   const returnUrl = new URL("/dashboard", request.url).toString();

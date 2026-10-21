@@ -106,6 +106,16 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
     return { id: "tour-offer-today", text: TOURS.today.offer, tour: "today" };
   }
 
+  // Once, right after the first scan, on the home screen: offer gentle
+  // reminders. The browser's own permission prompt only appears if they say yes.
+  if (pathname === "/dashboard" && state.pushAskDue && !done("push-ask")) {
+    return {
+      id: "push-ask",
+      text: "Want a gentle nudge now and then? I can remind you about your scan and routine. Only a couple a day, never spammy.",
+      cta: { label: "Yes, remind me", action: "enable-push" },
+    };
+  }
+
   const routinesDone =
     state.am.total + state.pm.total > 0 &&
     state.am.done >= state.am.total &&

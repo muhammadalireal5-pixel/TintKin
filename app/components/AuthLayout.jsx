@@ -15,7 +15,7 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
     <div className="flex-1 flex items-start sm:items-center justify-center px-5 py-6 sm:py-10">
       <div className="w-full max-w-md lg:max-w-4xl tk-card overflow-hidden lg:grid lg:grid-cols-2">
         <aside className="hidden lg:flex flex-col justify-between bg-accent-soft p-10">
-          <Wordmark className="text-4xl" />
+          <Wordmark className="h-14" />
           <div>
             <h2 className="text-3xl font-semibold text-primary leading-tight mb-3">
               Your skin, understood.

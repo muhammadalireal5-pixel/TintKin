@@ -53,17 +53,18 @@ export async function subscribeToPush(subscription) {
 }
 
 export async function unsubscribeFromPush(endpoint) {
-  if (!endpoint) return { success: false, error: "Invalid subscription." };
+  if (!endpoint || typeof endpoint !== "string") return { success: false, error: "Invalid subscription." };
 
+  let decoded;
   try {
-    await getAuthenticatedUser();
+    decoded = await getAuthenticatedUser();
   } catch {
     return { success: false, error: "Unauthorized" };
   }
 
   try {
     await connectDb();
-    await PushSubscription.deleteOne({ endpoint });
+    await PushSubscription.deleteOne({ endpoint, userId: decoded.uid });
     return { success: true };
   } catch (err) {
     Sentry.captureException(err, { tags: { scope: "push-unsubscribe" } });
@@ -72,11 +73,11 @@ export async function unsubscribeFromPush(endpoint) {
 }
 
 export async function getPushSubscriptionStatus(endpoint) {
-  if (!endpoint) return { subscribed: false };
+  if (!endpoint || typeof endpoint !== "string") return { subscribed: false };
   try {
-    await getAuthenticatedUser();
+    const decoded = await getAuthenticatedUser();
     await connectDb();
-    const sub = await PushSubscription.findOne({ endpoint }).select("_id");
+    const sub = await PushSubscription.findOne({ endpoint, userId: decoded.uid }).select("_id");
     return { subscribed: Boolean(sub) };
   } catch {
     return { subscribed: false };
@@ -129,29 +130,8 @@ export async function sendTestNotification() {
   }
 }
 
-/**
- * Sends a notification to every device a given user has subscribed on.
- * Server-side only helper for future use (e.g. "your analysis is ready") —
- * not called from anywhere yet. Silently no-ops if push isn't configured or
- * the user has no subscriptions.
- */
-export async function sendPushNotificationToUser(userId, { title, body, url = "/" }) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
-
-  await connectDb();
-  const subs = await PushSubscription.find({ userId });
-  if (subs.length === 0) return;
-
-  const payload = JSON.stringify({ title, body, url });
-  await Promise.all(
-    subs.map((sub) =>
-      webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload).catch(async (err) => {
-        if (isGoneError(err)) {
-          await PushSubscription.deleteOne({ _id: sub._id });
-        } else {
-          Sentry.captureException(err, { tags: { scope: "push-send" } });
-        }
-      })
-    )
-  );
-}
+// Do NOT add a "send a notification to userId X" function to this file. Every
+// export of a "use server" file is a public endpoint any client can call with
+// arbitrary arguments, so a userId-taking sender would let anyone push
+// notifications to any user. If server-side sending is needed later, put it in
+// a separate module without "use server" (and import it only from server code).

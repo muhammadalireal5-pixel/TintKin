@@ -323,16 +323,16 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                             </div>
 
                             {!loading && (
-                                <div className="preview-actions flex flex-wrap sm:flex-nowrap gap-2 mt-5 w-full">
+                                <div className="preview-actions flex gap-2 mt-4 w-full">
                                     <button
-                                        className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm"
+                                        className="cta-btn cta-secondary flex-1 justify-center text-sm"
                                         onClick={() => setIsFlipped(!isFlipped)}
                                         title="Mirror photo"
                                     >
                                         Flip <FlipHorizontal size={16} className="ml-1" />
                                     </button>
                                     <button
-                                        className="cta-btn cta-secondary flex-1 justify-center min-w-[80px] text-xs sm:text-sm"
+                                        className="cta-btn cta-secondary flex-1 justify-center text-sm"
                                         onClick={() => setIsCropping(true)}
                                         title="Adjust face framing"
                                     >
@@ -486,9 +486,9 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     </div>
 
                     <p className="tk-eyebrow mt-5 mb-3">For the best scan</p>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="capture-tips">
                         {tips.map(({ icon: Icon, title, body }) => (
-                            <div key={title} className="tk-tile p-3.5">
+                            <div key={title} className="tk-tile p-3.5 capture-tip">
                                 <span className="tk-icon-circle w-9 h-9 mb-2.5">
                                     <Icon size={17} strokeWidth={2} />
                                 </span>
@@ -528,6 +528,42 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     .capture-side { position: sticky; top: 1.5rem; }
                 }
 
+                .capture-tips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+                /* On phones the tips become a swipeable row so they don't push the page long */
+                @media (max-width: 1023px) {
+                    .capture-tips {
+                        display: flex;
+                        overflow-x: auto;
+                        scroll-snap-type: x mandatory;
+                        margin-inline: -1.25rem;
+                        padding-inline: 1.25rem;
+                        padding-bottom: 0.25rem;
+                        scrollbar-width: none;
+                    }
+                    .capture-tips::-webkit-scrollbar { display: none; }
+                    .capture-tip { flex: 0 0 72%; max-width: 16rem; scroll-snap-align: start; }
+                }
+                @media (min-width: 640px) and (max-width: 1023px) {
+                    .capture-tips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; margin-inline: 0; padding-inline: 0; }
+                    .capture-tip { flex: none; max-width: none; }
+                }
+
+                /* Keep Analyze reachable above the bottom nav on phones */
+                @media (max-width: 767px) {
+                    .preview-actions {
+                        position: sticky;
+                        bottom: calc(var(--tk-nav-h) + 12px + env(safe-area-inset-bottom, 0px));
+                        z-index: 20;
+                        padding: 0.5rem;
+                        margin-inline: -0.5rem;
+                        border-radius: 1.5rem;
+                        background: color-mix(in srgb, var(--tk-surface-card) 92%, transparent);
+                        backdrop-filter: blur(10px);
+                    }
+                    .camera-frame { max-height: 46svh; }
+                    .capture-page { padding-top: 0.75rem; }
+                }
+
                 .capture-card {
                     position: relative;
                     width: 100%;
@@ -549,7 +585,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     width: 100%;
                     max-width: 420px;
                     aspect-ratio: 4 / 5;
-                    max-height: 52vh;
+                    max-height: 52svh;
                     border-radius: 1.75rem;
                     background: linear-gradient(160deg, var(--tk-accent-soft) 0%, var(--tk-blush) 55%, var(--tk-bg) 100%);
                     border: 1px solid var(--tk-border-solid);
@@ -600,6 +636,8 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                 .upload-pill:disabled { opacity: 0.5; pointer-events: none; }
 
                 .cta-btn {
+                    min-height: 3rem;
+                    justify-content: center;
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
@@ -660,7 +698,8 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                 .preview-wrap {
                     position: relative;
                     width: 100%;
-                    max-width: 360px;
+                    /* Leave room on short phones so the Analyze bar stays in view */
+                    max-width: min(360px, calc(50svh * 0.8));
                     aspect-ratio: 4 / 5;
                     margin: 0 auto 1.25rem;
                     border-radius: 1.75rem;
