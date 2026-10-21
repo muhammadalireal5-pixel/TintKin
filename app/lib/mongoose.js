@@ -163,6 +163,9 @@ const UserSchema = new mongoose.Schema({
     streakFreezeWeek: { type: String, default: null },
     activeDays: { type: Number, default: 0 },
     lastRoutineDayKey: { type: String, default: null },
+    // Day key of the last morning/evening push reminder sent (api/cron/reminders).
+    lastPushAm: { type: String, default: null },
+    lastPushPm: { type: String, default: null },
     routineDays: { type: Number, default: 0 },
     badges: [{ type: String }],
     optInComparison: { type: Boolean, default: false },

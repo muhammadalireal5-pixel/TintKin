@@ -67,12 +67,14 @@ self.addEventListener("push", (event) => {
     return;
   }
 
-  const { title, body, url, icon, badge } = payload;
+  const { title, body, url, icon, badge, tag } = payload;
   event.waitUntil(
     self.registration.showNotification(title || "TintKin", {
       body,
       icon: icon || "/icon-192.png",
       badge: badge || "/icon-192.png",
+      // Same tag replaces an earlier reminder instead of stacking.
+      ...(tag ? { tag } : {}),
       data: { url: url || "/" },
     })
   );
