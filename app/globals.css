@@ -86,8 +86,53 @@
   --font-wordmark: var(--font-playfair, 'Playfair Display', serif);
 }
 
+/* ── Default theme: sage & cream (matches the logo) ───────────────────────
+   Navy ink + sage green on warm cream. layout.js always sets data-theme, so
+   this is what new visitors see; rose clay (the :root block above) and
+   terracotta are opt-in from Profile > Appearance. */
+html[data-theme="sage"] {
+  --color-base: #FDFBF7;
+  --color-cream: #FDFBF7;
+  --color-surface: #FFFFFF;
+  --color-blush: #F0EFE3;
+  --color-line: #E8E6DA;
+  --color-primary: #2C3E50;
+  --color-cocoa: #2C3E50;
+  --color-muted: #5B6D7F;
+  --color-faint: #8E9BAA;
+  --color-accent: #667640;
+  --color-accent-deep: #52602F;
+  --color-accent-soft: #E7EBD6;
+  --color-lavender: #F0EFE3;
+  --color-sage: #8A9A5B;
+
+  --tk-bg: #FDFBF7;
+  --tk-bg-top: #F1F1E2;
+  --tk-text-primary: #2C3E50;
+  --tk-text-muted: #5B6D7F;
+  --tk-text-faint: #8E9BAA;
+  --tk-accent: #667640;
+  --tk-accent-deep: #52602F;
+  --tk-accent-soft: #E7EBD6;
+  --tk-cocoa: #2C3E50;
+  --tk-blush: #F0EFE3;
+  --tk-accent-lavender: #F0EFE3;
+  --tk-accent-sage: #8A9A5B;
+  --tk-accent-peach: #EEF0DC;
+  --tk-surface-card: #FFFFFF;
+  --tk-border-solid: #E8E6DA;
+  --tk-border-glass: #E8E6DA;
+  --tk-accent-rgb: 102 118 64;
+  --tk-ink-rgb: 44 62 80;
+  --tk-border-strong: #DAD7C6;
+  --tk-soft-hover: #D9DFC0;
+  --tk-cocoa-deep: #1F2D3B;
+  --tk-scroll: #D5D8C6;
+  --tk-page-bg: linear-gradient(180deg, #F1F1E2 0%, #FDFBF7 320px, #FDFBF7 100%);
+}
+
 /* ── Alternate theme: terracotta (warm brown) ─────────────────────────────
-   Default (no attribute) is rose clay. <html data-theme="terracotta"> swaps
+   Without an attribute the palette falls back to rose clay. <html data-theme="terracotta"> swaps
    every colour token; components never hard-code the palette, so nothing else
    changes. Add another theme by copying this block. */
 html[data-theme="terracotta"] {
@@ -257,7 +302,7 @@ h1, h2, h3, h4, h5, h6 {
   padding-inline: 1.25rem;
 }
 @media (min-width: 768px) { .tk-container { padding-inline: 2rem; } }
-@media (min-width: 1280px) { .tk-container { padding-inline: 2.5rem; } }
+@media (min-width: 1280px) { .tk-container { padding-inline: 2.5rem; max-width: 80rem; } }
 
 /* ── Surfaces ──────────────────────────────────────────────────────────── */
 /* .tk-glass is kept as an alias so older markup picks up the same look. */
@@ -298,6 +343,13 @@ h1, h2, h3, h4, h5, h6 {
     text-transform: uppercase;
     color: var(--tk-text-muted);
   }
+  /* Type scale for small text. Use these instead of text-[10px] / text-[11px].
+     caption: helper text, timestamps, chip labels (12px)
+     micro:   badges and dense labels, never body copy (11px) */
+  .tk-text-caption { font-size: 0.75rem; line-height: 1.1rem; }
+  .tk-text-micro { font-size: 0.6875rem; line-height: 1rem; }
+  /* Radius scale: inputs/chips rounded-lg, tiles rounded-xl, cards rounded-2xl,
+     modals/sheets rounded-3xl, buttons rounded-full. */
   .tk-section-title {
     font-size: 1.0625rem;
     font-weight: 600;

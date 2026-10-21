@@ -7,12 +7,13 @@ import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback"
 import { ProgressChart, RadarChartClient } from "@/app/dashboard/LazyCharts";
 import TrophyCase from "@/app/dashboard/TrophyCase";
 import LeaderboardCard from "@/app/dashboard/LeaderboardCard";
+import YouVsYouCard from "@/app/dashboard/YouVsYouCard";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
     title: "Your Progress",
-    description: "Track your skin score over time, your streak and trophies.",
+    description: "Track your skin score over time, your streak and milestones.",
     robots: { index: false, follow: false },
 };
 
@@ -26,13 +27,13 @@ function Stat({ label, value, sub, icon: Icon }) {
                 <p className="text-xs font-medium">{label}</p>
             </div>
             <p className="mt-1.5 text-2xl sm:text-3xl font-semibold text-primary tabular-nums leading-none">{value}</p>
-            {sub && <p className="mt-1.5 text-[11px] text-muted">{sub}</p>}
+            {sub && <p className="mt-1.5 tk-text-micro text-muted">{sub}</p>}
         </div>
     );
 }
 
 export default async function ProgressPage() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, habitConsistency, achievements, achievementStats } = await getLatestData(null, { selfieLimit: SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, habitConsistency, achievements, achievementStats, activity } = await getLatestData(null, { selfieLimit: SELFIE_LIMIT });
     if (!latestSelfie) redirect("/capture");
 
     const source = latestAnalyzedSelfie || latestSelfie;
@@ -57,7 +58,7 @@ export default async function ProgressPage() {
                     icon={Flame}
                     label="Streak"
                     value={`${user?.currentStreak || 0}d`}
-                    sub={user?.currentStreak > 0 ? "Keep it going" : "Scan to start one"}
+                    sub={user?.currentStreak > 0 ? (user?.longestStreak > user.currentStreak ? `Longest: ${user.longestStreak}d` : "Keep it going") : user?.longestStreak > 0 ? `Welcome back. Longest: ${user.longestStreak}d` : "Scan or tick a step to start"}
                 />
                 <Stat
                     icon={CalendarCheck}
@@ -104,8 +105,12 @@ export default async function ProgressPage() {
                 </section>
             </div>
 
+            <section className="mt-8 max-w-xl">
+                <YouVsYouCard activity={activity} longestStreak={user?.longestStreak || 0} />
+            </section>
+
             <section className="mt-8">
-                <h2 className="text-xl font-semibold text-primary mb-3">Trophies</h2>
+                <h2 className="text-xl font-semibold text-primary mb-3">Milestones</h2>
                 <TrophyCase
                     badges={user?.badges}
                     achievements={achievements}
@@ -118,7 +123,7 @@ export default async function ProgressPage() {
                 <div className="flex items-end justify-between mb-3">
                     <h2 className="text-xl font-semibold text-primary">Community</h2>
                     <Link href="/leaderboard" className="inline-flex items-center gap-0.5 text-sm font-semibold text-accent hover:text-accent-deep">
-                        Full leaderboard <ChevronRight size={15} />
+                        Full board <ChevronRight size={15} />
                     </Link>
                 </div>
                 <div className="max-w-xl">

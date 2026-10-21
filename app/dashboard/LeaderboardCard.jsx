@@ -37,7 +37,11 @@ export default function LeaderboardCard() {
     getLeaderboard(activeScope)
       .then((res) => {
         if (isCurrent) {
-          setData(res);
+          if (res?.success === false) {
+            setError(true);
+          } else {
+            setData(res);
+          }
           setLoading(false);
         }
       })
@@ -68,12 +72,12 @@ export default function LeaderboardCard() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <Trophy size={13} className="text-accent" />
-            <p className="text-[11px] font-semibold tracking-widest uppercase text-muted">
+            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
               Community Board
             </p>
           </div>
           {data?.userCount > 0 && !data.needsLocation && (
-            <span className="text-[10px] font-medium text-accent-deep bg-accent-soft px-2 py-0.5 rounded-full">
+            <span className="tk-text-micro font-medium text-accent-deep bg-accent-soft px-2 py-0.5 rounded-full">
               {data.userCount} {data.userCount === 1 ? "member" : "members"}
             </span>
           )}
@@ -89,7 +93,7 @@ export default function LeaderboardCard() {
                 type="button"
                 onClick={() => setActiveScope(id)}
                 aria-selected={isActive}
-                className="tk-segmented-item flex-1 flex items-center justify-center gap-1 !text-[11px]"
+                className="tk-segmented-item flex-1 flex items-center justify-center gap-1 !tk-text-micro"
               >
                 <Icon size={12} />
                 <span>{label}</span>
@@ -100,8 +104,8 @@ export default function LeaderboardCard() {
 
         {/* Scope Context Label */}
         {data?.activeScopeLabel && !data.needsLocation && (
-          <p className="text-[10px] text-muted mb-1 text-left truncate">
-            Leaderboard for{" "}
+          <p className="tk-text-micro text-muted mb-1 text-left truncate">
+            Days of care this month in{" "}
             <span className="font-semibold text-primary">{data.activeScopeLabel}</span>
           </p>
         )}
@@ -112,7 +116,7 @@ export default function LeaderboardCard() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-6 gap-2">
             <Loader2 size={20} className="animate-spin text-accent" />
-            <p className="text-xs text-muted">Loading rankings…</p>
+            <p className="text-xs text-muted">Loading the board…</p>
           </div>
         ) : error ? (
           <div className="text-center py-4 px-3">
@@ -144,10 +148,10 @@ export default function LeaderboardCard() {
               <Sparkles size={16} />
             </div>
             <p className="text-xs font-medium text-primary mb-1">
-              Be the First!
+              Be the first!
             </p>
             <p className="text-xs text-muted leading-relaxed">
-              No scans recorded for {data?.activeScopeLabel || "this area"} yet. Take today&apos;s scan to claim the #1 spot.
+              No one in {data?.activeScopeLabel || "this area"} has logged a day of care this month yet.
             </p>
           </div>
         ) : (
@@ -170,7 +174,7 @@ export default function LeaderboardCard() {
                   <div className="flex items-center gap-2 min-w-0">
                     {/* Rank Badge */}
                     <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold ${
+                      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 tk-text-micro font-bold ${
                         isRank1
                           ? "bg-accent text-white"
                           : isRank2
@@ -209,7 +213,7 @@ export default function LeaderboardCard() {
                           {entry.displayName}
                         </span>
                         {entry.isMe && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent text-white font-semibold shrink-0">
+                          <span className="tk-text-micro px-1.5 py-0.2 rounded-full bg-accent text-white font-semibold shrink-0">
                             You
                           </span>
                         )}
@@ -220,13 +224,13 @@ export default function LeaderboardCard() {
                   {/* Right: Streak & Overall Score */}
                   <div className="flex items-center gap-2 shrink-0">
                     {entry.streak > 0 && (
-                      <span className="flex items-center gap-0.5 text-[11px] text-muted" title={`${entry.streak} day streak`}>
+                      <span className="flex items-center gap-0.5 tk-text-micro text-muted" title={`${entry.streak} day streak`}>
                         <Flame size={12} className="text-accent fill-accent/20" />
                         {entry.streak}d
                       </span>
                     )}
                     <span className="font-semibold text-xs px-2 py-0.5 rounded-full bg-blush text-primary">
-                      {entry.overallScore}
+                      {entry.daysActive}d
                     </span>
                   </div>
                 </div>
@@ -237,10 +241,10 @@ export default function LeaderboardCard() {
       </div>
 
       {/* Pinned Footer */}
-      <div className="shrink-0 mt-2 pt-2 border-t border-line flex items-center justify-between text-[11px] text-muted">
+      <div className="shrink-0 mt-2 pt-2 border-t border-line flex items-center justify-between tk-text-micro text-muted">
         {data?.myRank ? (
           <span>
-            Standing: <span className="font-semibold text-primary">#{data.myRank} of {data.userCount}</span>
+            You: <span className="font-semibold text-primary">{data.entries?.find((e) => e.isMe)?.daysActive ?? 0} days this month</span>
           </span>
         ) : (
           <span>Community Board</span>

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievementStats } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievementStats, activity, newlyUnlockedTitles } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     // Brand-new account: show a welcome with one clear next step (Kin adds its own
     // prompt) instead of bouncing straight to the camera.
     if (!latestSelfie) return <FirstScanWelcome firstName={(user?.displayName || "").trim().split(/\s+/)[0]} />;
@@ -31,6 +31,8 @@ async function DashboardContent() {
         weeklyAverage,
         todayRoutineLog,
         achievementStats,
+        activity,
+        newlyUnlockedTitles,
         reportReady: Boolean(reportStatus?.ready),
     });
 

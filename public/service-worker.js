@@ -1,4 +1,4 @@
-const STATIC_CACHE = "tintkin-static-v1";
+const STATIC_CACHE = "tintkin-static-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -18,8 +18,13 @@ self.addEventListener("activate", (event) => {
 // Only hashed, immutable build assets and local icons are cached here — every
 // page in this app is personalized, so API routes, server actions and page
 // navigations must always go to the network and are never cached.
+// Never on localhost: dev chunk names are not content-hashed, so cache-first
+// kept serving old CSS/JS (a stale stylesheet made theme changes do nothing).
+const IS_LOCAL = ["localhost", "127.0.0.1"].includes(self.location.hostname);
+
 function isCacheableAsset(url) {
   return (
+    !IS_LOCAL &&
     url.origin === self.location.origin &&
     (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icon-"))
   );

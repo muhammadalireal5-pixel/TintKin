@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { getLeaderboard } from "@/app/lib/actions";
+import { useSettings } from "@/app/context/SettingsContext";
 import {
   ChevronLeft,
   Trophy,
@@ -28,6 +29,7 @@ const SCOPES = [
 
 export default function LeaderboardClient({ initialScope, initialDataPromise }) {
   const router = useRouter();
+  const { openSettings } = useSettings();
   const [activeScope, setActiveScope] = useState(initialScope);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,12 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
         if (latestScopeRef.current !== scope) return;
         if (res?.redirectTo) {
           router.push(res.redirectTo);
+          return;
+        }
+        // getLeaderboard returns { success: false } on failure instead of throwing.
+        if (res?.success === false) {
+          setError(true);
+          setLoading(false);
           return;
         }
         setData(res);
@@ -81,6 +89,11 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
         if (cancelled || latestScopeRef.current !== initialScope) return;
         if (res?.redirectTo) {
           router.push(res.redirectTo);
+          return;
+        }
+        if (res?.success === false) {
+          setError(true);
+          setLoading(false);
           return;
         }
         setData(res);
@@ -121,11 +134,11 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                 <Trophy size={15} />
               </span>
               <h1 className="text-2xl sm:text-3xl font-semibold text-primary truncate">
-                Community Leaderboard
+                Community Board
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-muted">
-              Compare your skin harmony score and consistency streak locally, nationally, and worldwide.
+              See who has been showing up this month. Ranked by days of care, never by skin score.
             </p>
           </div>
         </div>
@@ -179,9 +192,9 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                 #{myEntry.rank}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-accent-deep">Your Standing</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-accent-deep">Your month so far</p>
                 <p className="text-sm font-medium text-primary">
-                  You are ranked <span className="font-bold">#{myEntry.rank}</span> out of {data?.userCount} {activeScope} members
+                  <span className="font-bold">{myEntry.daysActive}</span> {myEntry.daysActive === 1 ? "day" : "days"} of care this month, among {data?.userCount} {activeScope} members
                 </p>
               </div>
             </div>
@@ -193,7 +206,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                 </div>
               )}
               <div className="px-3 py-1 rounded-full bg-accent text-white text-xs font-semibold">
-                Score: {myEntry.overallScore}
+                {myEntry.daysActive}/{myEntry.daysInMonth} days
               </div>
             </div>
           </div>
@@ -203,7 +216,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 size={32} className="animate-spin text-accent" />
-            <p className="text-sm text-muted">Updating community rankings…</p>
+            <p className="text-sm text-muted">Updating the community board…</p>
           </div>
         ) : error ? (
           /* Error state */
@@ -237,12 +250,13 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
               Add your city to your profile to compare your progress with other skincare enthusiasts in your area.
             </p>
-            <Link
-              href="/progress"
+            <button
+              type="button"
+              onClick={openSettings}
               className="tk-pill-btn tk-btn-primary inline-flex items-center justify-center"
             >
-              Open Dashboard Settings
-            </Link>
+              Open Settings
+            </button>
           </div>
         ) : !data?.entries || data.entries.length === 0 ? (
           /* Empty state */
@@ -251,10 +265,10 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
               <Sparkles size={24} />
             </div>
             <h2 className="text-lg font-semibold text-primary mb-1.5">
-              Be the First on the Board!
+              Be the first on the board!
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
-              No analyzed scans have been logged for {data?.activeScopeLabel || "this area"} yet. Take your skin scan to claim the #1 spot.
+              No one in {data?.activeScopeLabel || "this area"} has logged a day of care this month yet. A scan or a routine step gets you on the board.
             </p>
             <Link
               href="/capture"
@@ -283,12 +297,12 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[1].displayName}
-                      {topThree[1].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
+                      {topThree[1].isMe && <span className="ml-1 tk-text-micro text-accent font-bold">(You)</span>}
                     </p>
                     <span className="text-lg sm:text-xl font-semibold text-primary">
-                      {topThree[1].overallScore}
+                      {topThree[1].daysActive}d
                     </span>
-                    <span className="text-[10px] text-muted">2nd Place</span>
+                    <span className="tk-text-micro text-muted">{topThree[1].daysActive === topThree[0].daysActive ? "Joint 1st" : "2nd"}</span>
                   </div>
                 ) : <div />}
 
@@ -307,12 +321,12 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[0].displayName}
-                      {topThree[0].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
+                      {topThree[0].isMe && <span className="ml-1 tk-text-micro text-accent font-bold">(You)</span>}
                     </p>
                     <span className="text-2xl sm:text-3xl font-semibold text-accent">
-                      {topThree[0].overallScore}
+                      {topThree[0].daysActive}d
                     </span>
-                    <span className="text-[10px] text-accent-deep font-semibold tracking-wide uppercase">Champion</span>
+                    <span className="tk-text-micro text-accent-deep font-semibold tracking-wide uppercase">Most days</span>
                   </div>
                 )}
 
@@ -331,12 +345,12 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                     </div>
                     <p className="text-xs font-semibold text-primary truncate max-w-full mb-1">
                       {topThree[2].displayName}
-                      {topThree[2].isMe && <span className="ml-1 text-[10px] text-accent font-bold">(You)</span>}
+                      {topThree[2].isMe && <span className="ml-1 tk-text-micro text-accent font-bold">(You)</span>}
                     </p>
                     <span className="text-lg sm:text-xl font-semibold text-primary">
-                      {topThree[2].overallScore}
+                      {topThree[2].daysActive}d
                     </span>
-                    <span className="text-[10px] text-muted">3rd Place</span>
+                    <span className="tk-text-micro text-muted">{topThree[2].daysActive === topThree[0].daysActive ? "Joint 1st" : "3rd"}</span>
                   </div>
                 ) : <div />}
               </div>
@@ -349,7 +363,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                 <div className="flex items-center gap-6">
                   <span className="hidden sm:inline">Location</span>
                   <span>Streak</span>
-                  <span>Score</span>
+                  <span>Days</span>
                 </div>
               </div>
 
@@ -402,7 +416,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                               {entry.displayName}
                             </span>
                             {entry.isMe && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-white font-semibold shrink-0">
+                              <span className="tk-text-micro px-2 py-0.5 rounded-full bg-accent text-white font-semibold shrink-0">
                                 You
                               </span>
                             )}
@@ -433,7 +447,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
 
                         <div className="min-w-[45px] text-right">
                           <span className="font-semibold text-sm px-3 py-1 rounded-full bg-blush text-primary">
-                            {entry.overallScore}
+                            {entry.daysActive}/{entry.daysInMonth}
                           </span>
                         </div>
                       </div>

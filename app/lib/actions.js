@@ -9,7 +9,8 @@ import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo, SIM_CROP_OPTIONS } from "./youcam";
 import { projectTrajectory } from "./predict";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
-import { evaluateUserAchievements } from "./achievements";
+import { evaluateUserAchievements, MILESTONE_REWARDS } from "./achievements";
+import { advanceStreak, displayStreak, summarizeActivity } from "@/lib/utils/streak";
 import {
   isOwnedUserUpload,
   getUserUploadPrefix,
@@ -472,43 +473,31 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     }
 
     const now = new Date();
-    let newStreak = user.currentStreak || 0;
-    if (user.lastUploadDate) {
-      // Calendar-day difference via day-KEY strings ("YYYY-MM-DD" interpreted
-      // as UTC midnight), not elapsed wall-clock time: a DST transition makes
-      // one local day 23 or 25 hours long, which dividing by a fixed 24h unit
-      // (the old `Math.ceil(diffTime / 86400000)`) miscounted as a 2-day gap
-      // and incorrectly reset the streak (M16 in AUDIT.md).
-      const todayKey = getLocalDayKey(timezone, now);
-      const lastUploadKey = getLocalDayKey(timezone, user.lastUploadDate);
-      const diffDays = Math.round((Date.parse(todayKey) - Date.parse(lastUploadKey)) / 86400000);
-      // An every-other-day Standard plan's expected cadence IS a 2-day gap;
-      // counting only a 1-day gap as "kept up" meant that plan's streak could
-      // never exceed 1 (M16 in AUDIT.md).
-      const isEveryOtherDay = user.tier === TIERS.STANDARD && user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY;
-      const allowedGapDays = isEveryOtherDay ? 2 : 1;
-      if (diffDays >= 1 && diffDays <= allowedGapDays) {
-        newStreak += 1;
-      } else if (diffDays > allowedGapDays) {
-        newStreak = 1; // Streak broken
-      }
-    } else {
-      newStreak = 1;
-    }
-    
+    // A scan is an "active" day, same as ticking a routine step (see
+    // lib/utils/streak.js and recordCareDay). Day-KEY maths, not elapsed
+    // wall-clock time, so a DST day never counts as a 2-day gap (M16 in
+    // AUDIT.md); an every-other-day plan's cadence IS a 2-day gap; one missed
+    // day a week is forgiven.
+    const todayKey = getLocalDayKey(timezone, now);
+    const streakStep = advanceStreak({
+      stored: user.currentStreak || 0,
+      lastKey: lastActiveKeyOf(user, timezone),
+      todayKey,
+      allowedGapDays: allowedGapDaysFor(user),
+      freezeWeek: user.streakFreezeWeek || null,
+    });
+    const newStreak = streakStep.streak;
+
     // Badge logic: collect only the *new* ids so the user update below can
-    // $addToSet them instead of overwriting the whole array. Two near-
-    // simultaneous scans both computing this from the same stale `user.badges`
-    // snapshot is exactly the race that used to silently drop a badge one of
-    // them earned (M15 in AUDIT.md) when the write was a plain $set.
+    // $addToSet them instead of overwriting the whole array (M15 in AUDIT.md).
+    // Only the first scan is granted here; the rest of the milestone ladder
+    // (some with rewards) is awarded by getLatestData, once, via grantMilestones.
     const existingBadges = user.badges || [];
     const newBadges = [];
     const addBadge = (id) => {
       if (!existingBadges.includes(id) && !newBadges.includes(id)) newBadges.push(id);
     };
     addBadge("first_glow");
-    if (newStreak >= 7) addBadge("week_radiance");
-    if (newStreak >= 30) addBadge("consistency_champion");
 
     // YouCam fetches this URL from its own servers, so an `authenticated`-type
     // asset (see M22 in AUDIT.md) must be signed first, or every candidate
@@ -684,9 +673,11 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         currentStreak: newStreak,
         longestStreak: newStreak > (user.longestStreak || 0) ? newStreak : user.longestStreak,
         lastUploadDate: now,
+        lastActiveDayKey: todayKey,
+        streakFreezeWeek: streakStep.freezeWeek,
         baselineSelfie: finalImageUrl,
       },
-      $inc: { scanCount: 1 },
+      $inc: { scanCount: 1, ...(streakStep.isNewDay ? { activeDays: 1 } : {}) },
     };
     if (newBadges.length > 0) {
       userUpdateOps.$addToSet = { badges: { $each: newBadges } };
@@ -772,15 +763,55 @@ const clampPageSize = (value) =>
 // without writing anything back — analyzeAndSaveSelfie's own gap logic is
 // the one source of truth for the stored value.
 function computeDisplayStreak(user, timezone) {
-  const stored = user.currentStreak || 0;
-  if (!stored || !user.lastUploadDate) return stored;
+  return displayStreak({
+    stored: user.currentStreak || 0,
+    lastKey: lastActiveKeyOf(user, timezone),
+    todayKey: getLocalDayKey(timezone, new Date()),
+    allowedGapDays: allowedGapDaysFor(user),
+    freezeWeek: user.streakFreezeWeek || null,
+  });
+}
 
-  const todayKey = getLocalDayKey(timezone, new Date());
-  const lastUploadKey = getLocalDayKey(timezone, user.lastUploadDate);
-  const diffDays = Math.round((Date.parse(todayKey) - Date.parse(lastUploadKey)) / 86400000);
+// Accounts from before routine days counted only have lastUploadDate.
+function lastActiveKeyOf(user, timezone) {
+  if (user.lastActiveDayKey) return user.lastActiveDayKey;
+  return user.lastUploadDate ? getLocalDayKey(timezone, user.lastUploadDate) : null;
+}
+
+// An every-other-day Standard plan's expected cadence IS a 2-day gap (M16).
+function allowedGapDaysFor(user) {
   const isEveryOtherDay = user.tier === TIERS.STANDARD && user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY;
-  const allowedGapDays = isEveryOtherDay ? 2 : 1;
-  return diffDays > allowedGapDays ? 0 : stored;
+  return isEveryOtherDay ? 2 : 1;
+}
+
+/**
+ * A ticked routine step is an active day too. The `lastActiveDayKey != today`
+ * filter makes the streak/active-day bump happen exactly once per day even
+ * when several toggles (or a scan) race; routineDays gets the same treatment.
+ */
+async function recordCareDay(user, timezone) {
+  const todayKey = getLocalDayKey(timezone);
+  const step = advanceStreak({
+    stored: user.currentStreak || 0,
+    lastKey: lastActiveKeyOf(user, timezone),
+    todayKey,
+    allowedGapDays: allowedGapDaysFor(user),
+    freezeWeek: user.streakFreezeWeek || null,
+  });
+  if (step.isNewDay) {
+    await User.updateOne(
+      { _id: user._id, lastActiveDayKey: { $ne: todayKey } },
+      {
+        $set: { currentStreak: step.streak, lastActiveDayKey: todayKey, streakFreezeWeek: step.freezeWeek },
+        $max: { longestStreak: step.streak },
+        $inc: { activeDays: 1 },
+      }
+    );
+  }
+  await User.updateOne(
+    { _id: user._id, lastRoutineDayKey: { $ne: todayKey } },
+    { $set: { lastRoutineDayKey: todayKey }, $inc: { routineDays: 1 } }
+  );
 }
 
 // `allSelfies` is always the newest `options.selfieLimit` (or MAX_SELFIE_HISTORY
@@ -807,6 +838,7 @@ export async function getLatestData(timezone = null, options = {}) {
   const todayStart = getLocalDayStart(timezone);
   const yesterdayStart = getLocalDayStart(timezone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
   const sevenDaysAgoStart = getLocalDayStart(timezone, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+  const activityWindowStart = getLocalMonthStart(timezone, new Date(getLocalMonthStart(timezone, now).monthStart.getTime() - 24 * 60 * 60 * 1000)).monthStart;
 
   const [
     latestSelfie,
@@ -818,8 +850,11 @@ export async function getLatestData(timezone = null, options = {}) {
     recentRoutineLogs,
     simCount,
     totalSelfieCount,
-    firstSelfie,
+    firstSelfies,
     weekRowsIfLimited,
+    activityScans,
+    activityLogs,
+    reportCount,
   ] = await Promise.all([
     Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 }),
     Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }),
@@ -849,13 +884,24 @@ export async function getLatestData(timezone = null, options = {}) {
     // Exact regardless of the cap above, so achievements/scan-count stay
     // correct even for a history longer than MAX_SELFIE_HISTORY.
     Selfie.countDocuments({ userId: user._id }),
-    Selfie.findOne({ userId: user._id }).select("skinAge").sort({ takenAt: 1 }).lean(),
+    // Personal baseline: the user's first few analyzed scans (their own
+    // starting point, never compared against anyone else).
+    Selfie.find({ userId: user._id, isAnalyzed: true }).select("overallScore").sort({ takenAt: 1 }).limit(3).lean(),
     selfieLimit
       ? Selfie.find({
           userId: user._id,
           takenAt: { $gte: new Date(currentWeekStart), $lt: new Date(currentWeekEnd) },
         }).select(SELFIE_LIST_FIELDS).lean()
       : null,
+    // Last month + this month of activity, for the weekly goal and the
+    // "you vs. you" card.
+    Selfie.find({ userId: user._id, takenAt: { $gte: activityWindowStart } })
+      .select("takenAt overallScore isAnalyzed")
+      .lean(),
+    RoutineLog.find({ userId: user._id, date: { $gte: activityWindowStart } })
+      .select("date amCompleted pmCompleted")
+      .lean(),
+    Report.countDocuments({ userId: user._id }),
   ]);
 
   const allSelfies = selfieRows.reverse();
@@ -909,6 +955,15 @@ export async function getLatestData(timezone = null, options = {}) {
     consistencyPct: recentRoutineLogs.length > 0 ? Math.round((activeDaysInWindow / daysInWindow) * 100) : null,
   };
 
+  const activity = summarizeActivity({
+    scans: activityScans,
+    logs: activityLogs,
+    todayKey: getLocalDayKey(timezone, now),
+    dayKeyOf: (d) => getLocalDayKey(timezone, d),
+  });
+
+  const analyzedScores = (rows) => rows.filter(s => s.isAnalyzed !== false && typeof s.overallScore === "number").map(s => s.overallScore);
+
   const { evaluatedAchievements, unlockedCount, totalCount, newlyUnlockedIds } = evaluateUserAchievements({
     user,
     allSelfies,
@@ -916,15 +971,22 @@ export async function getLatestData(timezone = null, options = {}) {
     todayRoutineLog,
     amRoutine: latestAnalyzedSelfie?.amRoutine,
     pmRoutine: latestAnalyzedSelfie?.pmRoutine,
-    realAge,
     selfieCount: totalSelfieCount,
-    firstSelfie,
+    reportCount,
+    baselineScores: analyzedScores(firstSelfies),
+    recentScores: analyzedScores(allSelfies).slice(-3),
   });
 
   if (newlyUnlockedIds && newlyUnlockedIds.length > 0) {
-    await User.findByIdAndUpdate(user._id, {
-      $addToSet: { badges: { $each: newlyUnlockedIds } }
-    }).catch(() => {});
+    // One atomic write per id: the `badges: { $ne: id }` guard means a reward
+    // (a free what-if) can only ever be paid once, even if two requests race.
+    await Promise.all(newlyUnlockedIds.map((id) => {
+      const rewardSims = MILESTONE_REWARDS[id]?.simulations || 0;
+      return User.updateOne(
+        { _id: user._id, badges: { $ne: id } },
+        { $addToSet: { badges: id }, ...(rewardSims ? { $inc: { extraSimulations: rewardSims } } : {}) }
+      ).catch(() => {});
+    }));
     if (!user.badges) user.badges = [];
     newlyUnlockedIds.forEach(id => {
       if (!user.badges.includes(id)) user.badges.push(id);
@@ -952,6 +1014,8 @@ export async function getLatestData(timezone = null, options = {}) {
     habitConsistency,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
+    activity,
+    newlyUnlockedTitles: evaluatedAchievements.filter((a) => newlyUnlockedIds.includes(a.id)).map((a) => a.title),
     ...(selfieLimit ? { hasMoreSelfies: totalSelfieCount > allSelfies.length } : {}),
   };
   return JSON.parse(JSON.stringify(data));
@@ -1509,8 +1573,19 @@ export async function deleteSavedSimulation(simId) {
       return { success: false, error: "Simulation not found" };
     }
 
-    if (sim.scenarioA?.imageUrl) await deleteImageFromCloudinary(sim.scenarioA.imageUrl).catch(() => {});
-    if (sim.scenarioB?.imageUrl) await deleteImageFromCloudinary(sim.scenarioB.imageUrl).catch(() => {});
+    // A no-routine scenario stores a crop of the user's live scan photo, which
+    // shares its Cloudinary public id — never destroy that one (same guard as
+    // updateSimulationPrivacy).
+    const latestSelfie = await Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 }).select("imageUrl").lean();
+    const protectedIds = new Set(
+      [getCloudinaryPublicId(user.baselineSelfie), getCloudinaryPublicId(latestSelfie?.imageUrl)].filter(Boolean)
+    );
+    for (const scenario of [sim.scenarioA, sim.scenarioB]) {
+      if (!scenario?.imageUrl) continue;
+      const id = getCloudinaryPublicId(scenario.imageUrl);
+      if (id && protectedIds.has(id)) continue;
+      await deleteImageFromCloudinary(scenario.imageUrl).catch(() => {});
+    }
 
     await Simulation.deleteOne({ _id: simId, userId: user._id });
     return { success: true };
@@ -2224,6 +2299,8 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
       }).catch(() => {});
     }
 
+    if (isCompleted) await recordCareDay(user, timezone).catch(() => {});
+
     return { success: true };
   } catch (err) {
     return { success: false };
@@ -2374,10 +2451,16 @@ export async function getCompanionState() {
     const amTotal = latestAnalyzed?.amRoutine?.length || 0;
     const pmTotal = latestAnalyzed?.pmRoutine?.length || 0;
     return {
-      firstName: (user.displayName || "").trim().split(/s+/)[0] || "",
+      firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
       scanCount,
       scannedToday: Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart),
+      // A ticked routine step keeps the streak alive too, so it counts as
+      // "showed up today" for the streak nudge.
+      activeToday:
+        Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart) ||
+        (todayLog?.amCompleted?.length || 0) + (todayLog?.pmCompleted?.length || 0) > 0,
       streak: computeDisplayStreak(user, tz),
+      longestStreak: user.longestStreak || 0,
       am: { done: Math.min(amTotal, todayLog?.amCompleted?.length || 0), total: amTotal },
       pm: { done: Math.min(pmTotal, todayLog?.pmCompleted?.length || 0), total: pmTotal },
       reportReady: Boolean(report?.ready),
@@ -2609,9 +2692,8 @@ export async function getLeaderboard(scope = 'city') {
     // Find users who opted in to comparison (or self, so current user can see their own rank)
     // $and, not a spread: the country scope's filter is itself an $or, and a
     // second $or key would silently replace it (returning every country).
-    // Candidates are ranked by score below, so this limit must be a DoS safety
-    // valve only, never a pre-sort cutoff (a lower cap here silently dropped
-    // genuine top scorers once a scope passed ~200 users).
+    // Candidates are ranked by days active below, so this limit must be a DoS
+    // safety valve only, never a pre-sort cutoff.
     const matchingUsers = await User.find({
       $and: [
         userFilter,
@@ -2635,58 +2717,67 @@ export async function getLeaderboard(scope = 'city') {
 
     const matchingUserIds = matchingUsers.map(u => u._id);
 
-    // Fetch latest analyzed selfie for each user
-    const latestSelfies = await Selfie.aggregate([
-      { $match: { userId: { $in: matchingUserIds }, isAnalyzed: true, overallScore: { $ne: null } } },
-      { $sort: { takenAt: -1 } },
-      {
-        $group: {
-          _id: "$userId",
-          overallScore: { $first: "$overallScore" },
-          skinAge: { $first: "$skinAge" },
-          takenAt: { $first: "$takenAt" }
-        }
-      }
+    // The board ranks showing up, not skin scores (which swing with lighting):
+    // distinct days this month with a scan or a ticked routine step. Days are
+    // bucketed in UTC so one query serves every member regardless of timezone.
+    const { monthStart, daysInMonth } = getLocalMonthStart(normalizeTimezone(user.timezone));
+    const [scanDays, routineDays] = await Promise.all([
+      Selfie.aggregate([
+        { $match: { userId: { $in: matchingUserIds }, takenAt: { $gte: monthStart } } },
+        { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$takenAt" } } } } },
+      ]),
+      RoutineLog.aggregate([
+        { $match: { userId: { $in: matchingUserIds }, date: { $gte: monthStart } } },
+        {
+          $match: {
+            $expr: {
+              $gt: [
+                { $add: [{ $size: { $ifNull: ["$amCompleted", []] } }, { $size: { $ifNull: ["$pmCompleted", []] } }] },
+                0,
+              ],
+            },
+          },
+        },
+        { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } } } },
+      ]),
     ]);
 
-    const selfieMap = new Map();
-    latestSelfies.forEach(s => selfieMap.set(s._id.toString(), s));
+    const daysByUser = new Map();
+    for (const row of [...scanDays, ...routineDays]) {
+      const id = row._id.userId.toString();
+      if (!daysByUser.has(id)) daysByUser.set(id, new Set());
+      daysByUser.get(id).add(row._id.day);
+    }
 
-    // Combine user details with their score
-    const scoredUsers = [];
+    const ranked = [];
     matchingUsers.forEach(u => {
-      const s = selfieMap.get(u._id.toString());
-      if (s && typeof s.overallScore === 'number') {
-        const isMe = u._id.toString() === user._id.toString();
-        // If it's self, only show if user has optInComparison enabled
-        if (!isMe && !u.optInComparison) return;
+      const id = u._id.toString();
+      const isMe = id === user._id.toString();
+      // If it's self, only show if user has optInComparison enabled
+      if (!isMe && !u.optInComparison) return;
+      const daysActive = daysByUser.get(id)?.size || 0;
+      if (daysActive === 0) return;
 
-        scoredUsers.push({
-          userId: u._id.toString(),
-          isMe,
-          displayName: u.displayName || "Wellness Seeker",
-          photoURL: u.photoURL || null,
-          city: u.location?.city ? u.location.city.split(',')[0].trim() : "",
-          country: u.location?.country || "",
-          streak: u.currentStreak || 0,
-          overallScore: s.overallScore,
-          skinAge: s.skinAge,
-          takenAt: s.takenAt
-        });
-      }
+      ranked.push({
+        userId: id,
+        isMe,
+        displayName: u.displayName || "Wellness Seeker",
+        photoURL: u.photoURL || null,
+        city: u.location?.city ? u.location.city.split(',')[0].trim() : "",
+        country: u.location?.country || "",
+        streak: u.currentStreak || 0,
+        daysActive,
+        daysInMonth,
+      });
     });
 
-    // Sort descending by overallScore, then by currentStreak, then by recent activity
-    scoredUsers.sort((a, b) => {
-      if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
-      if (b.streak !== a.streak) return b.streak - a.streak;
-      return new Date(b.takenAt) - new Date(a.takenAt);
-    });
-
-    // Assign rank positions (1-indexed)
-    const rankedEntries = scoredUsers.map((item, index) => ({
+    // Most days active first, then longer streak. Members on the same number
+    // of days share a rank, so a one-day difference of streak never reads as
+    // a gap in effort.
+    ranked.sort((a, b) => b.daysActive - a.daysActive || b.streak - a.streak);
+    const rankedEntries = ranked.map((item) => ({
       ...item,
-      rank: index + 1
+      rank: ranked.findIndex((r) => r.daysActive === item.daysActive) + 1,
     }));
 
     const myEntry = user.optInComparison ? rankedEntries.find(e => e.isMe) : null;
@@ -2702,6 +2793,7 @@ export async function getLeaderboard(scope = 'city') {
       activeScopeLabel,
       userCount: rankedEntries.length,
       entries: rankedEntries.slice(0, 50),
+      daysInMonth,
       myRank
     };
   } catch {

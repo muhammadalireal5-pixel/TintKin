@@ -19,7 +19,7 @@ const playfair = Playfair_Display({
 });
 
 export const viewport = {
-  themeColor: "#FCF4F2",
+  themeColor: "#FDFBF7",
   // Pinch-to-zoom off, per explicit request — makes the installed PWA feel
   // like a native app instead of a zoomable web page. iOS Safari's
   // auto-zoom-on-input-focus is handled separately (globals.css forces
@@ -125,7 +125,8 @@ const SESSION_COOKIES = [
 export default async function RootLayout({ children }) {
   const nonce = (await headers()).get("x-nonce") || undefined;
   const cookieStore = await cookies();
-  const theme = cookieStore.get("tk-theme")?.value === "terracotta" ? "terracotta" : undefined;
+  const saved = cookieStore.get("tk-theme")?.value;
+  const theme = ["rose", "terracotta"].includes(saved) ? saved : "sage";
   const initialAuthed = cookieStore
     .getAll()
     .some((c) => c.value && SESSION_COOKIES.some((n) => c.name === n || c.name.startsWith(`${n}.`)));

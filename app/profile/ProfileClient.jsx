@@ -23,9 +23,24 @@ import { useAuthContext } from "@/app/context/AuthContext";
 import { useSettings } from "@/app/context/SettingsContext";
 import UserAvatar from "@/app/components/UserAvatar";
 import ThemeToggle from "@/app/components/ThemeToggle";
-import { updateCompanionPrefs } from "@/app/components/companion/store";
+import { updateCompanionPrefs, useCompanionPrefs } from "@/app/components/companion/store";
 import { openFeedback } from "@/app/components/companion/FeedbackModal";
 import { TIERS, TIER_NAMES } from "@/lib/constants/tiers";
+
+function Switch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-line"}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+    </button>
+  );
+}
 
 function Row({ icon: Icon, label, sub, href, onClick, trailing, external }) {
   const inner = (
@@ -60,6 +75,7 @@ function Group({ title, children }) {
 export default function ProfileClient({ profile }) {
   const { user, signOutUser } = useAuthContext();
   const { openSettings } = useSettings();
+  const kin = useCompanionPrefs();
 
   const name = profile?.displayName || user?.displayName || "Your account";
   const email = profile?.email || user?.email || "";
@@ -114,10 +130,47 @@ export default function ProfileClient({ profile }) {
             <div className="mt-4 pt-4 border-t border-line flex items-center gap-3">
               <span className="tk-icon-circle w-9 h-9"><Cat size={17} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-primary">Kin, your skin companion</span>
-                <span className="block text-xs text-muted">Drag Kin anywhere. Tap for tips, double tap for feedback.</span>
+                <span className="block text-[15px] font-medium text-primary">Show Kin on my screens</span>
+                <span className="block text-xs text-muted">Drag Kin anywhere. Tap for quick links, double tap for feedback.</span>
               </span>
+              <Switch label="Show Kin" checked={kin.enabled} onChange={(v) => updateCompanionPrefs({ enabled: v })} />
             </div>
+            {kin.enabled && (
+              <>
+                <div className="mt-4 pt-4 border-t border-line">
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium text-primary">Quiet hours</span>
+                      <span className="block text-xs text-muted">Kin won&apos;t greet or remind you during this window.</span>
+                    </span>
+                    <Switch
+                      label="Quiet hours"
+                      checked={kin.quietHours.enabled}
+                      onChange={(v) => updateCompanionPrefs((p) => ({ quietHours: { ...p.quietHours, enabled: v } }))}
+                    />
+                  </div>
+                  {kin.quietHours.enabled && (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-muted">
+                      <input
+                        type="time"
+                        aria-label="Quiet hours start"
+                        value={kin.quietHours.start}
+                        onChange={(e) => updateCompanionPrefs((p) => ({ quietHours: { ...p.quietHours, start: e.target.value } }))}
+                        className="tk-input !w-auto py-2"
+                      />
+                      <span>to</span>
+                      <input
+                        type="time"
+                        aria-label="Quiet hours end"
+                        value={kin.quietHours.end}
+                        onChange={(e) => updateCompanionPrefs((p) => ({ quietHours: { ...p.quietHours, end: e.target.value } }))}
+                        className="tk-input !w-auto py-2"
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={() => updateCompanionPrefs({ enabled: true, pos: null, tours: {}, seen: {} })}

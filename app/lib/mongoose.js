@@ -157,6 +157,13 @@ const UserSchema = new mongoose.Schema({
     currentStreak: { type: Number, default: 0 },
     longestStreak: { type: Number, default: 0 },
     lastUploadDate: { type: Date, default: null },
+    // Streak/habit tracking (lib/utils/streak.js). An "active" day is a scan OR
+    // a ticked routine step, keyed as the user's local "YYYY-MM-DD".
+    lastActiveDayKey: { type: String, default: null },
+    streakFreezeWeek: { type: String, default: null },
+    activeDays: { type: Number, default: 0 },
+    lastRoutineDayKey: { type: String, default: null },
+    routineDays: { type: Number, default: 0 },
     badges: [{ type: String }],
     optInComparison: { type: Boolean, default: false },
     standardPlanFrequency: { type: String, enum: ['every_other_day', 'flexible'], default: 'flexible' },

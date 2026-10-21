@@ -6,8 +6,8 @@ import { X, Camera, Sparkles, FileText, Trophy, ShoppingBag, Crown, Lightbulb, M
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthContext } from "@/app/context/AuthContext";
 import { getCompanionState } from "@/app/lib/actions";
-import { useCompanionPrefs, updateCompanionPrefs } from "./store";
-import { pickMessage, nextTip, dayKeyNow, TOURS, pageGreeting, praiseFor } from "./brain";
+import { useCompanionPrefs, updateCompanionPrefs, isQuietNow } from "./store";
+import { pickMessage, nextTip, dayKeyNow, TOURS, pageGreeting } from "./brain";
 import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
 
@@ -105,11 +105,24 @@ export default function Companion() {
   const drag = useRef(null);
   const lastTap = useRef(0);
   const [wheel, setWheel] = useState(null); // { R, cx, cy } while the quick-jump wheel is open
-  const live = useRef({ tour: null, wheel: null, bubble: null, name: "" });
+  const live = useRef({ tour: null, wheel: null, bubble: null, name: "", prefs });
 
   const [artFailed, setArtFailed] = useState(false);
 
-  const visible = Boolean(user) && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+  // On phones the scan screen is crowded (camera frame, shutter, nav), so Kin
+  // steps aside there once the first-scan walkthrough is out of the way.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.scanCount > 0);
+
+  const visible =
+    Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   /* ── account snapshot ─────────────────────────────────────────────── */
   const load = useCallback(() => {
@@ -195,7 +208,7 @@ export default function Companion() {
 
   /* ── page greetings and praise ────────────────────────────────────── */
   useEffect(() => {
-    live.current = { tour, wheel, bubble, name: state?.firstName || "" };
+    live.current = { tour, wheel, bubble, name: state?.firstName || "", prefs };
   });
 
   // Short transient line; never overrides a reminder, offer or tour in progress.
@@ -207,7 +220,7 @@ export default function Companion() {
     play();
   }, [play]);
 
-  // Hello on every page.
+  // Hello: only after a scan, on the home screen (once a day) and in onboarding.
   useEffect(() => {
     if (!visible) return undefined;
     const t = window.setTimeout(() => {
@@ -220,35 +233,26 @@ export default function Companion() {
       } catch {
         // storage blocked: skip the scan-complete line
       }
+      const today = dayKeyNow();
+      const greetKey = `greet-${pathname}`;
+      if (!justScanned && (isQuietNow(cur.prefs) || cur.prefs.seen?.[greetKey] === today)) return;
       const text = pageGreeting(pathname, { hour: new Date().getHours(), name: cur.name, justScanned });
-      if (text) say(text);
+      if (!text) return;
+      say(text);
+      updateCompanionPrefs((p) => ({ seen: { ...p.seen, [greetKey]: today } }));
     }, 900);
     return () => window.clearTimeout(t);
   }, [visible, pathname, say]);
 
-  // Praise for actions: explicit (kinSay) and a light touch for any button press.
+  // Kin only speaks up for real actions, sent explicitly through kinSay
+  // (routine steps, milestones). Bare clicks on buttons and tabs get no praise.
   useEffect(() => {
     if (!visible) return undefined;
-    let last = -1e9;
     const onSay = (e) => {
-      last = e.timeStamp;
       if (e.detail?.text) say(e.detail.text, true);
     };
-    const onClick = (e) => {
-      const el = e.target instanceof Element ? e.target.closest('button, [role="tab"], [role="radio"], [role="switch"], [role="checkbox"]') : null;
-      if (!el || el.disabled || el.hasAttribute("data-kin") || el.closest("[data-kin-ignore]")) return;
-      if (e.timeStamp - last < 7000) return;
-      last = e.timeStamp;
-      const role = el.getAttribute("role");
-      const kind = role === "switch" || role === "checkbox" ? "toggle" : role === "tab" || role === "radio" ? "choice" : "button";
-      say(praiseFor(kind));
-    };
     window.addEventListener("tk-kin-say", onSay);
-    document.addEventListener("click", onClick, true);
-    return () => {
-      window.removeEventListener("tk-kin-say", onSay);
-      document.removeEventListener("click", onClick, true);
-    };
+    return () => window.removeEventListener("tk-kin-say", onSay);
   }, [visible, say]);
 
   /* ── choosing what to say ─────────────────────────────────────────── */
@@ -263,6 +267,8 @@ export default function Companion() {
   useEffect(() => {
     if (!visible || !state || tour || bubble || wheel) return undefined;
     const timer = window.setTimeout(() => {
+      // Unprompted nudges respect quiet hours; the first-scan offer and tours are exempt.
+      const quiet = isQuietNow(live.current.prefs);
       const msg = pickMessage({
         state,
         pathname,
@@ -271,8 +277,8 @@ export default function Companion() {
         tours: prefs.tours,
         today: dayKeyNow(),
       });
-      if (msg) show(msg);
-    }, 1400);
+      if (msg && (!quiet || msg.tour)) show(msg);
+    }, 4000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, state, pathname, tour, bubble, wheel]);
@@ -478,7 +484,7 @@ export default function Companion() {
               style={{ width: WHEEL_BTN, height: WHEEL_BTN, left: SIZE / 2 - WHEEL_BTN / 2, top: SIZE / 2 - WHEEL_BTN / 2 }}
             >
               <Icon size={21} />
-              <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-surface/95 px-1.5 py-px text-[10px] font-semibold text-primary shadow-sm pointer-events-none">
+              <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-surface/95 px-1.5 py-px tk-text-micro font-semibold text-primary shadow-sm pointer-events-none">
                 {item.label}
               </span>
             </motion.button>
@@ -509,7 +515,7 @@ export default function Companion() {
 
           {tour ? (
             <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-muted tabular-nums">
+              <span className="tk-text-micro text-muted tabular-nums">
                 {tour.step + 1} / {TOURS[tour.key].steps.length}
               </span>
               <div className="flex gap-1.5">
@@ -566,7 +572,7 @@ export default function Companion() {
                     setBubble(null);
                     openFeedback();
                   }}
-                  className="text-[11px] text-muted underline hover:text-primary"
+                  className="tk-text-micro text-muted underline hover:text-primary"
                 >
                   Feedback
                 </button>

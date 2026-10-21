@@ -18,7 +18,24 @@ const TIPS = [
   "Tick off routine steps as you go. It keeps your streak and your plan honest.",
 ];
 
-export const nextTip = (i) => TIPS[i % TIPS.length];
+// Tips are shuffled once per day (seeded by the date) so tapping "Tip" never
+// walks the same fixed order.
+export const nextTip = (i, day = dayKeyNow()) => {
+  let seed = 0;
+  for (const ch of day) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const order = TIPS.map((_, n) => n);
+  for (let n = order.length - 1; n > 0; n--) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const j = seed % (n + 1);
+    [order[n], order[j]] = [order[j], order[n]];
+  }
+  return TIPS[order[i % order.length]];
+};
+
+// Kin may volunteer at most this many reminders per day.
+export const DAILY_REMINDER_CAP = 2;
+export const remindersToday = (seen, today) =>
+  Object.entries(seen || {}).filter(([id, day]) => day === today && id !== "tip" && id !== "say" && !id.startsWith("tour-") && !id.startsWith("greet-")).length;
 
 function greeting(hour, name) {
   const who = name ? `, ${name}` : "";
@@ -94,11 +111,19 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
     state.am.done >= state.am.total &&
     state.pm.done >= state.pm.total;
 
-  // 3. Daily nudges, most important first.
-  if (!state.scannedToday && state.streak > 0 && hour >= 17 && !done("streak-risk")) {
+  // 3. Daily nudges, most important first. Capped so Kin never nags.
+  if (remindersToday(seen, today) >= DAILY_REMINDER_CAP) return null;
+  if (!state.activeToday && state.streak > 0 && hour >= 17 && !done("streak-risk")) {
     return {
       id: "streak-risk",
-      text: `Your ${state.streak}-day streak is on the line! A quick scan keeps it alive.`,
+      text: `Want a quick scan or a routine step today? Your ${state.streak}-day streak will thank you.`,
+      cta: { label: "Scan now", href: "/capture" },
+    };
+  }
+  if (!state.activeToday && state.streak === 0 && state.longestStreak >= 3 && !done("welcome-back")) {
+    return {
+      id: "welcome-back",
+      text: `Welcome back${name ? `, ${name}` : ""}! Your longest run so far is ${state.longestStreak} days. Ready to start a fresh one?`,
       cta: { label: "Scan now", href: "/capture" },
     };
   }
@@ -173,8 +198,8 @@ const PAGE_GREETINGS = {
     "A little recap of your skin journey. Take your time!",
   ],
   "/leaderboard": [
-    "Friendly competition! Remember, your only real rival is yesterday's you.",
-    "Let's see who's glowing the brightest today!",
+    "Showing up is what counts here. Remember, your only real rival is yesterday's you.",
+    "Let's see who's been showing up this month!",
   ],
   "/shop": [
     "Shopping time! Credits unlock extra scans and simulations.",
@@ -199,7 +224,10 @@ const PAGE_GREETINGS = {
   "/terms": ["Reading the fine print? Respect. Ask if anything's unclear."],
 };
 
-/** A short, friendly line for arriving on a page; null when there's nothing to say. */
+/**
+ * A short line for arriving on a page. Kin only greets on the home screen and
+ * onboarding (and after a scan); everywhere else it stays quiet.
+ */
 export function pageGreeting(pathname, { hour, name, justScanned } = {}) {
   if (justScanned && pathname === "/dashboard") {
     return pick([
@@ -212,32 +240,40 @@ export function pageGreeting(pathname, { hour, name, justScanned } = {}) {
     const who = name ? `, ${name}` : "";
     return pick([`${base}${who}! Hello beautiful human.`, ...PAGE_GREETINGS["/dashboard"]]);
   }
-  const key = Object.keys(PAGE_GREETINGS).find((p) => pathname === p || pathname.startsWith(p + "/"));
-  return key ? pick(PAGE_GREETINGS[key]) : pick(["Hi again! I'm right here if you need me."]);
+  if (pathname === "/onboarding") return PAGE_GREETINGS["/onboarding"][0];
+  return null;
 }
 
-const PRAISE = {
-  button: [
-    "Nice one!",
-    "Look at you go!",
-    "You're on a roll!",
-    "Love that for you!",
-    "Great job, keep it up!",
-    "Smooth moves, gorgeous!",
-  ],
-  choice: ["Ooh, great pick!", "Good choice!", "Excellent taste!", "Yes! That's the one."],
-  toggle: ["Nice switch!", "All set. Love it!", "Done and dusted!"],
-};
-
-/** Praise for a generic click; kind is "button", "choice" (tabs, radios) or "toggle". */
-export const praiseFor = (kind) => pick(PRAISE[kind] || PRAISE.button);
-
+// Kin only celebrates real actions: a routine step, a finished routine, a
+// milestone. Never a bare click on a button, tab or toggle.
 export const ROUTINE_PRAISE = {
   step: (left) =>
     left > 0
       ? pick([`Step done! ${left} to go.`, `Yes! Only ${left} left.`, `Gorgeous! ${left} more and you're set.`])
       : "That's the last one!",
-  am: "Morning routine complete! Your skin says thank you.",
-  pm: "Evening routine done. Sweet dreams, gorgeous!",
-  all: "Every single step done today. You're unstoppable!",
+  get am() {
+    return pick([
+      "Morning routine complete! Your skin says thank you.",
+      "Morning done. A calm start for your skin.",
+      "Every morning step ticked. Lovely.",
+    ]);
+  },
+  get pm() {
+    return pick([
+      "Evening routine done. Sweet dreams, gorgeous!",
+      "Evening wrapped up. Your skin will recover well tonight.",
+      "All evening steps done. Rest well!",
+    ]);
+  },
+  get all() {
+    return pick([
+      "Every single step done today. You're unstoppable!",
+      "Morning and evening both done. That's real care.",
+      "A full routine day. Quietly impressive.",
+    ]);
+  },
 };
+
+/** One warm line when a milestone unlocks, then Kin goes quiet about it. */
+export const milestoneLine = (title) =>
+  pick([`New milestone: ${title}. Well earned!`, `${title}. That one's yours now.`, `You reached "${title}". Proud of you!`]);

@@ -46,6 +46,8 @@ export function buildSkinSummary({
   weeklyAverage,
   todayRoutineLog,
   achievementStats,
+  activity = null,
+  newlyUnlockedTitles = [],
   reportReady = false,
 }) {
   const { overallScore, skinAge, scores, critique, amRoutine, pmRoutine, facialWorkout } = sourceData;
@@ -124,6 +126,9 @@ export function buildSkinSummary({
       productCount: hasProducts ? latestSelfie.recommendedProducts.length : 3,
     },
     streak: user?.currentStreak || 0,
+    longestStreak: user?.longestStreak || 0,
+    weeklyGoal: activity ? { days: activity.weekDays, target: activity.weeklyGoal } : null,
+    newMilestones: newlyUnlockedTitles,
     trophies: achievementStats || null,
     reportReady,
   };
