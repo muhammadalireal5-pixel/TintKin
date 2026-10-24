@@ -157,8 +157,8 @@ const UserSchema = new mongoose.Schema({
     // Polar order ids already applied to creditBalance, so a retried
     // onOrderPaid webhook delivery for the same order can't double-credit.
     creditedOrderIds: [{ type: String }],
-    // Set when the user reaches SCANS_PER_REPORT new scans (and the "report
-    // ready" email went out); cleared when they generate that report.
+    // Set when a plan check-in's report becomes ready (and the "report ready"
+    // email went out); cleared once every ready report has been generated.
     reportReadyAt: { type: Date, default: null },
     extraSimulations: { type: Number, default: 0 },
     // Atomic usage counters backing the scan/simulation quota reservation in
@@ -309,6 +309,8 @@ const PlanSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     status: { type: String, enum: Object.values(PLAN_STATUS), default: PLAN_STATUS.ACTIVE },
     version: { type: Number, default: 1 },
+    // Bumped on every guarded write so two writers racing on one plan cannot undo each other.
+    rev: { type: Number, default: 0 },
     durationDays: { type: Number, default: 30 },
     // Local day key ("YYYY-MM-DD", the user's timezone) of plan day 1.
     startDayKey: { type: String, required: true },
@@ -372,6 +374,8 @@ const PlanSchema = new mongoose.Schema({
         day: Number,
         // The check-in this adjustment answered; makes adjusting idempotent.
         checkInDay: { type: Number, default: null },
+        // Who made the change: 'check-in', 'kin', 'profile' or 'safety'.
+        source: String,
         selfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
         note: String,
         dropped: [String],

@@ -6,7 +6,8 @@ import { calculateAge } from "@/lib/utils/date";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult } from "@/lib/utils/result";
-import { PLAN_DURATION_DAYS, PLAN_METRICS, METRIC_LABELS, PLAN_PHASES, PLAN_LIMITS } from "@/lib/constants/plan";
+import { PLAN_LIMITS } from "@/lib/constants/plan";
+import { isLive } from "@/lib/plan/state";
 
 // Lazy singleton: the OpenAI SDK's constructor throws immediately if no
 // apiKey is resolvable. Built eagerly at module scope, that throw happened
@@ -179,8 +180,8 @@ async function callPlanModel(prompt) {
 export async function generatePlanAdjustment(user, plan, { day, scores, ratings, adherencePercent, safety = "" }) {
   try {
     const stepLines = plan.steps
-      .filter((s) => s.startDay <= day && (s.endDay == null || day <= s.endDay))
-      .map((s) => `${s.id} [${s.slot}] ${sanitizeForPrompt(s.text, PLAN_LIMITS.textLength)}`)
+      .filter((s) => isLive(s, day))
+      .map((s) => `${s.id} [${s.slot}] ${sanitizeForPrompt(s.text, PLAN_LIMITS.textLength)}${s.startDay > day ? ` (starts day ${s.startDay})` : ""}`)
       .join("\n    ");
     const moved = plan.focus
       .map((f) => {
@@ -228,8 +229,8 @@ export async function generatePlanAdjustment(user, plan, { day, scores, ratings,
 export async function generatePlanEdit(user, plan, { day, message, safety = "" }) {
   try {
     const stepLines = plan.steps
-      .filter((s) => s.startDay <= day && (s.endDay == null || day <= s.endDay))
-      .map((s) => `${s.id} [${s.slot}] ${sanitizeForPrompt(s.text, PLAN_LIMITS.textLength)}`)
+      .filter((s) => isLive(s, day))
+      .map((s) => `${s.id} [${s.slot}] ${sanitizeForPrompt(s.text, PLAN_LIMITS.textLength)}${s.startDay > day ? ` (starts day ${s.startDay})` : ""}`)
       .join(NEWLINE_INDENT);
     const focus = plan.focus.map((f) => f.label).join(", ");
 

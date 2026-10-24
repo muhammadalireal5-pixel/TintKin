@@ -8,6 +8,7 @@ import { checkRateLimit } from "./rate-limit";
 import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
+import { notifyReportReadyIfDue } from "./report-notify";
 import { classifyProfile } from "@/lib/plan/engine";
 import { CONCERNS } from "@/lib/constants/profile";
 import { PLAN_STATUS } from "@/lib/constants/plan";
@@ -193,6 +194,8 @@ export async function submitCheckInRatings(ratings, timezone) {
     if (!result.completedDay && !result.attached) {
       return { success: false, error: "There is no check-in to complete right now.", plan: plan ? viewOf(plan, tz) : null };
     }
+    // The report is ready once the ratings are in (a scan alone no longer unlocks it).
+    await notifyReportReadyIfDue(user, true);
     return { success: true, ...result, plan: plan ? viewOf(plan, tz) : null };
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;

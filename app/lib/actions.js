@@ -44,7 +44,8 @@ import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
-import { findPendingReport, getReportStatus as computeReportStatus, buildCheckInReport } from "@/lib/plan/report";
+import { findPendingReport, buildCheckInReport } from "@/lib/plan/report";
+import { loadReportInputs, getUserReportStatus, notifyReportReadyIfDue } from "./report-notify";
 import { sendReportReadyEmail } from "./email";
 import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
 import {
@@ -2421,45 +2422,6 @@ export async function optInComparison(optIn) {
     return { success: true };
   } catch (err) {
     return { success: false };
-  }
-}
-
-/** Plans and check-in reports for a user, the inputs to the pure report logic. */
-async function loadReportInputs(userId) {
-  const [plans, reports] = await Promise.all([
-    Plan.find({ userId }).sort({ startedAt: -1 }).limit(3).lean(),
-    Report.find({ userId, planId: { $ne: null } }).select("planId checkInDay").lean(),
-  ]);
-  return { plans, reports };
-}
-
-async function getUserReportStatus(userId) {
-  const { plans, reports } = await loadReportInputs(userId);
-  return computeReportStatus(plans, reports);
-}
-
-/**
- * Called after a scan completes a plan check-in. Flags the report as ready and
- * emails them exactly once per report (the conditional update on reportReadyAt
- * makes concurrent scans race-safe).
- */
-async function notifyReportReadyIfDue(user, checkInCompleted) {
-  try {
-    const status = await getUserReportStatus(user._id);
-    if (!status.ready) return { ready: false, justUnlocked: false };
-    if (!checkInCompleted) return { ready: true, justUnlocked: false };
-
-    const claimed = await User.findOneAndUpdate(
-      { _id: user._id, reportReadyAt: null },
-      { $set: { reportReadyAt: new Date() } }
-    );
-    if (claimed) {
-      await sendReportReadyEmail({ email: user.email, name: user.displayName, checkInDay: status.checkInDay });
-    }
-    return { ready: true, justUnlocked: Boolean(claimed) };
-  } catch (err) {
-    Sentry.captureException(err, { tags: { scope: "report-ready-check" } });
-    return { ready: false, justUnlocked: false };
   }
 }
 

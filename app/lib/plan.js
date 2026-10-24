@@ -11,6 +11,30 @@ import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjust
 
 const DUPLICATE_KEY = 11000;
 
+const MAX_WRITE_TRIES = 3;
+
+/**
+ * Read-modify-write on the active plan that cannot lose an update: `build`
+ * gets a fresh copy and returns `{ set, result }` (or null for "nothing to
+ * write"); the write only lands if nobody else wrote since the read, otherwise
+ * it re-reads and tries again. Used wherever two requests can touch the same
+ * plan at once (a scan and a self-rating, a profile save and a Kin edit).
+ * @returns {Promise<{ plan: any, result: any, written: boolean }|null>} null when there is no plan
+ */
+async function updatePlanGuarded(userId, build) {
+  for (let attempt = 0; attempt < MAX_WRITE_TRIES; attempt += 1) {
+    const plan = await findActivePlan(userId);
+    if (!plan) return null;
+    const out = build(plan);
+    if (!out) return { plan, result: null, written: false };
+    const rev = plan.rev ?? 0;
+    const filter = { _id: plan._id, status: PLAN_STATUS.ACTIVE, ...(rev === 0 ? { $or: [{ rev: 0 }, { rev: { $exists: false } }] } : { rev }) };
+    const res = await Plan.updateOne(filter, { $set: out.set, $inc: { rev: 1 } });
+    if (res.modifiedCount) return { plan, result: out.result, written: true };
+  }
+  throw new Error("The plan kept changing while it was being updated");
+}
+
 /** The user's active plan as a plain object, or null. */
 export async function findActivePlan(userId) {
   await connectDb();
@@ -126,27 +150,27 @@ export async function startNextPlan(user, timezone, now = new Date()) {
  */
 export async function recordScanOnPlan(user, selfie, timezone) {
   try {
-    const plan = await findActivePlan(user._id);
-    if (!plan) return null;
     const now = new Date();
-    const day = getPlanDay(plan, getLocalDayKey(timezone, now));
-    // A plan made without a scan takes the first scan as its measured baseline,
-    // and that scan does not count as a check-in.
     const scores = scoresOf(selfie);
-    const needsBaseline = !PLAN_METRICS.some((m) => typeof plan.baseline?.scores?.[m] === "number");
-    const { checkIns, latest, completedDay } = applyScanToPlan(
-      plan,
-      { selfieId: selfie._id, takenAt: selfie.takenAt ?? now, overallScore: selfie.overallScore, scores },
-      needsBaseline ? 1 : day
-    );
-    const set = { checkIns, latest: { ...latest, ratings: plan.latest?.ratings ?? {} } };
-    if (needsBaseline) {
-      set["baseline.scores"] = scores;
-      set["baseline.overallScore"] = selfie.overallScore ?? null;
-      set["baseline.skinAge"] = selfie.skinAge ?? null;
-    }
-    await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: set });
-    return { completedDay, day };
+    const out = await updatePlanGuarded(user._id, (plan) => {
+      const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+      // A plan made without a scan takes the first scan as its measured baseline,
+      // and that scan does not count as a check-in.
+      const needsBaseline = !PLAN_METRICS.some((m) => typeof plan.baseline?.scores?.[m] === "number");
+      const { checkIns, latest, completedDay } = applyScanToPlan(
+        plan,
+        { selfieId: selfie._id, takenAt: selfie.takenAt ?? now, overallScore: selfie.overallScore, scores },
+        needsBaseline ? 1 : day
+      );
+      const set = { checkIns, latest: { ...latest, ratings: plan.latest?.ratings ?? {} } };
+      if (needsBaseline) {
+        set["baseline.scores"] = scores;
+        set["baseline.overallScore"] = selfie.overallScore ?? null;
+        set["baseline.skinAge"] = selfie.skinAge ?? null;
+      }
+      return { set, result: { completedDay, day } };
+    });
+    return out?.result ?? null;
   } catch (err) {
     Sentry.captureException(err, { tags: { scope: "plan-record-scan" } });
     return null;
@@ -159,23 +183,22 @@ export async function recordScanOnPlan(user, selfie, timezone) {
  * @returns {Promise<{ completedDay: number|null, attached: boolean }>}
  */
 export async function recordSelfCheckIn(user, ratings, timezone, now = new Date()) {
-  const plan = await findActivePlan(user._id);
-  if (!plan) return { completedDay: null, attached: false };
-  const clean = cleanRatings(plan, ratings);
-  if (!Object.keys(clean).length) return { completedDay: null, attached: false };
+  const none = { completedDay: null, attached: false };
+  const out = await updatePlanGuarded(user._id, (plan) => {
+    const clean = cleanRatings(plan, ratings);
+    if (!Object.keys(clean).length) return null;
 
-  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
-  const done = applySelfCheckIn(plan, clean, day, now);
-  if (done.completedDay != null) {
-    await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: { checkIns: done.checkIns, latest: done.latest } });
-    return { completedDay: done.completedDay, attached: false };
-  }
+    const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+    const done = applySelfCheckIn(plan, clean, day, now);
+    if (done.completedDay != null) {
+      return { set: { checkIns: done.checkIns, latest: done.latest }, result: { completedDay: done.completedDay, attached: false } };
+    }
 
-  const lastDone = [...plan.checkIns].reverse().find((c) => c.status === CHECKIN_STATUS.DONE && !Object.keys(c.ratings ?? {}).length);
-  const attached = lastDone ? applyRatingsToCheckIn(plan, clean, lastDone.day) : null;
-  if (!attached) return { completedDay: null, attached: false };
-  await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: attached });
-  return { completedDay: null, attached: true };
+    const lastDone = [...plan.checkIns].reverse().find((c) => c.status === CHECKIN_STATUS.DONE && !Object.keys(c.ratings ?? {}).length);
+    const attached = lastDone ? applyRatingsToCheckIn(plan, clean, lastDone.day) : null;
+    return attached ? { set: attached, result: { completedDay: null, attached: true } } : null;
+  });
+  return out?.result ?? none;
 }
 
 /**
@@ -200,7 +223,7 @@ export async function editPlanFromMessage(user, message, timezone, now = new Dat
   const proposed = edit.add.am.length + edit.add.pm.length;
   edit.add = { am: filterSafeSteps(edit.add.am, user), pm: filterSafeSteps(edit.add.pm, user) };
   const skipped = proposed - (edit.add.am.length + edit.add.pm.length);
-  const changes = applyAdjustment(plan, edit, Math.max(1, day), { immediate: day <= 1, at: now });
+  const changes = applyAdjustment(plan, edit, Math.max(1, day), { immediate: day <= 1, at: now, source: "kin" });
   const entry = changes.adjustments[changes.adjustments.length - 1];
   const reply = `${edit.note || "Done."}${skipped > 0 ? " I left out a suggestion that wouldn't be safe for your skin profile." : ""}`;
   if (!entry.dropped.length && !entry.added.length) return { ok: true, reply, dropped: [], added: [] };
@@ -215,40 +238,37 @@ export async function editPlanFromMessage(user, message, timezone, now = new Dat
 /**
  * Safety sweep after the skin profile changes: stops any step in the running
  * plan that the new answers rule out (for example a retinoid after "pregnant:
- * yes"), right away. Runs automatically on every profile save.
+ * yes"), right away. Runs automatically on every profile save and, because it
+ * is the one write that must not be lost, re-reads and retries on a conflict.
  * @returns {Promise<number>} how many steps were stopped
  */
 export async function sweepPlanSafety(user, timezone, now = new Date()) {
-  const plan = await findActivePlan(user._id);
-  if (!plan) return 0;
   const plain = typeof user.toObject === "function" ? user.toObject() : user;
-  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
-  const { steps, stopped } = endUnsafeSteps(plan, plain, Math.max(1, day));
-  if (!stopped.length) return 0;
-  const version = plan.version + 1;
-  const entry = { version, at: now, day: Math.max(1, Math.min(day, plan.durationDays)), checkInDay: null, selfieId: null, note: "Stopped steps that are not safe for your updated answers.", dropped: stopped, added: [] };
-  const res = await Plan.updateOne(
-    { _id: plan._id, status: PLAN_STATUS.ACTIVE, version: plan.version },
-    { $set: { steps, version, adjustments: [...plan.adjustments, entry] } }
-  );
-  return res.modifiedCount ? stopped.length : 0;
+  const out = await updatePlanGuarded(user._id, (plan) => {
+    const day = Math.max(1, getPlanDay(plan, getLocalDayKey(timezone, now)));
+    const { steps, stopped } = endUnsafeSteps(plan, plain, day);
+    if (!stopped.length) return null;
+    const version = plan.version + 1;
+    const entry = { version, at: now, day: Math.min(day, plan.durationDays), checkInDay: null, selfieId: null, source: "safety", note: "Stopped steps that are not safe for your updated answers.", dropped: stopped, added: [] };
+    return { set: { steps, version, adjustments: [...plan.adjustments, entry] }, result: stopped.length };
+  });
+  return out?.result ?? 0;
 }
 
 /**
  * Re-plans the rest of the running plan from the current skin profile. The day,
- * check-ins, ticks and progress stay; steps that still fit are kept, the rest
- * end, and new ones start tomorrow.
+ * check-ins, ticks, progress and anything Kin or a check-in changed stay; steps
+ * that still fit are kept, the rest end, and new ones start tomorrow.
  * @returns {Promise<{ merged: boolean, added: number, stopped: number }>}
  */
 export async function mergePlanFromProfile(user, timezone, now = new Date()) {
-  const plan = await findActivePlan(user._id);
-  if (!plan) return { merged: false, added: 0, stopped: 0 };
   const plain = typeof user.toObject === "function" ? user.toObject() : user;
-  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
-  const result = mergePlanWithProfile(plan, plain, Math.max(1, day), { at: now });
-  if (!result) return { merged: false, added: 0, stopped: 0 };
-  const res = await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE, version: plan.version }, { $set: result.set });
-  return { merged: Boolean(res.modifiedCount), added: result.added.length, stopped: result.stopped.length };
+  const out = await updatePlanGuarded(user._id, (plan) => {
+    const day = Math.max(1, getPlanDay(plan, getLocalDayKey(timezone, now)));
+    const merged = mergePlanWithProfile(plan, plain, day, { at: now });
+    return merged ? { set: merged.set, result: { added: merged.added.length, stopped: merged.stopped.length } } : null;
+  });
+  return out?.result ? { merged: true, ...out.result } : { merged: false, added: 0, stopped: 0 };
 }
 
 /** Share of the last 7 days (up to today) on which the user ticked a routine step. */
