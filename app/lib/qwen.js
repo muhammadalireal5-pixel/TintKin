@@ -6,6 +6,7 @@ import { calculateAge } from "@/lib/utils/date";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult } from "@/lib/utils/result";
+import { PLAN_DURATION_DAYS, PLAN_METRICS, METRIC_LABELS, PLAN_PHASES, PLAN_LIMITS } from "@/lib/constants/plan";
 
 // Lazy singleton: the OpenAI SDK's constructor throws immediately if no
 // apiKey is resolvable. Built eagerly at module scope, that throw happened
@@ -125,6 +126,137 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
       ERROR_CODES.AI_ADVICE_UNAVAILABLE,
       "Personalized AI advice is temporarily unavailable."
     );
+  }
+}
+
+const PLAN_JSON_RULES = `Respond with the raw JSON object only. No markdown, no commentary.`;
+
+function describeUser(user) {
+  const goals = Array.isArray(user.goals)
+    ? user.goals.map((g) => sanitizeForPrompt(g, 40)).filter(Boolean).join(", ")
+    : "";
+  const custom = sanitizeForPrompt(user.customGoal, 100);
+  let age = "Unknown";
+  if (user.birthDate) {
+    const a = calculateAge(user.birthDate);
+    if (typeof a === "number" && !isNaN(a)) age = a;
+  }
+  const sex = typeof user.sex === "string" ? user.sex.slice(0, 20) : "Unknown";
+  const skinType = typeof user.skinType === "string" ? user.skinType.slice(0, 20) : "Unknown";
+  return `Age: ${age}, Sex: ${sex}, Skin type: ${skinType}, Goals: ${goals || "General improvement"}${custom ? ` (Specifically: ${custom})` : ""}`;
+}
+
+function describeScores(scores) {
+  return PLAN_METRICS.map((m) => `${METRIC_LABELS[m]} (${m}): ${Number.isFinite(scores?.[m]) ? Math.round(scores[m]) : "unknown"}`).join(", ");
+}
+
+async function callPlanModel(prompt) {
+  const response = await getOpenAIClient().chat.completions.create({
+    model: process.env.QWEN_MODEL_NAME || "deepseek-v4-pro-0813",
+    // Same reasoning as generatePersonalizedAdvice: thinking mode blows the timeout.
+    enable_thinking: false,
+    messages: [
+      { role: "system", content: "You are an expert AI dermatologist. Always respond with valid JSON only, without markdown formatting like ```json." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+  });
+  const content = response.choices[0].message.content
+    .trim()
+    .replace(/^```json/im, "")
+    .replace(/^```/im, "")
+    .replace(/```$/im, "")
+    .trim();
+  return JSON.parse(content);
+}
+
+/**
+ * Asks the model for a 30-day plan draft: a base routine for week 1, then what
+ * each later phase ADDS. lib/plan/build.js bounds and validates the result, so
+ * this returns the parsed JSON as-is (or an error envelope).
+ */
+export async function generatePlanDraft(user, scores, overallScore, skinAge, focus, uvIndex = null) {
+  try {
+    const focusText = focus.length
+      ? focus.map((f) => `${f.label} (${f.metric}) ${f.baseline}, aim for ${f.target}`).join("; ")
+      : "no clear weakest area";
+    const phaseText = PLAN_PHASES.map((p) => `"${p.key}" (days ${p.startDay}-${p.endDay}): ${p.intent}`).join("\n    ");
+    const uv = uvIndex !== null && !isNaN(uvIndex) ? `Current UV index: ${Number(uvIndex)}` : "Current UV index: unknown";
+
+    const prompt = `You are a professional dermatologist and skincare coach. Build a ${PLAN_DURATION_DAYS}-day plan that improves this person's skin, in four phases.
+
+    User: ${describeUser(user)}
+    Skin analysis (0-100, higher is better): ${describeScores(scores)}; overall ${Number.isFinite(overallScore) ? Math.round(overallScore) : "unknown"}/100; skin age ${Number.isFinite(skinAge) ? Math.round(skinAge) : "unknown"}
+    Focus areas for this plan: ${focusText}
+    ${uv}
+
+    Phases:
+    ${phaseText}
+
+    Rules:
+    - "foundation" is the whole starting routine: 3-4 morning ("am") steps and 2-3 evening ("pm") steps, gentle and safe for a beginner.
+    - Every later phase lists ONLY what it ADDS on top of the previous phases: at most ${PLAN_LIMITS.addsPerPhase} steps per slot, often just one or none. Never repeat an earlier step. Introduce at most one new active ingredient at a time, in the "target" phase first.
+    - Each step: "text" is one concrete action under ${PLAN_LIMITS.textLength} characters (what to do, and when if it matters). "why" is one sentence explaining why this step is for THIS person, tied to their scores, skin type or goals. "metric" is the score it supports (one of ${PLAN_METRICS.join(", ")}) or null.
+    - Keep it behavioural and safe: never specify SPF numbers, percentages or concentrations. If skin looks irritated or firmness is low, favour barrier repair and skip strong actives.
+    - "summary" is 2 sentences: what the plan focuses on and what they can expect to feel in 30 days. No guarantees or medical claims.
+
+    JSON shape:
+    {
+      "summary": "...",
+      "phases": {
+        "foundation": { "am": [{"text":"...","why":"...","metric":null}], "pm": [ ... ] },
+        "target": { "am": [], "pm": [ ... ] },
+        "build": { "am": [ ... ], "pm": [] },
+        "lockin": { "am": [], "pm": [ ... ] }
+      }
+    }
+    ${PLAN_JSON_RULES}`;
+
+    const draft = await callPlanModel(prompt);
+    return okResult({ draft });
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "ai-plan-generation" }, extra: { status: err?.status } });
+    return errorResult(ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Your personalised plan is temporarily unavailable.");
+  }
+}
+
+/**
+ * Asks the model to adjust the FUTURE of a plan after a check-in scan. It sees
+ * the current steps (by id), how the scores moved, and how consistently the
+ * user followed the routine, and may drop steps by id and add new ones.
+ */
+export async function generatePlanAdjustment(user, plan, { day, scores, adherencePercent }) {
+  try {
+    const stepLines = plan.steps
+      .filter((s) => s.startDay <= day && (s.endDay == null || day <= s.endDay))
+      .map((s) => `${s.id} [${s.slot}] ${sanitizeForPrompt(s.text, PLAN_LIMITS.textLength)}`)
+      .join("\n    ");
+    const moved = plan.focus
+      .map((f) => `${f.label}: started ${f.baseline}, now ${Number.isFinite(scores?.[f.metric]) ? Math.round(scores[f.metric]) : "unknown"}, aim ${f.target}`)
+      .join("; ");
+
+    const prompt = `You are a dermatologist and skincare coach reviewing a check-in on day ${day} of a ${plan.durationDays}-day skin plan.
+
+    User: ${describeUser(user)}
+    Progress on focus areas: ${moved}
+    Routine consistency over the last 7 days: ${Number.isFinite(adherencePercent) ? Math.round(adherencePercent) : "unknown"}%
+    Current steps (id [slot] text):
+    ${stepLines}
+
+    Decide what, if anything, should change from tomorrow. Rules:
+    - If consistency is low, prefer simplifying (drop a step) over adding. If progress is good, change little.
+    - "drop" is a list of step ids from the list above. "add" has at most ${PLAN_LIMITS.addsPerPhase} new steps per slot, same step shape as before ("text", "why" tied to this person, "metric").
+    - Keep it behavioural and safe: no SPF numbers, percentages or concentrations.
+    - "note" is 1-2 encouraging sentences telling the user what you changed and why (or that the plan stays as it is).
+
+    JSON shape: { "note": "...", "drop": ["s3"], "add": { "am": [], "pm": [] } }
+    ${PLAN_JSON_RULES}`;
+
+    const adjustment = await callPlanModel(prompt);
+    return okResult({ adjustment });
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "ai-plan-adjustment" }, extra: { status: err?.status } });
+    return errorResult(ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Your plan check-in is temporarily unavailable.");
   }
 }
 

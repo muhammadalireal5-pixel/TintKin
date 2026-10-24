@@ -56,7 +56,7 @@ function ReportSheet({ report, userName, sheetRef }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-clean.png" alt="TintKin" style={{ height: 36, width: "auto" }} />
         <div style={{ textAlign: "right", fontSize: 12, color: "#5B6D7F" }}>
-          <div style={{ fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 10 }}>Weekly Skin Report</div>
+          <div style={{ fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 10 }}>{report.type === "checkin" ? "Check-in Report" : "Weekly Skin Report"}</div>
           <div style={{ marginTop: 4 }}>{formatDate(report.date)}</div>
         </div>
       </div>
@@ -236,8 +236,8 @@ export default function ReportCard({ report, userName }) {
     <article className="tk-card p-5 sm:p-6 flex flex-col gap-5 md:flex-row md:items-start">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className={`tk-chip uppercase tracking-wider ${report.type === "weekly" ? "tk-chip-success" : ""}`}>
-            {report.type} report
+          <span className={`tk-chip uppercase tracking-wider ${report.type === "weekly" || report.type === "checkin" ? "tk-chip-success" : ""}`}>
+            {report.type === "checkin" ? "check-in" : report.type} report
           </span>
           {report.aiGenerated && (
             <span className="tk-chip uppercase tracking-wider inline-flex items-center gap-1">

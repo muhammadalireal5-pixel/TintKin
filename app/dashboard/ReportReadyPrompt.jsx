@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import GenerateReportForm from "@/app/reports/GenerateReportForm";
-import { SCANS_PER_REPORT } from "@/lib/constants/reports";
 
 /** Compact dashboard card shown once the user's next weekly report is unlocked. */
 export default function ReportReadyPrompt({ status }) {
@@ -15,9 +14,9 @@ export default function ReportReadyPrompt({ status }) {
           <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-danger ring-2 ring-white" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-primary">Your weekly report is ready</p>
+          <p className="text-sm font-semibold text-primary">Your check-in report is ready</p>
           <p className="text-xs text-muted">
-            You&apos;ve completed {SCANS_PER_REPORT} scans. <Link href="/reports" className="underline underline-offset-2 hover:text-primary">See all reports</Link>
+            You finished your day {status.checkInDay} check-in. <Link href="/reports" className="underline underline-offset-2 hover:text-primary">See all reports</Link>
           </p>
         </div>
       </div>

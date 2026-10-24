@@ -7,38 +7,36 @@ import {
   Trophy,
   Sun,
   Moon,
-  Apple,
-  Droplets,
+  Sparkles,
   Check,
   ArrowRight,
 } from "lucide-react";
 
 const FEATURES = [
-  { icon: ScanFace, title: "AI skin scan", desc: "Snap a quick selfie and get a clear score for wrinkles, firmness, spots and radiance." },
-  { icon: FlaskConical, title: "What-If simulator", desc: "Curious about a new routine? Preview how different choices could look and feel." },
-  { icon: CalendarCheck, title: "Daily routine", desc: "A gentle morning and evening plan that adapts to your skin and keeps you on a streak." },
-  { icon: FileText, title: "Reports", desc: "Beautiful, easy-to-read summaries that show what is improving over time." },
-  { icon: Trophy, title: "Leaderboard", desc: "Friendly competition and trophies to keep your habits fun and consistent." },
+  { icon: CalendarCheck, title: "A personal 30-day plan", desc: "Built from your selfie and your goals, with a clear target for the two areas that matter most to your skin." },
+  { icon: Sun, title: "A routine you will follow", desc: "Simple morning and evening steps, each with a reason it is right for you. New steps arrive as you go." },
+  { icon: ScanFace, title: "Weekly check-ins", desc: "One scan a week shows how far you have come. Your plan adapts to what is working." },
+  { icon: FlaskConical, title: "What-If simulator", desc: "Curious about a new product? Preview how it could change your skin before you buy." },
+  { icon: FileText, title: "Progress reports", desc: "Easy-to-read summaries that show what is improving and what to focus on next." },
+  { icon: Trophy, title: "Kin, streaks and trophies", desc: "Your friendly companion keeps you going with gentle reminders and small wins along the way." },
 ];
 
 const STEPS = [
-  { n: "1", title: "Scan", desc: "Take a filter-free selfie in natural light." },
-  { n: "2", title: "Understand", desc: "See your skin score and what is behind it." },
-  { n: "3", title: "Improve", desc: "Follow a daily plan and watch your progress grow." },
+  { n: "1", title: "Scan once", desc: "Take a filter-free selfie. That is your starting point." },
+  { n: "2", title: "Follow your plan", desc: "A simple daily routine, built around your skin and goals." },
+  { n: "3", title: "See it improve", desc: "Weekly check-ins show your progress, and your plan keeps adapting." },
 ];
 
-const METRICS = [
-  { label: "Wrinkles", value: 12, up: true },
-  { label: "Firmness", value: 28, up: true },
-  { label: "Spots", value: 15, up: false },
-  { label: "Radiance", value: 82, up: true },
+const FOCUS = [
+  { label: "Radiance", from: 48, now: 53, aim: 56, pct: 62 },
+  { label: "Even tone", from: 55, now: 57, aim: 60, pct: 40 },
 ];
 
 const PLAN = [
   { label: "Morning Routine", icon: Sun },
   { label: "Evening Routine", icon: Moon },
-  { label: "Nutrition", icon: Apple },
-  { label: "Hydration", icon: Droplets },
+  { label: "New this week", icon: Sparkles },
+  { label: "Check-in", icon: ScanFace },
 ];
 
 export function HeroSection() {
@@ -48,19 +46,19 @@ export function HeroSection() {
       <section className="tk-page relative overflow-hidden">
         <div className="tk-container grid lg:grid-cols-2 items-center gap-10 lg:gap-14 py-10 sm:py-14 lg:py-20">
           <div className="text-center lg:text-left">
-            <p className="tk-anim-1 tk-chip mb-5 mx-auto lg:mx-0 w-fit">A gentle approach to skin health</p>
+            <p className="tk-anim-1 tk-chip mb-5 mx-auto lg:mx-0 w-fit">Your 30-day skin plan</p>
 
             <h1 className="tk-anim-2 text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.08] tracking-tight text-primary mb-4 lg:mb-6">
-              A daily journal for your <span className="text-accent">skin&rsquo;s</span> journey.
+              Improve your <span className="text-accent">skin</span> in 30 days.
             </h1>
 
             <p className="tk-anim-3 text-base sm:text-lg text-muted leading-relaxed max-w-xl mb-8 mx-auto lg:mx-0">
-              Move away from harsh clinical metrics. Discover a mindful, AI-supported companion that helps you understand, nurture, and celebrate your skin every day.
+              One selfie builds a personal plan. Follow a simple daily routine with Kin by your side, check in weekly, and watch your progress show.
             </p>
 
             <div className="tk-anim-4 flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start">
               <Link href="/sign-up" className="tk-pill-btn tk-btn-primary gap-2 w-full sm:w-auto">
-                Get started
+                Build my free plan
                 <ArrowRight className="w-[18px] h-[18px]" aria-hidden="true" />
               </Link>
               <Link href="/sign-in" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto">
@@ -76,8 +74,8 @@ export function HeroSection() {
       {/* Features */}
       <section className="tk-container py-12 sm:py-16" aria-labelledby="features-title">
         <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
-          <h2 id="features-title" className="text-3xl sm:text-4xl font-semibold text-primary mb-3">A gentle perspective on care</h2>
-          <p className="text-muted leading-relaxed">Embrace a routine that listens to your skin&apos;s unique needs, backed by thoughtful intelligence.</p>
+          <h2 id="features-title" className="text-3xl sm:text-4xl font-semibold text-primary mb-3">Not just a score. A plan that works</h2>
+          <p className="text-muted leading-relaxed">Everything you need to actually improve your skin, and proof that it is working.</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {FEATURES.map(({ icon: Icon, title, desc }) => (
@@ -111,12 +109,12 @@ export function HeroSection() {
       {/* Pricing teaser / final CTA */}
       <section className="tk-container py-12 sm:py-16">
         <div className="tk-card p-8 sm:p-12 text-center bg-accent-soft">
-          <h2 className="text-3xl sm:text-4xl font-semibold text-primary mb-3">Start with a free scan</h2>
+          <h2 className="text-3xl sm:text-4xl font-semibold text-primary mb-3">Start with your free plan</h2>
           <p className="text-muted max-w-xl mx-auto mb-6">
-            Create your account in seconds, see your first skin score, then pick the plan or credit pack that suits you. No pressure, cancel anytime.
+            Create your account, take one selfie and get your personal 30-day plan. Free includes your plan and 2 scans a month. Upgrade from $8 a month for more check-ins. Cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/sign-up" className="tk-pill-btn tk-btn-primary w-full sm:w-auto">Get started</Link>
+            <Link href="/sign-up" className="tk-pill-btn tk-btn-primary w-full sm:w-auto">Build my free plan</Link>
             <Link href="/pricing" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto bg-white">See pricing</Link>
           </div>
         </div>
@@ -132,33 +130,34 @@ function PhonePreview() {
       <div className="w-full max-w-[300px] sm:max-w-[330px] rounded-[2.5rem] border-[6px] border-cocoa bg-base p-4 shadow-[0_30px_60px_-20px_rgb(var(--tk-ink-rgb)/0.45)]">
         <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-cocoa/20" />
         <p className="text-xs text-muted">Good morning,</p>
-        <p className="text-xl font-semibold text-primary mb-3">Your skin today</p>
+        <p className="text-xl font-semibold text-primary mb-3">Your skin plan</p>
 
         <div className="tk-card p-4 mb-3">
-          <p className="tk-eyebrow mb-1">Skin score</p>
-          <div className="flex items-end gap-2">
-            <span className="text-5xl font-semibold text-primary leading-none">72</span>
-            <span className="text-sm text-muted mb-1">/ 100</span>
-            <span className="tk-chip tk-chip-success ml-auto mb-1">+8</span>
+          <div className="flex items-center justify-between">
+            <p className="tk-eyebrow">Day 9 of 30</p>
+            <span className="tk-chip">Target</span>
           </div>
-          <div className="mt-3 h-1.5 rounded-full bg-line overflow-hidden">
-            <div className="h-full w-[72%] rounded-full bg-accent" />
+          <div className="mt-2 h-1.5 rounded-full bg-line overflow-hidden">
+            <div className="h-full w-[30%] rounded-full bg-accent" />
           </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-1.5 mb-3">
-          {METRICS.map((m) => (
-            <div key={m.label} className="tk-tile p-2 text-center">
-              <p className="text-[9px] text-muted truncate">{m.label}</p>
-              <p className="text-base font-semibold text-primary leading-tight">{m.value}</p>
-              <p className={`text-[9px] font-semibold ${m.up ? "text-success" : "text-muted"}`}>{m.up ? "▲" : "–"}</p>
-            </div>
-          ))}
+          <ul className="mt-3 space-y-2.5">
+            {FOCUS.map((f) => (
+              <li key={f.label}>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-semibold text-primary">{f.label}</span>
+                  <span className="text-[10px] text-muted">{f.from} &rarr; <strong className="text-primary">{f.now}</strong> &middot; aim {f.aim}</span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-line overflow-hidden">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${f.pct}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-primary">Today&rsquo;s Plan</p>
-          <p className="tk-text-micro text-muted">2 of 12 completed</p>
+          <p className="tk-text-micro text-muted">2 of 6 completed</p>
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           {PLAN.map(({ label, icon: Icon }, i) => (

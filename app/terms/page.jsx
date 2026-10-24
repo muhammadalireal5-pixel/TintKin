@@ -4,13 +4,13 @@ import PageHeader from "@/app/components/ui/PageHeader";
 
 export const metadata = {
   title: "Terms of Service",
-  description: "Terms of Service and user agreement for TintKin's AI skin wellness journal.",
+  description: "Terms of Service and user agreement for TintKin's personal skin plan and wellness journal.",
   alternates: {
     canonical: "/terms",
   },
   openGraph: {
     title: "Terms of Service | TintKin",
-    description: "Terms of Service and user agreement for TintKin's AI skin wellness journal.",
+    description: "Terms of Service and user agreement for TintKin's personal skin plan and wellness journal.",
     url: "https://tintkin.com/terms",
   },
 };
@@ -21,7 +21,7 @@ export default function TermsPage() {
       <Link href="/" className="inline-flex items-center text-sm font-medium text-accent hover:text-accent-deep transition-colors mb-5">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
       </Link>
-      <PageHeader eyebrow="Last Updated: October 10, 2026" title="Terms of Service" />
+      <PageHeader eyebrow="Last Updated: October 24, 2026" title="Terms of Service" />
       <div className="tk-card p-6 sm:p-10">
         <div className="space-y-8 text-primary leading-relaxed text-[0.95rem]">
           <section>
@@ -31,7 +31,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">2. Description of Service</h2>
-            <p>TintKin is an AI-powered skincare wellness journal that provides insights, skin analysis, and simulations based on photos you upload. <strong>TintKin is not a medical device or service.</strong> The insights provided are for informational and cosmetic purposes only and do not constitute medical advice, diagnosis, or treatment.</p>
+            <p>TintKin is a skincare wellness service that builds a personal 30-day skin plan, a daily routine and progress check-ins from photos you upload, and provides insights and simulations. Plans and advice are generated with the help of AI and are general in nature. <strong>TintKin is not a medical device or service.</strong> The insights provided are for informational and cosmetic purposes only and do not constitute medical advice, diagnosis, or treatment.</p>
           </section>
 
           <section>

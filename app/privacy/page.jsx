@@ -21,12 +21,12 @@ export default function PrivacyPage() {
       <Link href="/" className="inline-flex items-center text-sm font-medium text-accent hover:text-accent-deep transition-colors mb-5">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
       </Link>
-      <PageHeader eyebrow="Last Updated: October 10, 2026" title="Privacy Policy" />
+      <PageHeader eyebrow="Last Updated: October 24, 2026" title="Privacy Policy" />
       <div className="tk-card p-6 sm:p-10">
         <div className="space-y-8 text-primary leading-relaxed text-[0.95rem]">
           <section>
             <h2 className="text-lg sm:text-xl font-semibold text-accent mb-3">1. Introduction</h2>
-            <p>At TintKin, we take your privacy seriously. This Privacy Policy explains how we collect, use, and protect your personal information when you use our skincare wellness journal and AI analysis tools.</p>
+            <p>At TintKin, we take your privacy seriously. This Privacy Policy explains how we collect, use, and protect your personal information when you use our skincare wellness journal, including your personal 30-day skin plan, daily routine and check-in scans.</p>
           </section>
 
           <section>
@@ -34,8 +34,10 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Account Information:</strong> We collect your email address, name, and profile picture provided during sign-up (or from Google, if you sign in with Google). Passwords are stored only as salted bcrypt hashes.</li>
               <li><strong>Profile Data:</strong> We collect information you provide during onboarding, including birth date, gender, skin type, and skincare goals.</li>
-              <li><strong>Facial Images:</strong> When you use our scanning feature, you upload a photo of your face.</li>
+              <li><strong>Facial Images:</strong> When you take a scan (your starting selfie during sign-up, a plan check-in, or any extra scan), you upload a photo of your face.</li>
               <li><strong>Analysis Data:</strong> We store the numerical scores (e.g., wrinkles, firmness) and AI-generated advice derived from your scans.</li>
+              <li><strong>Plan and Routine Data:</strong> We store your 30-day skin plan (your focus areas, targets and steps, and any changes made to it after check-ins), which routine steps you tick off each day, your check-in results and the reports generated from them, and your care streak and milestones.</li>
+              <li><strong>Notification Data:</strong> If you turn on reminders, we store a push subscription for each browser or device you enable them on, and your reminder preferences and time zone, so we can send gentle morning and evening nudges. You can turn reminders off in Settings at any time.</li>
               <li><strong>Payment Data:</strong> If you purchase credits, our payment processor (Polar, see below) handles your payment details directly &mdash; we never see or store your card number. We retain only the order/credit records needed to apply your purchase and handle refunds.</li>
             </ul>
           </section>
@@ -45,7 +47,7 @@ export default function PrivacyPage() {
             <p>Your privacy and the security of your biometric data are a top priority. Here is exactly how your photos are handled:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
               <li>When you upload a photo, it is securely transmitted to Cloudinary (using private, authenticated delivery, not a public link) for staging and formatting.</li>
-              <li>The formatted image is sent to our AI analysis partner (PerfectCorp/YouCam) to generate your skin scores.</li>
+              <li>The formatted image is sent to our analysis partner (PerfectCorp/YouCam) to generate your skin scores. Your plan is built from those scores, not from the photo itself.</li>
               <li><strong>Your choice &mdash; store or delete:</strong> In Settings, you can choose what happens to your photo after each scan. If you choose &ldquo;delete,&rdquo; it is permanently removed immediately after analysis. If you choose &ldquo;store&rdquo; (the default), your most recent photo is kept &mdash; to let you run What-If simulations and see your own photo in your journal &mdash; until you take your <em>next</em> scan, at which point the previous photo is automatically and permanently deleted. Depending on how often you scan, this could be anywhere from the same day to several weeks.</li>
               <li>We do not sell, share, or use your images to train AI models.</li>
             </ul>
@@ -59,7 +61,7 @@ export default function PrivacyPage() {
               <li><strong>Google (optional):</strong> For sign-in if you choose &ldquo;Sign in with Google&rdquo;.</li>
               <li><strong>Cloudinary:</strong> For secure image staging and processing.</li>
               <li><strong>PerfectCorp (YouCam):</strong> For analyzing skin metrics.</li>
-              <li><strong>Alibaba Cloud (Qwen):</strong> For generating personalized, text-based skincare advice based on numerical scores (no images are sent to this service). This service is based outside your country; only non-image scores are sent to it.</li>
+              <li><strong>Alibaba Cloud (Qwen):</strong> For writing your personalised plan, routine and check-in adjustments. It receives your numerical scores, your plan progress and routine consistency, and basic profile details (age, sex, skin type and goals) (no images, name or email are sent to this service). This service is based outside your country.</li>
               <li><strong>Resend:</strong> For sending account emails (password reset, email verification, and data export emails if you request one).</li>
               <li><strong>Sentry:</strong> For error monitoring, so we can detect and fix bugs. Sentry data is automatically filtered to remove emails, images, and other personal details before it is sent.</li>
               <li><strong>Polar:</strong> For processing credit purchases and refunds, if you buy credits in the shop.</li>

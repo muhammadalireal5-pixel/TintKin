@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, Plan } from "./mongoose";
 import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo, SIM_CROP_OPTIONS } from "./youcam";
@@ -21,6 +21,8 @@ import {
 } from "@/lib/utils/cloudinary";
 import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
+import { recordScanOnPlan, getTodayRoutineKeys } from "./plan";
+import { toPlanView } from "@/lib/plan/state";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
 
@@ -28,7 +30,6 @@ import { validateOnboarding } from "@/lib/validations/onboarding";
 import { validateUserSettings } from "@/lib/validations/settings";
 import {
   TIERS,
-  STANDARD_PACING,
   ALLOWED_USER_TIERS,
   ACTIVE_SUBSCRIPTION_TIERS,
   TIER_PRODUCT_IDS,
@@ -43,7 +44,7 @@ import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
 import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
-import { SCANS_PER_REPORT, getReportProgress } from "@/lib/constants/reports";
+import { findPendingReport, getReportStatus as computeReportStatus, buildCheckInReport } from "@/lib/plan/report";
 import { sendReportReadyEmail } from "./email";
 import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
 import {
@@ -415,37 +416,21 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "That image couldn't be used — please upload a new photo.", { error: "That image couldn't be used — please upload a new photo." });
     }
 
-    const { daysInMonth } = getLocalMonthStart(timezone);
-    const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier, daysInMonth);
-
-    // "Every-other-day" is a soft pacing nudge for Standard plans, not a hard
-    // cost boundary (the daily cap below already limits scans to 1/day), so
-    // an eventually-consistent read here is fine.
-    const pacingTodayStart = getLocalDayStart(timezone);
-    const pacingYesterdayStart = new Date(pacingTodayStart);
-    pacingYesterdayStart.setDate(pacingYesterdayStart.getDate() - 1);
-    const pacingBlocked =
-      user.tier === TIERS.STANDARD &&
-      user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY &&
-      (await Selfie.countDocuments({ userId: user._id, takenAt: { $gte: pacingYesterdayStart, $lt: pacingTodayStart } })) > 0;
+    const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier);
 
     let scanDenialReason = "";
-    if (pacingBlocked) {
-      scanDenialReason = DENIAL_REASONS.EVERY_OTHER_DAY;
+    // Atomically reserves the slot before the expensive AI calls below so
+    // concurrent requests can't both pass a stale check (see app/lib/quota.js).
+    const reservation = await reserveScanSlot(user._id, timezone, scanDailyLimit, scanMonthlyLimit);
+    if (reservation.granted) {
+      reservedScanSlot = { dayKey: reservation.dayKey, monthKey: reservation.monthKey };
+    } else if (!QUOTA_LIMIT_REASONS.has(reservation.reason)) {
+      // The check itself failed (DB/transaction error), not the user's limit:
+      // don't silently spend their purchased extra scans on it.
+      await cleanupOrphanedUpload();
+      return errorResult(ERROR_CODES.SCAN_LIMIT, "We couldn't verify your scan allowance right now. Please try again in a moment.", { error: "QUOTA_CHECK_FAILED" });
     } else {
-      // Atomically reserves the slot before the expensive AI calls below so
-      // concurrent requests can't both pass a stale check (see app/lib/quota.js).
-      const reservation = await reserveScanSlot(user._id, timezone, scanDailyLimit, scanMonthlyLimit);
-      if (reservation.granted) {
-        reservedScanSlot = { dayKey: reservation.dayKey, monthKey: reservation.monthKey };
-      } else if (!QUOTA_LIMIT_REASONS.has(reservation.reason)) {
-        // The check itself failed (DB/transaction error), not the user's limit:
-        // don't silently spend their purchased extra scans on it.
-        await cleanupOrphanedUpload();
-        return errorResult(ERROR_CODES.SCAN_LIMIT, "We couldn't verify your scan allowance right now. Please try again in a moment.", { error: "QUOTA_CHECK_FAILED" });
-      } else {
-        scanDenialReason = reservation.reason === "daily_limit" ? DENIAL_REASONS.DAILY_LIMIT : DENIAL_REASONS.MONTHLY_LIMIT;
-      }
+      scanDenialReason = reservation.reason === "daily_limit" ? DENIAL_REASONS.DAILY_LIMIT : DENIAL_REASONS.MONTHLY_LIMIT;
     }
 
     if (!reservedScanSlot) {
@@ -462,9 +447,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         );
         if (!paidWithCredits) {
           let msg = "You've reached your scan limit.";
-          if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = "You've already logged a photo today. We will await your arrival tomorrow to keep your streak going!";
-          if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your scans for this month. We will await your arrival next billing cycle!";
-          if (scanDenialReason === DENIAL_REASONS.EVERY_OTHER_DAY) msg = "Your plan is set to every-other-day. We will await your arrival tomorrow!";
+          if (scanDenialReason === DENIAL_REASONS.DAILY_LIMIT) msg = `You've reached today's limit of ${scanDailyLimit} scans. Skin changes slowly, so come back tomorrow for a cleaner read.`;
+          if (scanDenialReason === DENIAL_REASONS.MONTHLY_LIMIT) msg = "You've used all your check-in scans for this month. Your routine keeps working. Your allowance renews next billing cycle.";
           await cleanupOrphanedUpload();
           return errorResult(ERROR_CODES.SCAN_LIMIT, msg, { error: "SCAN_LIMIT" });
         }
@@ -476,14 +460,12 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     // A scan is an "active" day, same as ticking a routine step (see
     // lib/utils/streak.js and recordCareDay). Day-KEY maths, not elapsed
     // wall-clock time, so a DST day never counts as a 2-day gap (M16 in
-    // AUDIT.md); an every-other-day plan's cadence IS a 2-day gap; one missed
-    // day a week is forgiven.
+    // AUDIT.md); one missed day a week is forgiven.
     const todayKey = getLocalDayKey(timezone, now);
     const streakStep = advanceStreak({
       stored: user.currentStreak || 0,
       lastKey: lastActiveKeyOf(user, timezone),
       todayKey,
-      allowedGapDays: allowedGapDaysFor(user),
       freezeWeek: user.streakFreezeWeek || null,
     });
     const newStreak = streakStep.streak;
@@ -684,12 +666,17 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
     }
     await User.findByIdAndUpdate(user._id, userUpdateOps);
 
+    // Keeps the plan's progress current and completes a due check-in. Cheap and
+    // best-effort (it swallows its own errors), so it can't fail the scan.
+    const planScan = await recordScanOnPlan(user, selfie, timezone);
+    const checkInCompleted = planScan?.completedDay != null;
+
     if (lastSelfie && lastSelfie.imageUrl) {
       await deleteImageFromCloudinary(lastSelfie.imageUrl);
       await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
     }
 
-    const report = await notifyReportReadyIfDue(user);
+    const report = await notifyReportReadyIfDue(user, checkInCompleted);
 
     if (adviceSucceeded) {
       return okResult({
@@ -700,6 +687,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         workoutChanged,
         reportReady: report.ready,
         reportJustUnlocked: report.justUnlocked,
+        checkInCompleted,
       });
     }
 
@@ -711,6 +699,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       workoutChanged: false,
       reportReady: report.ready,
       reportJustUnlocked: report.justUnlocked,
+      checkInCompleted,
     },  ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
   } catch (err) {
     if (extraScanConsumed) {
@@ -767,7 +756,6 @@ function computeDisplayStreak(user, timezone) {
     stored: user.currentStreak || 0,
     lastKey: lastActiveKeyOf(user, timezone),
     todayKey: getLocalDayKey(timezone, new Date()),
-    allowedGapDays: allowedGapDaysFor(user),
     freezeWeek: user.streakFreezeWeek || null,
   });
 }
@@ -776,12 +764,6 @@ function computeDisplayStreak(user, timezone) {
 function lastActiveKeyOf(user, timezone) {
   if (user.lastActiveDayKey) return user.lastActiveDayKey;
   return user.lastUploadDate ? getLocalDayKey(timezone, user.lastUploadDate) : null;
-}
-
-// An every-other-day Standard plan's expected cadence IS a 2-day gap (M16).
-function allowedGapDaysFor(user) {
-  const isEveryOtherDay = user.tier === TIERS.STANDARD && user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY;
-  return isEveryOtherDay ? 2 : 1;
 }
 
 /**
@@ -795,7 +777,6 @@ async function recordCareDay(user, timezone) {
     stored: user.currentStreak || 0,
     lastKey: lastActiveKeyOf(user, timezone),
     todayKey,
-    allowedGapDays: allowedGapDaysFor(user),
     freezeWeek: user.streakFreezeWeek || null,
   });
   if (step.isNewDay) {
@@ -939,7 +920,15 @@ export async function getLatestData(timezone = null, options = {}) {
     };
   }
 
-  const habitTotalSteps = (latestAnalyzedSelfie?.amRoutine?.length || 0) + (latestAnalyzedSelfie?.pmRoutine?.length || 0);
+  // With a plan, "today's routine" is the plan's steps for today (keyed by step
+  // id); without one it is the latest scan's routine (keyed by its text).
+  const planRoutine = await getTodayRoutineKeys(user._id, timezone, now);
+  const todayRoutine = {
+    am: planRoutine ? planRoutine.am : latestAnalyzedSelfie?.amRoutine || [],
+    pm: planRoutine ? planRoutine.pm : latestAnalyzedSelfie?.pmRoutine || [],
+    fromPlan: Boolean(planRoutine),
+  };
+  const habitTotalSteps = todayRoutine.am.length + todayRoutine.pm.length;
   const yesterdayDone = yesterdayRoutineLog
     ? (yesterdayRoutineLog.amCompleted?.length || 0) + (yesterdayRoutineLog.pmCompleted?.length || 0)
     : null;
@@ -969,8 +958,8 @@ export async function getLatestData(timezone = null, options = {}) {
     allSelfies,
     simulationCount: simCount,
     todayRoutineLog,
-    amRoutine: latestAnalyzedSelfie?.amRoutine,
-    pmRoutine: latestAnalyzedSelfie?.pmRoutine,
+    amRoutine: todayRoutine.am,
+    pmRoutine: todayRoutine.pm,
     selfieCount: totalSelfieCount,
     reportCount,
     baselineScores: analyzedScores(firstSelfies),
@@ -1011,6 +1000,7 @@ export async function getLatestData(timezone = null, options = {}) {
     realAge, 
     weeklyAverage,
     todayRoutineLog,
+    todayRoutine,
     habitConsistency,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
@@ -1466,8 +1456,6 @@ export async function getUsageQuotas(timezone) {
   // Server-rendered callers have no browser timezone, so fall back to the one
   // last saved on the user (see syncUserTimezone).
   timezone = normalizeTimezone(timezone ?? user.timezone);
-  const todayStart = getLocalDayStart(timezone);
-  const { daysInMonth } = getLocalMonthStart(timezone);
 
   // Read the same counters reserveScanSlot/reserveSimulationSlot enforce
   // against (app/lib/quota.js), not a fresh countDocuments(): those drifted
@@ -1482,18 +1470,12 @@ export async function getUsageQuotas(timezone) {
   const scansThisMonth = resolvePeriod(scanUsage.monthKey, scanUsage.monthCount, monthKey).count;
   const simsThisMonth = resolvePeriod(simUsage.monthKey, simUsage.monthCount, monthKey).count;
 
-  const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier, daysInMonth);
+  const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier);
   const simLimit = getTierSimLimit(user.tier);
 
   const extraScans = user.extraScans || 0;
   const extraSimulations = user.extraSimulations || 0;
   const creditBalance = user.creditBalance || 0;
-
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  const scansYesterday = await Selfie.countDocuments({
-    userId: user._id, takenAt: { $gte: yesterdayStart, $lt: todayStart }
-  });
 
   let canScanToday = true;
   let scanDenialReason = "";
@@ -1506,10 +1488,6 @@ export async function getUsageQuotas(timezone) {
   } else if (scansThisMonth >= scanMonthlyLimit) {
      canScanToday = false;
      scanDenialReason = DENIAL_REASONS.MONTHLY_LIMIT;
-     wouldBeDenied = true;
-  } else if (user.tier === TIERS.STANDARD && user.standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY && scansYesterday > 0) {
-     canScanToday = false;
-     scanDenialReason = DENIAL_REASONS.EVERY_OTHER_DAY;
      wouldBeDenied = true;
   }
 
@@ -2053,7 +2031,6 @@ export async function getUserProfile() {
       creditBalance: user.creditBalance || 0,
       skinType: user.skinType || null,
       optInComparison: user.optInComparison || false,
-      standardPlanFrequency: user.standardPlanFrequency || "flexible",
       photoPrivacy: user.photoPrivacy || "store",
       // Reported as verified while confirmation emails are switched off, so no
       // "please confirm your email" prompt shows.
@@ -2083,7 +2060,7 @@ export async function updateUserSettings(settings) {
   }
 }
 
-export async function updateUserTier(tier, standardPlanFrequency = STANDARD_PACING.FLEXIBLE) {
+export async function updateUserTier(tier) {
   try {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Please sign in again to continue." };
@@ -2100,10 +2077,6 @@ export async function updateUserTier(tier, standardPlanFrequency = STANDARD_PACI
     }
 
     const updates = { tier, isSubscribed: ACTIVE_SUBSCRIPTION_TIERS.includes(tier) };
-    
-    if (tier === TIERS.STANDARD && Object.values(STANDARD_PACING).includes(standardPlanFrequency)) {
-      updates.standardPlanFrequency = standardPlanFrequency;
-    }
 
     await User.findByIdAndUpdate(user._id, updates);
     return { success: true };
@@ -2261,13 +2234,22 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
 
     // Whitelist against the routine actually recommended to this user, rather
     // than trusting a client-supplied string verbatim (M18 in AUDIT.md) — also
-    // what bounds amCompleted/pmCompleted to a handful of real entries.
-    const latestSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true })
-      .sort({ takenAt: -1 })
-      .select("amRoutine pmRoutine")
-      .lean();
-    const amRoutine = Array.isArray(latestSelfie?.amRoutine) ? latestSelfie.amRoutine : [];
-    const pmRoutine = Array.isArray(latestSelfie?.pmRoutine) ? latestSelfie.pmRoutine : [];
+    // what bounds amCompleted/pmCompleted to a handful of real entries. With a
+    // plan the keys are today's step ids; otherwise the latest scan's text.
+    const planRoutine = await getTodayRoutineKeys(user._id, timezone);
+    let amRoutine;
+    let pmRoutine;
+    if (planRoutine) {
+      amRoutine = planRoutine.am;
+      pmRoutine = planRoutine.pm;
+    } else {
+      const latestSelfie = await Selfie.findOne({ userId: user._id, isAnalyzed: true })
+        .sort({ takenAt: -1 })
+        .select("amRoutine pmRoutine")
+        .lean();
+      amRoutine = Array.isArray(latestSelfie?.amRoutine) ? latestSelfie.amRoutine : [];
+      pmRoutine = Array.isArray(latestSelfie?.pmRoutine) ? latestSelfie.pmRoutine : [];
+    }
     const routineSteps = time === "am" ? amRoutine : pmRoutine;
     if (!routineSteps.includes(step)) {
       return { success: false, error: "Unknown routine step." };
@@ -2370,34 +2352,37 @@ export async function optInComparison(optIn) {
   }
 }
 
-/** Analyzed scans taken after the user's most recent report (or ever, if none). */
-function scansSinceLastReportFilter(userId, lastReport) {
-  const filter = { userId, isAnalyzed: true };
-  if (lastReport) filter.takenAt = { $gt: lastReport.createdAt };
-  return filter;
+/** Plans and check-in reports for a user, the inputs to the pure report logic. */
+async function loadReportInputs(userId) {
+  const [plans, reports] = await Promise.all([
+    Plan.find({ userId }).sort({ startedAt: -1 }).limit(3).lean(),
+    Report.find({ userId, planId: { $ne: null } }).select("planId checkInDay").lean(),
+  ]);
+  return { plans, reports };
 }
 
-async function countScansSinceLastReport(userId) {
-  const lastReport = await Report.findOne({ userId }).sort({ createdAt: -1 }).select("createdAt").lean();
-  return Selfie.countDocuments(scansSinceLastReportFilter(userId, lastReport));
+async function getUserReportStatus(userId) {
+  const { plans, reports } = await loadReportInputs(userId);
+  return computeReportStatus(plans, reports);
 }
 
 /**
- * Called after a successful scan. Once the user reaches SCANS_PER_REPORT new
- * scans, flags the report as ready and emails them exactly once per cycle (the
- * conditional update on reportReadyAt makes concurrent scans race-safe).
+ * Called after a scan completes a plan check-in. Flags the report as ready and
+ * emails them exactly once per report (the conditional update on reportReadyAt
+ * makes concurrent scans race-safe).
  */
-async function notifyReportReadyIfDue(user) {
+async function notifyReportReadyIfDue(user, checkInCompleted) {
   try {
-    const progress = getReportProgress(await countScansSinceLastReport(user._id));
-    if (!progress.ready) return { ready: false, justUnlocked: false };
+    const status = await getUserReportStatus(user._id);
+    if (!status.ready) return { ready: false, justUnlocked: false };
+    if (!checkInCompleted) return { ready: true, justUnlocked: false };
 
     const claimed = await User.findOneAndUpdate(
       { _id: user._id, reportReadyAt: null },
       { $set: { reportReadyAt: new Date() } }
     );
     if (claimed) {
-      await sendReportReadyEmail({ email: user.email, name: user.displayName, scanCount: SCANS_PER_REPORT });
+      await sendReportReadyEmail({ email: user.email, name: user.displayName, checkInDay: status.checkInDay });
     }
     return { ready: true, justUnlocked: Boolean(claimed) };
   } catch (err) {
@@ -2407,9 +2392,10 @@ async function notifyReportReadyIfDue(user) {
 }
 
 /**
- * Progress toward the next report, for nav badges and the dashboard prompt.
- * Never redirects (it runs in the background from client components), so it
- * returns null when there is no signed-in, onboarded user.
+ * Report status for nav badges and the dashboard prompt: ready when a plan
+ * check-in has been completed without a report. Never redirects (it runs in the
+ * background from client components), so it returns null when there is no
+ * signed-in, onboarded user.
  */
 export async function getReportStatus() {
   try {
@@ -2418,7 +2404,7 @@ export async function getReportStatus() {
     if (!decoded) return null;
     const user = await findSessionUser(decoded);
     if (!user?.onboardingComplete) return null;
-    return getReportProgress(await countScansSinceLastReport(user._id));
+    return await getUserReportStatus(user._id);
   } catch {
     return null;
   }
@@ -2445,12 +2431,16 @@ export async function getCompanionState() {
       Selfie.findOne({ userId: user._id }).sort({ takenAt: -1 }).select("takenAt").lean(),
       Selfie.findOne({ userId: user._id, isAnalyzed: true }).sort({ takenAt: -1 }).select("amRoutine pmRoutine").lean(),
       RoutineLog.findOne({ userId: user._id, date: { $gte: todayStart } }).select("amCompleted pmCompleted").lean(),
-      getReportProgress(await countScansSinceLastReport(user._id)),
+      getUserReportStatus(user._id),
     ]);
 
-    const amTotal = latestAnalyzed?.amRoutine?.length || 0;
-    const pmTotal = latestAnalyzed?.pmRoutine?.length || 0;
+    const planRoutine = await getTodayRoutineKeys(user._id, tz);
+    const amTotal = planRoutine ? planRoutine.am.length : latestAnalyzed?.amRoutine?.length || 0;
+    const pmTotal = planRoutine ? planRoutine.pm.length : latestAnalyzed?.pmRoutine?.length || 0;
+    const planView = planRoutine ? toPlanView(planRoutine.plan, getLocalDayKey(tz)) : null;
     return {
+      hasPlan: Boolean(planView),
+      checkInDue: Boolean(planView?.nextCheckIn?.isDue),
       firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
       scanCount,
       scannedToday: Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart),
@@ -2475,102 +2465,41 @@ export async function generateReport(prevState, formData) {
     const user = await getDbUser();
     if (!user) return { success: false, error: "Please sign in again to continue." };
 
-    const now = new Date();
-
-    const lastReport = await Report.findOne({ userId: user._id }).sort({ createdAt: -1 }).select("createdAt").lean();
-    const selfies = await Selfie.find(scansSinceLastReportFilter(user._id, lastReport)).sort({ takenAt: -1 });
-
-    const progress = getReportProgress(selfies.length);
-    if (!progress.ready) {
+    const { plans, reports } = await loadReportInputs(user._id);
+    const pending = findPendingReport(plans, reports);
+    if (!pending) {
       return {
         success: false,
-        error: `Your next report unlocks after ${SCANS_PER_REPORT} scans. You're at ${progress.count} of ${SCANS_PER_REPORT}, ${progress.remaining} to go!`,
+        error: "Your next report unlocks when you complete your next plan check-in. Check your plan for the date.",
       };
     }
+    const { plan, checkIn, prevCheckIn } = pending;
 
-    // Calculate metrics from scans
-    const scores = selfies.map(s => s.overallScore).filter(s => typeof s === "number");
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-    const trend = scores.length >= 2 ? scores[0] - scores[scores.length - 1] : 0;
-    
-    // Generate AI-powered report using Qwen
-    const reportData = {
-      userName: user.displayName || "Wellness Seeker",
-      scanCount: selfies.length,
-      averageScore: avgScore,
-      trend: trend > 0 ? 'improving' : trend < 0 ? 'declining' : 'stable',
-      trendValue: Math.abs(trend),
-      topMetrics: [],
-      compliments: []
-    };
+    const takenAt = checkIn.completedAt ? new Date(checkIn.completedAt) : new Date();
+    const dateLabel = takenAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const content = buildCheckInReport(plan, checkIn, prevCheckIn, { dateLabel });
+    const scanCount = await Selfie.countDocuments({ userId: user._id, isAnalyzed: true, takenAt: { $gte: plan.startedAt, $lte: takenAt } });
 
-    // Analyze individual metrics
-    const metricKeys = ['wrinkles', 'firmness', 'spots', 'radiance'];
-    const metricScores = {};
-    
-    selfies.forEach(selfie => {
-      if (selfie.scores) {
-        metricKeys.forEach(key => {
-          if (typeof selfie.scores[key] === "number") {
-            if (!metricScores[key]) metricScores[key] = [];
-            metricScores[key].push(selfie.scores[key]);
-          }
-        });
-      }
-    });
-
-    // Find best performing metrics
-    Object.entries(metricScores).forEach(([key, values]) => {
-      if (values.length > 0) {
-        const avg = values.reduce((a, b) => a + b, 0) / values.length;
-        reportData.topMetrics.push({ name: key, score: Math.round(avg) });
-      }
-    });
-
-    reportData.topMetrics.sort((a, b) => b.score - a.score);
-    reportData.topMetrics = reportData.topMetrics.slice(0, 3);
-
-    // Generate fancy compliments based on performance
-    const complimentBank = [
-      "Your skin is absolutely radiant!",
-      "Remarkable progress! Your dedication is paying off beautifully.",
-      "Your complexion shows stunning improvement!",
-      "Gorgeous glow detected! Keep nurturing your skin.",
-      "Your skin looks incredibly healthy and vibrant!",
-      "Outstanding results! Your skin is thriving.",
-      "Beautiful transformation! Your skin deserves applause.",
-      "Magnificent progress! Your skincare routine is working wonders."
-    ];
-
-    if (avgScore >= 80) {
-      reportData.compliments.push(complimentBank[Math.floor(Math.random() * 3)]);
-      reportData.compliments.push("Your consistency is truly inspiring!");
-    } else if (avgScore >= 60) {
-      reportData.compliments.push(complimentBank[3 + Math.floor(Math.random() * 2)]);
-      reportData.compliments.push("Great effort! Small adjustments will yield even better results.");
-    } else {
-      reportData.compliments.push("Every journey starts with awareness. You're on the right path!");
-      reportData.compliments.push("Your skin has unique beauty. Let's work together to enhance it.");
+    let reportDoc;
+    try {
+      reportDoc = await Report.create({
+        userId: user._id,
+        type: "checkin",
+        planId: plan._id,
+        checkInDay: checkIn.day,
+        ...content,
+        scanCount,
+        aiGenerated: false,
+      });
+    } catch (err) {
+      // A double tap: the unique index already holds this check-in's report.
+      if (err?.code === 11000) return { success: true, message: "Your report is ready." };
+      throw err;
     }
 
-    const fmtDay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    const periodLabel = `${fmtDay(selfies[selfies.length - 1].takenAt)} – ${fmtDay(selfies[0].takenAt)}`;
-
-    const reportDoc = await Report.create({
-      userId: user._id,
-      type: 'weekly',
-      title: `Weekly Skin Report · ${periodLabel}`,
-      summary: `Across your last ${selfies.length} scans (${periodLabel}), your skin has shown ${reportData.trend} trends with an average harmony score of ${avgScore}/100.`,
-      highlights: reportData.topMetrics.map(m => `${m.name.charAt(0).toUpperCase() + m.name.slice(1)}: ${m.score}/100`),
-      compliments: reportData.compliments,
-      scanCount: reportData.scanCount,
-      averageScore: avgScore,
-      trend: reportData.trend,
-      trendValue: reportData.trendValue,
-      aiGenerated: true,
-    });
-
-    await User.updateOne({ _id: user._id }, { $set: { reportReadyAt: null } });
+    // Only clear the "ready" flag once no other check-in is waiting.
+    const remaining = findPendingReport(plans, [...reports, { planId: plan._id, checkInDay: checkIn.day }]);
+    if (!remaining) await User.updateOne({ _id: user._id }, { $set: { reportReadyAt: null } });
 
     revalidatePath("/reports");
     revalidatePath("/dashboard");

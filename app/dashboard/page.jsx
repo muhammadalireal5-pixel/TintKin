@@ -1,4 +1,10 @@
 import { getLatestData, getReportStatus } from "@/app/lib/actions";
+import { getActivePlan } from "@/app/lib/plan-actions";
+import PlanTodayCard from "@/app/plan/PlanTodayCard";
+import PlanBuilder from "@/app/plan/PlanBuilder";
+import FirstWeekChecklist from "./FirstWeekChecklist";
+import AnnouncementModal from "./AnnouncementModal";
+import { CURRENT_ANNOUNCEMENT, shouldShowAnnouncement } from "@/lib/constants/announcements";
 import { RadarChartClient } from "./LazyCharts";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import LocationPrompt from "./LocationPrompt";
@@ -15,13 +21,15 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, achievementStats, activity, newlyUnlockedTitles } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     // Brand-new account: show a welcome with one clear next step (Kin adds its own
     // prompt) instead of bouncing straight to the camera.
     if (!latestSelfie) return <FirstScanWelcome firstName={(user?.displayName || "").trim().split(/\s+/)[0]} />;
-    const reportStatus = await getReportStatus();
+    const [reportStatus, planRes] = await Promise.all([getReportStatus(), getActivePlan()]);
+    const plan = planRes?.success ? planRes.plan : null;
 
-    const sourceData = latestAnalyzedSelfie || latestSelfie;
+    // Today's step counts come from the plan when there is one (not the scan).
+    const sourceData = { ...(latestAnalyzedSelfie || latestSelfie), amRoutine: todayRoutine.am, pmRoutine: todayRoutine.pm };
     const summary = buildSkinSummary({
         user,
         sourceData,
@@ -36,15 +44,40 @@ async function DashboardContent() {
         reportReady: Boolean(reportStatus?.ready),
     });
 
+    const stepsLeft = Math.max(0, summary.plan.amTotal + summary.plan.pmTotal - summary.plan.amDone - summary.plan.pmDone);
+    const sinceStart = plan && typeof plan.baseline?.overallScore === "number"
+        ? { from: Math.round(plan.baseline.overallScore), delta: plan.progress.overallDelta }
+        : null;
+
+    const firstWeek = plan && plan.day <= 14
+        ? [
+            { label: "Take your first scan", done: true },
+            { label: "Get your 30-day plan", done: true },
+            { label: "Tick your first routine step", done: (user?.routineDays || 0) > 0, href: "/routine", hint: "Tap a step on your plan once you have done it." },
+            {
+                label: "Do your week-1 check-in",
+                done: plan.checkIns[0]?.status === "done",
+                href: plan.nextCheckIn?.isDue ? "/capture" : "/routine",
+                hint: plan.nextCheckIn?.isDue ? "It's ready: one scan shows your first change." : "On day 7, one scan shows your first change.",
+            },
+        ]
+        : null;
+
     return (
         <div className="tk-container pt-1 sm:pt-4 pb-10">
+            {shouldShowAnnouncement(user) && <AnnouncementModal id={CURRENT_ANNOUNCEMENT.id} />}
             <TodayView
                 data={summary}
+                sinceStart={sinceStart}
+                // Extras appear once the user has shown up a few times.
+                showLeaderboard={(user?.routineDays || 0) >= 3}
+                planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} /> : <PlanBuilder compact />}
                 banners={
                     <>
                         {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />
+                        {firstWeek && <FirstWeekChecklist items={firstWeek} />}
                         {latestSelfie.isAnalyzed === false && (
                             <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                         )}

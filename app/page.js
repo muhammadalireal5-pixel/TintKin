@@ -2,15 +2,15 @@ import { HeroSection } from "./HeroSection";
 
 export const metadata = {
   title: {
-    absolute: "TintKin — AI Skin Analysis & Wellness Journal",
+    absolute: "TintKin — Improve Your Skin in 30 Days",
   },
-  description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
+  description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
   alternates: {
     canonical: "https://tintkin.com",
   },
   openGraph: {
-    title: "TintKin — AI Skin Analysis & Wellness Journal",
-    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
+    title: "TintKin — Improve Your Skin in 30 Days",
+    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
     url: "https://tintkin.com",
   },
 };

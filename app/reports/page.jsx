@@ -5,7 +5,6 @@ import PageHeader from "@/app/components/ui/PageHeader";
 import { ArrowLeft, Calendar, FileText, Sparkles } from "lucide-react";
 import GenerateReportForm from "./GenerateReportForm";
 import ReportCard from "./ReportCard";
-import { SCANS_PER_REPORT } from "@/lib/constants/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +39,11 @@ export default async function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg sm:text-xl font-semibold text-primary mb-1">
-                            {status?.ready ? "Your weekly report is ready" : "Your next weekly report"}
+                            {status?.ready ? "Your check-in report is ready" : "Your next check-in report"}
                         </h2>
                         <p className="text-sm text-muted mb-4 max-w-2xl">
-                            A new report unlocks every {SCANS_PER_REPORT} scans: a look back at your week with
-                            your trends, strongest areas and a little encouragement.
+                            Each plan check-in (days 7, 14 and 28) unlocks a report: how your focus areas moved,
+                            your strongest areas and what to do next.
                         </p>
                         <GenerateReportForm status={status} />
                     </div>
@@ -64,8 +63,8 @@ export default async function ReportsPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-primary mb-2">No reports yet</h3>
                     <p className="text-muted text-sm max-w-md mx-auto">
-                        Complete {SCANS_PER_REPORT} scans and your first weekly report will unlock here. We&apos;ll
-                        also let you know by email.
+                        Your first report unlocks when you complete your day 7 check-in. We&apos;ll also let
+                        you know by email.
                     </p>
                 </div>
             ) : (

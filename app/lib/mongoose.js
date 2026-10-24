@@ -3,6 +3,7 @@ import dns from "dns";
 import * as Sentry from "@sentry/nextjs";
 import mongoose from 'mongoose';
 import { PRODUCT_TYPES } from "@/lib/constants/products";
+import { PLAN_METRICS, PLAN_STATUS, CHECKIN_STATUS } from "@/lib/constants/plan";
 
 // mongodb+srv:// needs SRV lookups via Node's own resolver, which reads the
 // adapter DNS list directly. When that list is loopback-only (VPNs, DNS
@@ -114,6 +115,8 @@ const UserSchema = new mongoose.Schema({
     goals: [String],
     customGoal: String,
     onboardingComplete: { type: Boolean, default: false },
+    // Ids of one-time "what's new" announcements already dismissed (lib/constants/announcements.js).
+    seenAnnouncements: [String],
     recommendationsLockedUntil: { type: Date, default: null },
     workoutLockedUntil: { type: Date, default: null },
     isSubscribed: { type: Boolean, default: false },
@@ -169,7 +172,6 @@ const UserSchema = new mongoose.Schema({
     routineDays: { type: Number, default: 0 },
     badges: [{ type: String }],
     optInComparison: { type: Boolean, default: false },
-    standardPlanFrequency: { type: String, enum: ['every_other_day', 'flexible'], default: 'flexible' },
     region: { type: String, default: null },
     location: {
       lat: Number,
@@ -259,7 +261,10 @@ RoutineLogSchema.index({ userId: 1, date: -1 });
 
 const ReportSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type: { type: String, enum: ['weekly', 'monthly', 'manual'], default: 'manual' },
+    type: { type: String, enum: ['weekly', 'monthly', 'manual', 'checkin'], default: 'manual' },
+    // Set on check-in reports: the plan and check-in day this report covers.
+    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'Plan', default: null },
+    checkInDay: { type: Number, default: null },
     title: { type: String, required: true },
     summary: { type: String, required: true },
     highlights: [String],
@@ -272,6 +277,85 @@ const ReportSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 }, { strict: true });
 ReportSchema.index({ userId: 1, createdAt: -1 });
+// One report per check-in, even if generate is tapped twice.
+ReportSchema.index({ userId: 1, planId: 1, checkInDay: 1 }, { unique: true, partialFilterExpression: { planId: { $type: 'objectId' } } });
+
+const planScores = Object.fromEntries(PLAN_METRICS.map((metric) => [metric, Number]));
+
+// A user's skin plan (see lib/plan/). Steps carry their own start/end plan day
+// and a stable id, so the plan can be adjusted at a check-in without rewriting
+// history, and routine ticks keep pointing at the same step.
+const PlanSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    status: { type: String, enum: Object.values(PLAN_STATUS), default: PLAN_STATUS.ACTIVE },
+    version: { type: Number, default: 1 },
+    durationDays: { type: Number, default: 30 },
+    // Local day key ("YYYY-MM-DD", the user's timezone) of plan day 1.
+    startDayKey: { type: String, required: true },
+    startedAt: { type: Date, default: Date.now },
+    endsAt: Date,
+    createdFromSelfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
+    generatedBy: { type: String, enum: ['ai', 'fallback'], default: 'ai' },
+    goals: [String],
+    summary: String,
+    baseline: {
+        overallScore: Number,
+        skinAge: Number,
+        scores: planScores,
+    },
+    focus: [{
+        _id: false,
+        metric: { type: String, enum: PLAN_METRICS },
+        label: String,
+        baseline: Number,
+        target: Number,
+    }],
+    phases: [{ _id: false, key: String, name: String, startDay: Number, endDay: Number, intent: String }],
+    steps: [{
+        _id: false,
+        id: { type: String, required: true },
+        slot: { type: String, enum: ['am', 'pm'], required: true },
+        text: { type: String, required: true },
+        why: String,
+        metric: { type: String, enum: [...PLAN_METRICS, null], default: null },
+        startDay: { type: Number, default: 1 },
+        endDay: { type: Number, default: null },
+    }],
+    checkIns: [{
+        _id: false,
+        day: Number,
+        dueAt: Date,
+        status: { type: String, enum: Object.values(CHECKIN_STATUS), default: CHECKIN_STATUS.UPCOMING },
+        selfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
+        completedAt: Date,
+        overallScore: Number,
+        scores: planScores,
+    }],
+    // The most recent scan, so progress reads need no extra query.
+    latest: {
+        selfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
+        at: Date,
+        overallScore: Number,
+        scores: planScores,
+    },
+    adjustments: [{
+        _id: false,
+        version: Number,
+        at: Date,
+        day: Number,
+        // The check-in this adjustment answered; makes adjusting idempotent.
+        checkInDay: { type: Number, default: null },
+        selfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
+        note: String,
+        dropped: [String],
+        added: [String],
+    }],
+    createdAt: { type: Date, default: Date.now },
+}, { strict: true });
+PlanSchema.index({ userId: 1, createdAt: -1 });
+// At most one active plan per user, so two concurrent "create my plan" calls
+// can't both succeed; the loser hits a duplicate-key error and reads the winner.
+PlanSchema.index({ userId: 1 }, { unique: true, partialFilterExpression: { status: PLAN_STATUS.ACTIVE }, name: 'one_active_plan_per_user' });
 
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);
 export const Selfie = mongoose.models.Selfie || mongoose.model('Selfie', SelfieSchema);
@@ -279,6 +363,7 @@ export const Lifestyle = mongoose.models.Lifestyle || mongoose.model('Lifestyle'
 export const Simulation = mongoose.models.Simulation || mongoose.model('Simulation', SimulationSchema);
 export const RoutineLog = mongoose.models.RoutineLog || mongoose.model('RoutineLog', RoutineLogSchema);
 export const Report = mongoose.models.Report || mongoose.model('Report', ReportSchema);
+export const Plan = mongoose.models.Plan || mongoose.model('Plan', PlanSchema);
 
 /**
  * Rate Limit Schema with TTL index for automatic cleanup

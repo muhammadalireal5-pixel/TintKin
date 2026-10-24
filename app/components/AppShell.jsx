@@ -274,8 +274,9 @@ export default function AppShell({ initialAuthed = false, children }) {
     );
   }
 
-  // Onboarding is a focused flow: logo only, no navigation to leave through.
-  const focus = pathname.startsWith("/onboarding");
+  // Onboarding and the first-scan welcome are focused flows: logo only, no
+  // navigation to leave through.
+  const focus = pathname.startsWith("/onboarding") || pathname.startsWith("/welcome");
 
   return (
     <SettingsContext.Provider value={settingsApi}>

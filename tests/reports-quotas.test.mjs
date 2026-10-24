@@ -3,23 +3,14 @@ import assert from "node:assert/strict";
 
 const { getTierScanLimits } = await import("../lib/constants/quotas.js");
 const { getLocalMonthStart } = await import("../lib/utils/date.js");
-const { getReportProgress, SCANS_PER_REPORT } = await import("../lib/constants/reports.js");
+const { findPendingReport, getReportStatus, buildCheckInReport } = await import("../lib/plan/report.js");
 const { jpegToPdf, dataUrlToBytes } = await import("../lib/utils/pdf.js");
 
-test("premium monthly scan cap equals the number of days in the month", () => {
-  const cases = [
-    ["2026-01-15T12:00:00Z", 31],
-    ["2026-02-15T12:00:00Z", 28],
-    ["2028-02-15T12:00:00Z", 29], // leap year
-    ["2026-04-15T12:00:00Z", 30],
-    ["2026-10-04T12:00:00Z", 31],
-    ["2026-11-04T12:00:00Z", 30],
-  ];
-  for (const [iso, expected] of cases) {
-    const { daysInMonth } = getLocalMonthStart("UTC", new Date(iso));
-    assert.equal(daysInMonth, expected, iso);
-    assert.equal(getTierScanLimits("premium", daysInMonth).monthlyLimit, expected, iso);
-  }
+test("scan allowances are fixed per tier and share a 5-a-day cap", () => {
+  assert.deepEqual(getTierScanLimits("free"), { dailyLimit: 5, monthlyLimit: 2 });
+  assert.deepEqual(getTierScanLimits("standard"), { dailyLimit: 5, monthlyLimit: 6 });
+  assert.deepEqual(getTierScanLimits("premium"), { dailyLimit: 5, monthlyLimit: 12 });
+  assert.equal(getTierScanLimits("nonsense").monthlyLimit, 2);
 });
 
 test("days in month follow the user's timezone at month boundaries", () => {
@@ -29,18 +20,50 @@ test("days in month follow the user's timezone at month boundaries", () => {
   assert.equal(getLocalMonthStart("Asia/Tokyo", ref).daysInMonth, 31);
 });
 
-test("fixed-allowance tiers don't depend on month length", () => {
-  assert.equal(getTierScanLimits("free", 31).monthlyLimit, 2);
-  assert.equal(getTierScanLimits("standard", 28).monthlyLimit, 15);
+const scores = (v) => ({ wrinkles: v, firmness: v, spots: v, radiance: v });
+const makePlan = (checkIns, extra = {}) => ({
+  _id: "p1",
+  status: "active",
+  startedAt: "2026-10-01",
+  baseline: { overallScore: 60, scores: scores(60) },
+  focus: [{ metric: "radiance", label: "Radiance", baseline: 60, target: 65 }],
+  checkIns,
+  ...extra,
+});
+const done = (day, overall) => ({ day, status: "done", overallScore: overall, scores: scores(overall) });
+const upcoming = (day) => ({ day, status: "upcoming" });
+
+test("a report unlocks per completed check-in and each check-in gets one report", () => {
+  const plan = makePlan([done(7, 63), upcoming(14), upcoming(28)]);
+  assert.deepEqual(getReportStatus([plan], []), { ready: true, checkInDay: 7, hasPlan: true, nextCheckInDay: 14 });
+  assert.equal(getReportStatus([plan], [{ planId: "p1", checkInDay: 7 }]).ready, false);
+  assert.equal(getReportStatus([], []).hasPlan, false);
 });
 
-test("report unlocks on the 7th scan since the last report", () => {
-  assert.equal(SCANS_PER_REPORT, 7);
-  assert.deepEqual(getReportProgress(0), { ready: false, count: 0, required: 7, remaining: 7 });
-  assert.deepEqual(getReportProgress(6), { ready: false, count: 6, required: 7, remaining: 1 });
-  assert.deepEqual(getReportProgress(7), { ready: true, count: 7, required: 7, remaining: 0 });
-  assert.deepEqual(getReportProgress(12), { ready: true, count: 7, required: 7, remaining: 0 });
-  assert.equal(getReportProgress(undefined).ready, false);
+test("pending reports go oldest first and compare with the previous check-in", () => {
+  const plan = makePlan([done(7, 63), done(14, 66), upcoming(28)]);
+  const first = findPendingReport([plan], []);
+  assert.equal(first.checkIn.day, 7);
+  assert.equal(first.prevCheckIn, null);
+  const second = findPendingReport([plan], [{ planId: "p1", checkInDay: 7 }]);
+  assert.equal(second.checkIn.day, 14);
+  assert.equal(second.prevCheckIn.day, 7);
+});
+
+test("check-in report says how the plan is going", () => {
+  const plan = makePlan([done(7, 64)]);
+  const up = buildCheckInReport(plan, plan.checkIns[0], null, { dateLabel: "Oct 8" });
+  assert.equal(up.title, "Day 7 Check-in Report · Oct 8");
+  assert.equal(up.trend, "improving");
+  assert.equal(up.trendValue, 4);
+  assert.match(up.summary, /up 4 since your starting point/);
+  assert.match(up.summary, /Radiance 60 → 64 \(aim 65\)/);
+  assert.equal(up.highlights.length, 4);
+
+  const steady = buildCheckInReport(plan, done(14, 65), { day: 7, overallScore: 64, scores: scores(64) });
+  assert.equal(steady.trend, "stable");
+  assert.match(steady.summary, /steady since your day 7 check-in/);
+  assert.equal(buildCheckInReport(plan, done(14, 58), plan.checkIns[0]).trend, "declining");
 });
 
 test("jpegToPdf writes a structurally valid single-page PDF", () => {

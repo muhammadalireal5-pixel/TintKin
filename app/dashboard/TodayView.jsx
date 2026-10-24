@@ -53,7 +53,7 @@ function Delta({ value }) {
   );
 }
 
-function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans }) {
+function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans, sinceStart }) {
   const label = mode === "week" ? "WEEKLY SKIN SCORE" : "SKIN SCORE";
   return (
     <section data-tour="score" className="tk-card relative overflow-hidden h-[13.25rem] sm:h-[14.5rem] lg:h-[17rem]" aria-label="Skin score">
@@ -90,6 +90,9 @@ function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans 
               {delta > 0 ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
               {Math.abs(delta)} vs. last scan
             </span>
+          )}
+          {mode === "today" && sinceStart && (
+            <span className="tk-chip">Started at {sinceStart.from}{sinceStart.delta ? ` · ${sinceStart.delta > 0 ? "+" : "−"}${Math.abs(sinceStart.delta)}` : ""}</span>
           )}
           {mode === "week" && weekScans > 0 && (
             <span className="tk-chip">{weekScans} {weekScans === 1 ? "scan" : "scans"} this week</span>
@@ -239,13 +242,13 @@ function StreakCard({ streak, longestStreak, weeklyGoal, trophies }) {
   );
 }
 
-function ExploreGrid({ reportReady }) {
+function ExploreGrid({ reportReady, showLeaderboard }) {
   const items = [
     { href: "/what-if", label: "What-If", sub: "Preview 6 months ahead", icon: Sparkles },
-    { href: "/reports", label: "Reports", sub: reportReady ? "New report ready" : "AI skin reports", icon: FileText, dot: reportReady },
-    { href: "/leaderboard", label: "Leaderboard", sub: "See where you rank", icon: Trophy },
+    { href: "/reports", label: "Reports", sub: reportReady ? "New report ready" : "Progress reports", icon: FileText, dot: reportReady },
+    showLeaderboard && { href: "/leaderboard", label: "Leaderboard", sub: "Days of care this month", icon: Trophy },
     { href: "/shop", label: "Shop", sub: "Curated products", icon: ShoppingBag },
-  ];
+  ].filter(Boolean);
   return (
     <section data-tour="explore" aria-label="Explore" className="rounded-2xl">
       <h2 className="text-[15px] font-semibold text-primary mb-3">Explore</h2>
@@ -275,7 +278,7 @@ function ExploreGrid({ reportReady }) {
  * the latest scan and the weekly average), score card, four metrics, focus,
  * plan and shortcuts. On desktop it splits into a main column and a side rail.
  */
-export default function TodayView({ data, radar, banners }) {
+export default function TodayView({ data, radar, banners, planCard, sinceStart, showLeaderboard = true }) {
   const [mode, setMode] = useState("today");
   const greeting = useSyncExternalStore(noopSubscribe, greetingNow, () => "Hello,");
   const week = data.weekScore;
@@ -306,6 +309,8 @@ export default function TodayView({ data, radar, banners }) {
 
         {banners && <div className="order-1 flex flex-col gap-3 empty:hidden">{banners}</div>}
 
+        {planCard && <div className="order-2">{planCard}</div>}
+
         <SegmentedTabs
           data-tour="toggle"
           className="order-2 lg:max-w-sm"
@@ -327,6 +332,7 @@ export default function TodayView({ data, radar, banners }) {
             skinAgeLine={data.skinAgeLine}
             photoUrl={data.photoUrl}
             weekScans={week.scanCount}
+            sinceStart={sinceStart}
           />
         </div>
 
@@ -348,7 +354,7 @@ export default function TodayView({ data, radar, banners }) {
             <div className="relative h-60">{radar}</div>
           </section>
         )}
-        <div className="order-9"><ExploreGrid reportReady={data.reportReady} /></div>
+        <div className="order-9"><ExploreGrid reportReady={data.reportReady} showLeaderboard={showLeaderboard} /></div>
       </div>
     </div>
   );

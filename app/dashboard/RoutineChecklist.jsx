@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Sun, Moon } from "lucide-react";
+import { Check, Sun, Moon, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { saveRoutineCompletion } from "@/app/lib/actions";
 import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
@@ -60,7 +60,52 @@ function ProgressRing({ done, total }) {
   );
 }
 
-function StepList({ title, icon: Icon, steps, checks, onToggle, emptyText, id }) {
+// A step is either plain text (an older, scan-based routine) or a plan step
+// ({ id, text, why }). `key` is what gets saved when it is ticked.
+const asItem = (step) => (typeof step === "string" ? { key: step, text: step, why: "" } : { key: step.id, text: step.text, why: step.why || "" });
+
+function StepRow({ item, checked, isNew, onToggle }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li>
+      <div className="flex items-start rounded-xl hover:bg-blush/60 transition-colors">
+        <button
+          type="button"
+          data-kin="routine"
+          onClick={() => onToggle(item.key)}
+          aria-pressed={checked}
+          className="flex-1 min-w-0 flex items-start gap-3 text-left px-2 py-2.5"
+        >
+          <RoutineCheckbox checked={checked} />
+          <span className="min-w-0">
+            <span className={`block text-[15px] leading-snug ${checked ? "text-muted line-through" : "text-primary"}`}>
+              {item.text}
+              {isNew && <span className="tk-chip tk-chip-success ml-2 align-middle">New this week</span>}
+            </span>
+          </span>
+        </button>
+        {item.why && (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? "Hide why this step" : "Why this step?"}
+            className="shrink-0 p-2.5 text-muted hover:text-primary transition-colors"
+          >
+            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        )}
+      </div>
+      {open && item.why && (
+        <p className="ml-10 mr-3 mb-2 text-sm text-muted leading-relaxed">
+          <span className="font-medium text-primary/80">Why this is for you: </span>{item.why}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function StepList({ title, icon: Icon, steps, checks, onToggle, emptyText, id, newStepIds = [] }) {
   const total = steps?.length || 0;
   const done = checks.length;
   const complete = total > 0 && done >= total;
@@ -80,25 +125,9 @@ function StepList({ title, icon: Icon, steps, checks, onToggle, emptyText, id })
 
       {total > 0 ? (
         <ul className="space-y-1">
-          {steps.map((step, idx) => {
-            const checked = checks.includes(step);
-            return (
-              <li key={idx}>
-                <button
-                  type="button"
-                  data-kin="routine"
-                  onClick={() => onToggle(step)}
-                  aria-pressed={checked}
-                  className="w-full flex items-start gap-3 text-left rounded-xl px-2 py-2.5 hover:bg-blush/60 transition-colors"
-                >
-                  <RoutineCheckbox checked={checked} />
-                  <span className={`text-[15px] leading-snug ${checked ? "text-muted line-through" : "text-primary"}`}>
-                    {step}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {steps.map(asItem).map((item) => (
+            <StepRow key={item.key} item={item} checked={checks.includes(item.key)} isNew={newStepIds.includes(item.key)} onToggle={onToggle} />
+          ))}
         </ul>
       ) : (
         <p className="text-sm text-muted">{emptyText}</p>
@@ -107,7 +136,7 @@ function StepList({ title, icon: Icon, steps, checks, onToggle, emptyText, id })
   );
 }
 
-export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [], completedPm = [], initialTab = "am" }) {
+export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [], completedPm = [], initialTab = "am", newStepIds = [] }) {
   const [amChecks, setAmChecks] = useState(completedAm);
   const [pmChecks, setPmChecks] = useState(completedPm);
   const [tab, setTab] = useState(initialTab === "pm" ? "pm" : "am");
@@ -181,6 +210,7 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
             steps={amRoutine}
             checks={amChecks}
             onToggle={(s) => toggleCheck("am", s)}
+            newStepIds={newStepIds}
             emptyText="Take a selfie to get your personalised AM routine."
           />
         </div>
@@ -192,6 +222,7 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
             steps={pmRoutine}
             checks={pmChecks}
             onToggle={(s) => toggleCheck("pm", s)}
+            newStepIds={newStepIds}
             emptyText="Take a selfie to get your personalised PM routine."
           />
         </div>

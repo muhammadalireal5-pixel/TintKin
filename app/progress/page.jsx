@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
     title: "Your Progress",
-    description: "Track your skin score over time, your streak and milestones.",
+    description: "See your skin trend, your plan progress, your streak and milestones.",
     robots: { index: false, follow: false },
 };
 
@@ -45,7 +45,7 @@ export default async function ProgressPage() {
             <PageHeader
                 eyebrow="Your journey"
                 title="Progress"
-                subtitle="See how your skin is changing, scan by scan."
+                subtitle="See how your skin is changing over time."
                 action={
                     <Link href="/share" className="tk-pill-btn tk-btn-soft px-4 py-2.5 text-sm">
                         <Share2 size={15} /> <span className="hidden sm:inline">Share card</span>
@@ -83,11 +83,12 @@ export default async function ProgressPage() {
             <div className="grid lg:grid-cols-3 gap-5">
                 <section className="tk-card p-5 sm:p-6 lg:col-span-2 flex flex-col min-h-[22rem]">
                     <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-[15px] font-semibold text-primary">Skin score over time</h2>
+                        <h2 className="text-[15px] font-semibold text-primary">Your trend</h2>
                         <Link href="/history" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:text-accent-deep">
                             <History size={14} /> History
                         </Link>
                     </div>
+                    <p className="text-xs text-muted -mt-2 mb-3">The line is your 7-day average. Single scans vary with light, so the dots are not a verdict.</p>
                     <div className="flex-1 w-full relative">
                         <ComponentErrorFallback title="Progress Chart">
                             <ProgressChart allSelfies={allSelfies} hasMore={Boolean(hasMoreSelfies)} />

@@ -1,8 +1,8 @@
 import Wordmark from "@/app/components/ui/Wordmark";
 
 const BENEFITS = [
-  "AI skin scan with a clear score in seconds",
-  "A daily routine that adapts to your skin",
+  "A personal 30-day plan built from one selfie",
+  "A daily routine that adapts as your skin changes",
   "What-If simulator to preview real results",
 ];
 

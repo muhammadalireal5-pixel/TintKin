@@ -2,35 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { updateUserTier, updateUserSettings } from "@/app/lib/actions";
-import { Check, Minus, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { updateUserTier } from "@/app/lib/actions";
+import { Check, Minus, Sparkles, Loader2 } from "lucide-react";
 import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
 import { useToast } from "@/app/components/ToastProvider";
-import AnimatedModal from "@/app/components/AnimatedModal";
 import { usePwaInstall } from "@/app/context/PwaContext";
-import { TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
+import { TIERS } from "@/lib/constants/tiers";
 
 const PLANS = [
     {
         tier: TIERS.FREE,
         name: "Free",
         price: "$0",
-        tagline: "A taste of TintKin's AI analysis.",
+        tagline: "Start improving your skin, free.",
         features: [
-            { text: "2 Scans", rest: " per month" },
+            { text: "2 Scans", rest: " per month (baseline + a check-in)" },
+            { text: "Personalised daily routine" },
             { text: "1 AI Simulation", rest: " per month" },
-            { text: "Basic insights & logging" },
         ],
         cta: "Select Free",
     },
     {
         tier: TIERS.STANDARD,
         name: "Standard",
-        price: "$12",
-        tagline: "Perfect for tracking progress every other day.",
+        price: "$8",
+        tagline: "Follow your plan and watch your skin improve.",
         popular: true,
         features: [
-            { text: "15 Scans", rest: " per month" },
+            { text: "6 Scans", rest: " per month for weekly check-ins" },
             { text: "3 AI Simulations", rest: " per month" },
             { text: "Advanced routine tracking" },
         ],
@@ -39,10 +38,10 @@ const PLANS = [
     {
         tier: TIERS.PREMIUM,
         name: "Pro",
-        price: "$24",
+        price: "$15",
         tagline: "For the dedicated skincare enthusiast.",
         features: [
-            { text: "Daily Scans", rest: " (Full Month)" },
+            { text: "12 Scans", rest: " per month for extra check-ins" },
             { text: "4 AI Simulations", rest: " per month" },
             { text: "Custom Product Uploads", rest: " in Simulator", sparkle: true },
         ],
@@ -51,7 +50,7 @@ const PLANS = [
 ];
 
 const COMPARE_ROWS = [
-    { label: "Scans per month", values: ["2", "15", "Daily"] },
+    { label: "Scans per month", values: ["2", "6", "12"] },
     { label: "AI simulations per month", values: ["1", "3", "4"] },
     { label: "Custom product uploads in Simulator", values: [false, false, true] },
 ];
@@ -68,7 +67,6 @@ export default function PricingClient({ demoMode = false }) {
     const { showToast } = useToast();
     const { isInstalled } = usePwaInstall();
     const [loading, setLoading] = useState(false);
-    const [showStandardModal, setShowStandardModal] = useState(false);
     const [activeTab, setActiveTab] = useState(TIERS.STANDARD); // selected plan (also drives the phone tab view)
 
     useEffect(() => {
@@ -96,11 +94,6 @@ export default function PricingClient({ demoMode = false }) {
     };
 
     const handleSelectPlan = async (tier) => {
-        if (tier === TIERS.STANDARD) {
-            setShowStandardModal(true);
-            return;
-        }
-
         if (tier !== TIERS.FREE && !demoMode) {
             setLoading(true);
             goToCheckout(tier);
@@ -109,28 +102,6 @@ export default function PricingClient({ demoMode = false }) {
 
         setLoading(true);
         const res = await updateUserTier(tier);
-        if (res.success) {
-            router.push("/capture");
-        } else {
-            showToast({ type: 'error', title: 'Error', message: res.error || "Failed to select plan. Please try again." });
-            setLoading(false);
-        }
-    };
-
-    const handleStandardFrequency = async (frequency) => {
-        setShowStandardModal(false);
-
-        if (!demoMode) {
-            setLoading(true);
-            // Pacing is purely a local preference; save it, then hand off to
-            // Polar for the actual subscription (the webhook sets the tier).
-            await updateUserSettings({ standardPlanFrequency: frequency });
-            goToCheckout(TIERS.STANDARD);
-            return;
-        }
-
-        setLoading(true);
-        const res = await updateUserTier(TIERS.STANDARD, frequency);
         if (res.success) {
             router.push("/capture");
         } else {
@@ -232,6 +203,9 @@ export default function PricingClient({ demoMode = false }) {
                         </tbody>
                     </table>
                 </div>
+                <p className="text-xs text-muted text-center mt-3">
+                    Skin changes slowly, so we suggest one check-in scan a week. You can scan up to 5 times a day on any plan.
+                </p>
             </section>
 
             {/* Loading Overlay */}
@@ -243,61 +217,6 @@ export default function PricingClient({ demoMode = false }) {
                     </div>
                 </div>
             )}
-
-                        {/* Standard Frequency Modal */}
-            <AnimatedModal
-                isOpen={showStandardModal}
-                onClose={() => setShowStandardModal(false)}
-                zIndex={60}
-                ariaLabel="Choose your rhythm"
-                panelClassName="p-6 pt-8 sm:p-8"
-            >
-                        <h2 className="text-2xl font-semibold text-primary mb-2">Choose your rhythm</h2>
-                        <p className="text-muted text-sm mb-6">
-                            With the Standard plan, you get 15 scans per month. How would you like to pace them? 
-                            (You can always change this in your Settings later)
-                        </p>
-
-                        <div className="space-y-4">
-                            <button 
-                                onClick={() => handleStandardFrequency(STANDARD_PACING.EVERY_OTHER_DAY)}
-                                className="w-full text-left p-4 rounded-2xl border-2 border-accent bg-accent-soft/50 hover:bg-accent-soft transition-colors relative group"
-                            >
-                                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-2">
-                                    <span className="bg-accent text-white tk-text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                        Recommended
-                                    </span>
-                                </div>
-                                <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
-                                    Strict Every Other Day
-                                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-accent" />
-                                </h4>
-                                <p className="text-sm text-muted">
-                                    Enforce a 48-hour gap between scans. Best for completing a consistent 30-day cycle without burning through scans too fast.
-                                </p>
-                            </button>
-
-                            <button 
-                                onClick={() => handleStandardFrequency(STANDARD_PACING.FLEXIBLE)}
-                                className="w-full text-left p-4 rounded-2xl border border-line bg-white hover:bg-blush transition-colors group"
-                            >
-                                <h4 className="font-semibold text-primary mb-1 flex items-center gap-2">
-                                    Flexible (Any Day)
-                                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </h4>
-                                <p className="text-sm text-muted">
-                                    Use your 15 scans whenever you want (up to 1 per day). Careful not to use them all at the beginning of the month!
-                                </p>
-                            </button>
-                        </div>
-                        
-                        <button 
-                            onClick={() => setShowStandardModal(false)}
-                            className="mt-4 sm:mt-6 w-full py-3 sm:py-2 text-sm font-medium text-muted hover:text-primary transition-colors"
-                        >
-                            Cancel
-                        </button>
-            </AnimatedModal>
         </>
     );
 }

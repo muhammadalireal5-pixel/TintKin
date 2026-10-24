@@ -9,6 +9,7 @@ const protectedUserPaths = [
   "/what-if",
   "/history",
   "/onboarding",
+  "/welcome",
   "/share",
   "/leaderboard",
 ];

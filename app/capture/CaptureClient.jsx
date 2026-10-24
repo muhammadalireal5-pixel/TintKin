@@ -234,10 +234,11 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                 }
                 refreshReportStatus();
 
-                setStatus({ type: "success", msg: "Done! Opening your journal…" });
+                // A completed check-in lands on the plan, where the coach reviews it.
+                setStatus({ type: "success", msg: res.checkInCompleted ? "Check-in done! Opening your plan…" : "Done! Opening your journal…" });
                 setTimeout(() => {
                   try { window.sessionStorage.setItem("tk:justScanned", "1"); } catch {}
-                  router.push("/dashboard");
+                  router.push(res.checkInCompleted ? "/routine" : "/dashboard");
                 }, 800);
             } else {
                 setStatus({ type: "error", msg: `Oops: ${res.message || res.error}` });
@@ -253,6 +254,9 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
     };
 
     const scanLimitReached = quotas ? !quotas.scans.canScanToday : false;
+    const scanAllowanceText = quotas
+        ? `${Math.max(0, quotas.scans.dailyLimit - quotas.scans.usedToday)} of ${quotas.scans.dailyLimit} scans left today · ${Math.max(0, quotas.scans.monthlyLimit - quotas.scans.usedMonth)} left this month`
+        : "";
 
     const tips = [
         { icon: Sun, title: "Good light", body: "Face a window or soft, even light." },
@@ -361,15 +365,13 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                             </div>
                             <p className="limit-title">
                                 {quotas.scans.denialReason === 'monthly_limit'
-                                    ? "Monthly limit reached"
+                                    ? "Check-ins used up for this month"
                                     : "You're all set for today"}
                             </p>
                             <p className="limit-body">
                                 {quotas.scans.denialReason === 'monthly_limit'
-                                    ? "You've used all your scans for this month. Your allowance resets next billing cycle."
-                                    : quotas.scans.denialReason === 'every_other_day'
-                                    ? "Your plan uses every-other-day pacing. Come back tomorrow for your next entry."
-                                    : "You've already logged a photo today. Come back tomorrow to keep your streak going!"}
+                                    ? "You've used all your scans for this month. Your routine keeps working, and your allowance renews next billing cycle."
+                                    : `You've reached today's limit of ${quotas.scans.dailyLimit} scans. Skin changes slowly, so come back tomorrow for a cleaner read.`}
                             </p>
                             <div className="limit-actions">
                                 <Link href="/dashboard" className="cta-btn cta-primary limit-btn">
@@ -399,6 +401,9 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                                 <Camera size={28} strokeWidth={2} />
                             </button>
                             <p className="shutter-label">Take a photo</p>
+                            {quotasLoaded && quotas && (
+                                <p className="scan-allowance">{scanAllowanceText}</p>
+                            )}
 
                             <button
                                 className="tk-pill-btn tk-btn-ghost upload-pill"
@@ -476,7 +481,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     <div className="flex flex-wrap gap-2">
                         {quotasLoaded && quotas ? (
                             <span className={`tk-chip ${scanLimitReached ? "tk-chip-danger" : "tk-chip-success"}`}>
-                                {scanLimitReached ? "Scan limit reached" : "Scan available today"}
+                                {scanLimitReached ? "Scan limit reached" : scanAllowanceText}
                             </span>
                         ) : (
                             <span className="tk-chip">Checking your allowance…</span>
@@ -631,6 +636,11 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     font-size: 0.8125rem;
                     font-weight: 600;
                     color: var(--tk-text-primary);
+                }
+                .scan-allowance {
+                    margin: -0.5rem 0 0.9rem;
+                    font-size: 0.75rem;
+                    color: var(--tk-text-muted);
                 }
                 .upload-pill { padding: 0.65rem 1.4rem; font-size: 0.9rem; }
                 .upload-pill:disabled { opacity: 0.5; pointer-events: none; }

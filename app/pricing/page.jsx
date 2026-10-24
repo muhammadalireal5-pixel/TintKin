@@ -5,13 +5,13 @@ import PricingClient from "./PricingClient";
 
 export const metadata = {
     title: "Pricing & Plans",
-    description: "Affordable, transparent AI skin wellness tracking. Start free with 2 scans/mo, or upgrade for daily tracking and what-if simulations.",
+    description: "Improve your skin with a personalised routine and weekly check-ins. Start free with 2 scans/mo, or upgrade from $8/mo for more check-ins and what-if simulations.",
     alternates: {
         canonical: "/pricing",
     },
     openGraph: {
         title: "Pricing & Plans | TintKin",
-        description: "Affordable, transparent AI skin wellness tracking. Start free with 2 scans/mo, or upgrade for daily tracking and what-if simulations.",
+        description: "Improve your skin with a personalised routine and weekly check-ins. Start free with 2 scans/mo, or upgrade from $8/mo for more check-ins and what-if simulations.",
         url: "https://tintkin.com/pricing",
     },
 };
@@ -39,7 +39,7 @@ const pricingStructuredData = {
         {
             "@type": "Product",
             "name": "TintKin Skin Wellness Journal",
-            "description": "AI-powered longitudinal skin wellness tracking and simulation platform.",
+            "description": "A personal 30-day skin plan with a daily routine, weekly check-ins and progress tracking.",
             "offers": [
                 {
                     "@type": "Offer",
@@ -51,16 +51,16 @@ const pricingStructuredData = {
                 {
                     "@type": "Offer",
                     "name": "Standard Plan",
-                    "price": "12",
+                    "price": "8",
                     "priceCurrency": "USD",
-                    "description": "15 AI scans and 3 simulations per month"
+                    "description": "6 AI scans and 3 simulations per month"
                 },
                 {
                     "@type": "Offer",
                     "name": "Pro Plan",
-                    "price": "24",
+                    "price": "15",
                     "priceCurrency": "USD",
-                    "description": "Daily AI scans, 4 simulations per month, and custom product uploads"
+                    "description": "12 AI scans, 4 simulations per month, and custom product uploads"
                 }
             ]
         },
@@ -77,10 +77,10 @@ const pricingStructuredData = {
                 },
                 {
                     "@type": "Question",
-                    "name": "What is the Strict Every Other Day frequency in Standard?",
+                    "name": "How many scans do I need?",
                     "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": "It enforces a 48-hour gap between your 15 scans, perfectly pacing your skin tracking across a full 30-day month."
+                        "text": "Skin changes slowly, so one check-in scan a week is plenty. Your daily routine is what improves your skin, and scans show you the progress. You can scan up to 5 times a day on any plan, within your monthly allowance."
                     }
                 },
                 {
@@ -88,7 +88,7 @@ const pricingStructuredData = {
                     "name": "Can I switch or cancel my plan at any time?",
                     "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": "Yes, you can change your tier or pacing anytime directly from your account settings."
+                        "text": "Yes, you can change your plan anytime directly from your account settings."
                     }
                 }
             ]

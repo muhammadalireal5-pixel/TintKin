@@ -1,8 +1,8 @@
 export default function manifest() {
   return {
-    name: "TintKin — AI Skin Analysis & Wellness Journal",
+    name: "TintKin — Improve Your Skin in 30 Days",
     short_name: "TintKin",
-    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
+    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
     start_url: "/",
     display: "standalone",
     background_color: "#FCF4F2",

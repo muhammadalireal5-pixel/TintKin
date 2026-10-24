@@ -39,7 +39,7 @@ test("a longer gap resets to 1", () => {
   assert.equal(advanceStreak({ stored: 9, lastKey: "2026-10-10", todayKey: "2026-10-21" }).streak, 1);
 });
 
-test("every-other-day plans forgive one extra day", () => {
+test("a wider allowedGapDays forgives extra days", () => {
   assert.equal(advanceStreak({ stored: 3, lastKey: "2026-10-19", todayKey: "2026-10-21", allowedGapDays: 2 }).streak, 4);
   assert.equal(advanceStreak({ stored: 3, lastKey: "2026-10-18", todayKey: "2026-10-21", allowedGapDays: 2 }).usedFreeze, true);
 });
@@ -73,4 +73,17 @@ test("summarizeActivity counts scan and routine days once each", () => {
   assert.equal(out.monthScore, 72);
   assert.equal(out.prevMonthScore, 60);
   assert.equal(out.bestWeekDays, 3);
+});
+
+test("rolling average smooths single scans over a trailing 7-day window", async () => {
+  const { rollingAverage } = await import("../lib/utils/trend.js");
+  const day = (d) => new Date(Date.UTC(2026, 9, d));
+  const pts = [
+    { at: day(1), score: 60 },
+    { at: day(3), score: 70 },
+    { at: day(5), score: 50 },
+    { at: day(20), score: 80 },
+  ];
+  assert.deepEqual(rollingAverage(pts), [60, 65, 60, 80]);
+  assert.deepEqual(rollingAverage([]), []);
 });

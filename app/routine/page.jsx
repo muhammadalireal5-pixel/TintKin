@@ -2,15 +2,23 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, Sparkles, ArrowRight, ShoppingBag } from "lucide-react";
 import { getLatestData } from "@/app/lib/actions";
+import { getActivePlan } from "@/app/lib/plan-actions";
 import PageHeader from "@/app/components/ui/PageHeader";
 import RoutineChecklist from "@/app/dashboard/RoutineChecklist";
 import ProductGuideCard from "@/app/dashboard/ProductGuideCard";
+import PlanHeader from "@/app/plan/PlanHeader";
+import PlanProgress from "@/app/plan/PlanProgress";
+import PlanTimeline from "@/app/plan/PlanTimeline";
+import CheckInCard from "@/app/plan/CheckInCard";
+import CheckInReview from "@/app/plan/CheckInReview";
+import PlanBuilder from "@/app/plan/PlanBuilder";
+import NextPlanCard from "@/app/plan/NextPlanCard";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-    title: "Your Routine",
-    description: "Your personalised morning and evening skincare routine, facial workout and product picks.",
+    title: "Your Plan",
+    description: "Your personalised 30-day skin plan: morning and evening steps, check-ins, progress and product picks.",
     robots: { index: false, follow: false },
 };
 
@@ -28,6 +36,11 @@ export default async function RoutinePage({ searchParams }) {
     const source = latestAnalyzedSelfie || latestSelfie;
     const { amRoutine, pmRoutine, facialWorkout } = source;
 
+    // Never throws: a failed load just means "no plan to show yet", and the
+    // builder below retries it.
+    const planRes = await getActivePlan();
+    const plan = planRes?.success ? planRes.plan : null;
+
     const hasPersonalized = Array.isArray(latestSelfie.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
     const products = hasPersonalized ? latestSelfie.recommendedProducts : STARTER_PRODUCTS;
 
@@ -37,18 +50,40 @@ export default async function RoutinePage({ searchParams }) {
     return (
         <div className="tk-container pt-1 sm:pt-4 pb-10">
             <PageHeader
-                eyebrow="Your plan for today"
-                title="Routine"
-                subtitle="Morning and evening steps tailored to your latest scan."
+                eyebrow={plan ? `Day ${plan.day} of ${plan.durationDays}` : "Your plan for today"}
+                title="Plan"
+                subtitle="Morning and evening steps, built from your scan and adjusted at every check-in."
             />
 
-            <RoutineChecklist
-                amRoutine={amRoutine}
-                pmRoutine={pmRoutine}
-                completedAm={todayRoutineLog?.amCompleted || []}
-                completedPm={todayRoutineLog?.pmCompleted || []}
-                initialTab={tab === "pm" ? "pm" : "am"}
-            />
+            {plan ? (
+                <div className="flex flex-col gap-4">
+                    {plan.pendingReview && <CheckInReview />}
+                    {plan.expired && <NextPlanCard />}
+                    <PlanHeader plan={plan} />
+                    {!plan.expired && <CheckInCard plan={plan} />}
+                    <RoutineChecklist
+                        amRoutine={plan.steps.am}
+                        pmRoutine={plan.steps.pm}
+                        completedAm={todayRoutineLog?.amCompleted || []}
+                        completedPm={todayRoutineLog?.pmCompleted || []}
+                        initialTab={tab === "pm" ? "pm" : "am"}
+                        newStepIds={plan.newStepIds}
+                    />
+                    <PlanProgress progress={plan.progress} />
+                    <PlanTimeline plan={plan} />
+                </div>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <PlanBuilder />
+                    <RoutineChecklist
+                        amRoutine={amRoutine}
+                        pmRoutine={pmRoutine}
+                        completedAm={todayRoutineLog?.amCompleted || []}
+                        completedPm={todayRoutineLog?.pmCompleted || []}
+                        initialTab={tab === "pm" ? "pm" : "am"}
+                    />
+                </div>
+            )}
 
             <section id="workout" className="tk-card p-5 sm:p-6 mt-4 scroll-mt-20">
                 <h2 className="flex items-center gap-2 text-[15px] font-semibold text-primary mb-3">
@@ -85,7 +120,7 @@ export default async function RoutinePage({ searchParams }) {
                 <p className="text-sm text-muted mb-4">
                     {hasPersonalized
                         ? "Your routine for 30 days (consider a 1-month supply)."
-                        : "A general starting routine — scan again to get picks personalised to your results."}
+                        : "A general starting routine — check in to get picks personalised to your results."}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {products.map((prod, idx) => (

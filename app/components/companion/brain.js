@@ -8,13 +8,13 @@ export const dayKeyNow = () => {
 };
 
 const TIPS = [
-  "Scan in soft daylight, facing a window, for the most accurate score.",
+  "Scan in soft daylight, facing a window, so your check-ins are comparable.",
   "Sunscreen is the single biggest thing you can do for spots and fine lines.",
   "Small steps count. A finished morning routine beats a perfect plan.",
   "Drink some water. Your skin will thank you.",
   "Try the What-If simulator to preview how your routine could change your skin.",
-  "Consistency beats intensity. Aim for a scan most days.",
-  "Check Today's Focus on your home screen. It points at the metric that needs the most love.",
+  "Skin changes slowly. One check-in scan a week, in the same light, shows your progress best.",
+  "Your plan has two focus areas. Watch those bars on your home screen move over the next 30 days.",
   "Tick off routine steps as you go. It keeps your streak and your plan honest.",
 ];
 
@@ -63,12 +63,13 @@ export const TOURS = {
     path: "/dashboard",
     offer: "Your first scan is in! Want me to show you around?",
     steps: [
-      { text: "This is your skin score. The picture is your latest scan.", target: '[data-tour="score"]' },
+      { text: "This is your plan: the day you're on, today's steps and how your two focus areas are moving.", target: '[data-tour="plan-card"]' },
+      { text: "Your skin score is your starting point. The chip shows where you began.", target: '[data-tour="score"]' },
       { text: "Switch between Today and This week to compare your latest scan with your weekly average.", target: '[data-tour="toggle"]' },
       { text: "Four metrics: wrinkles, firmness, spots and radiance. Green arrows mean you improved since your last scan.", target: '[data-tour="metrics"]' },
       { text: "Today's Focus is the one thing worth your attention right now.", target: '[data-tour="focus"]' },
       { text: "Today's Plan shows your morning and evening routine. Tap a tile to tick steps off.", target: '[data-tour="plan"]' },
-      { text: "Use the bottom bar to move around: Routine, Progress and Profile. The round button is for your next scan.", target: '[data-tour="nav"]' },
+      { text: "Use the bottom bar to move around: Plan, Progress and Profile. The round button is for your check-in scans.", target: '[data-tour="nav"]' },
       { text: "Under Explore you'll find What-If, Reports, the Leaderboard and the Shop. That's the tour. I'll be around!", target: '[data-tour="explore"]' },
     ],
   },
@@ -85,6 +86,9 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
   const done = (id) => seen?.[id] === today;
   const name = state.firstName;
 
+  // The first-scan welcome walks them through it on its own.
+  if (pathname === "/welcome") return null;
+
   // 1. First-ever scan guidance.
   if (state.scanCount === 0) {
     if (pathname === "/capture") {
@@ -94,8 +98,8 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
     if (!done("first-scan")) {
       return {
         id: "first-scan",
-        text: `${greeting(hour, name)} I'm Kin, your skin buddy. Let's do your very first scan together.`,
-        cta: { label: "Start my first scan", href: "/capture" },
+        text: `${greeting(hour, name)} I'm Kin, your skin buddy. One selfie and I'll help you build your 30-day plan.`,
+        cta: { label: "Build my plan", href: "/welcome" },
       };
     }
     return null;
@@ -127,17 +131,26 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
     return {
       id: "streak-risk",
       text: `Want a quick scan or a routine step today? Your ${state.streak}-day streak will thank you.`,
-      cta: { label: "Scan now", href: "/capture" },
+      cta: { label: state.hasPlan ? "Open my plan" : "Scan now", href: state.hasPlan ? "/routine" : "/capture" },
     };
   }
   if (!state.activeToday && state.streak === 0 && state.longestStreak >= 3 && !done("welcome-back")) {
     return {
       id: "welcome-back",
       text: `Welcome back${name ? `, ${name}` : ""}! Your longest run so far is ${state.longestStreak} days. Ready to start a fresh one?`,
-      cta: { label: "Scan now", href: "/capture" },
+      cta: { label: state.hasPlan ? "Open my plan" : "Scan now", href: state.hasPlan ? "/routine" : "/capture" },
     };
   }
-  if (!state.scannedToday && !done("no-scan")) {
+  // Skin changes slowly, so a scan is only worth asking for when a check-in is
+  // due (or there is no plan yet); the rest of the time the ask is the routine.
+  if (state.checkInDue && !state.scannedToday && !done("check-in-due")) {
+    return {
+      id: "check-in-due",
+      text: `${name ? `${name}, y` : "Y"}our check-in is ready. One scan shows how far your plan has taken you.`,
+      cta: { label: "Do my check-in", href: "/capture" },
+    };
+  }
+  if (!state.hasPlan && !state.scannedToday && !done("no-scan")) {
     return {
       id: "no-scan",
       text: `${name ? `Hey ${name}` : "Hey"}, you haven't logged a scan today. Ready for a quick one?`,
@@ -182,9 +195,9 @@ const PAGE_GREETINGS = {
     "Look who's back! Your day at a glance is ready.",
   ],
   "/routine": [
-    "Routine time! Tick each step as you go and I'll cheer you on.",
-    "Little steps, big glow. Let's get through today's routine!",
-    "Your routine is my favourite page. Let's do this!",
+    "Plan time! Tick each step as you go and I'll cheer you on.",
+    "Little steps, big glow. Let's get through today's steps!",
+    "Your plan is my favourite page. Let's do this!",
   ],
   "/progress": [
     "Look how far you've come! Progress is made of tiny wins.",
@@ -227,6 +240,9 @@ const PAGE_GREETINGS = {
     "Show off that glow! Pick a card style and share it.",
     "Your score card is looking good. Share it with a friend!",
   ],
+  "/welcome": [
+    "One selfie and your plan starts. Soft light, relaxed face!",
+  ],
   "/onboarding": [
     "Hi, I'm Kin! A few quick questions and we're ready to glow.",
   ],
@@ -241,7 +257,7 @@ const PAGE_GREETINGS = {
 export function pageGreeting(pathname, { hour, name, justScanned } = {}) {
   if (justScanned && pathname === "/dashboard") {
     return pick([
-      `Scan complete${name ? `, ${name}` : ""}! Your score is in. Proud of you!`,
+      `Scan complete${name ? `, ${name}` : ""}! That's your starting point. Proud of you!`,
       "All done! Look at that glow. Let's see your results.",
     ]);
   }

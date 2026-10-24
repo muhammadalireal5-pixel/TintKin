@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { SKIN_METRICS } from "@/lib/constants/metrics";
 import { getOlderSelfies } from "@/app/lib/actions";
+import { rollingAverage } from "@/lib/utils/trend";
 
 export default function ProgressChart({ allSelfies, hasMore = false }) {
   const [loadingMore, setLoadingMore] = useState(false);
@@ -31,17 +32,14 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
     }
   };
 
-  const data = selfies
-    .filter(selfie => selfie.isAnalyzed !== false && typeof selfie.overallScore === 'number')
-    .map((selfie) => {
+  const analyzed = selfies.filter(selfie => selfie.isAnalyzed !== false && typeof selfie.overallScore === 'number');
+  const averages = rollingAverage(analyzed.map(s => ({ at: s.takenAt, score: s.overallScore })));
+  const data = analyzed.map((selfie, i) => {
     const date = new Date(selfie.takenAt);
     return {
       date: `${date.getMonth() + 1}/${date.getDate()}`,
-      overall: typeof selfie.overallScore === 'number' ? selfie.overallScore : null,
-      [SKIN_METRICS.WRINKLES]: typeof selfie.scores?.wrinkles === 'number' ? selfie.scores.wrinkles : null,
-      [SKIN_METRICS.FIRMNESS]: typeof selfie.scores?.firmness === 'number' ? selfie.scores.firmness : null,
-      [SKIN_METRICS.SPOTS]: typeof selfie.scores?.spots === 'number' ? selfie.scores.spots : null,
-      [SKIN_METRICS.RADIANCE]: typeof selfie.scores?.radiance === 'number' ? selfie.scores.radiance : null,
+      scan: selfie.overallScore,
+      trend: averages[i],
     };
   });
 
@@ -49,7 +47,7 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
     return (
       <div className="w-full min-h-[300px] flex items-center justify-center text-center px-6">
         <p className="text-sm text-muted">
-          Not enough analyzed scans yet. Take a scan to start your trend line.
+          Not enough analyzed scans yet. Your first scan sets your starting point.
         </p>
       </div>
     );
@@ -93,14 +91,25 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
             contentStyle={{ borderRadius: '12px', border: '1px solid var(--tk-border-solid)', background: 'var(--tk-surface-card)', boxShadow: '0 4px 20px rgba(74,42,31,0.08)' }}
             labelStyle={{ fontWeight: 'bold', color: 'var(--tk-text-primary)', marginBottom: '8px' }}
           />
-          <Line 
-            type="monotone" 
-            dataKey="overall" 
-            stroke="var(--tk-accent)" 
-            strokeWidth={3} 
-            dot={{ r: 4, fill: 'var(--tk-accent)', strokeWidth: 2, stroke: '#fff' }}
-            activeDot={{ r: 6 }} 
-            name="Overall Harmony"
+          {/* Single scans swing with lighting, so they are faint dots and the
+              line is the 7-day average. */}
+          <Line
+            type="monotone"
+            dataKey="scan"
+            stroke="none"
+            dot={{ r: 3, fill: 'var(--tk-accent)', fillOpacity: 0.35, strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            name="Single scan"
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="trend"
+            stroke="var(--tk-accent)"
+            strokeWidth={3}
+            dot={false}
+            activeDot={{ r: 6 }}
+            name="7-day average"
           />
         </LineChart>
       </ResponsiveContainer>

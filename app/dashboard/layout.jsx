@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Your Dashboard",
-  description: "View your AI-powered skincare journal, historical progress, and personalized recommendations.",
+  description: "Follow today's steps in your 30-day skin plan and see how your skin is improving.",
   robots: {
     index: false,
     follow: false,

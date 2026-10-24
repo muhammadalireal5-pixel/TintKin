@@ -6,6 +6,8 @@ import { sendPushToUser, pushConfigured } from "@/lib/push/send";
 import { pickReminder, localHour, slotForHour } from "@/lib/push/reminders";
 import { getLocalDayKey, getLocalDayStart, normalizeTimezone } from "@/lib/utils/date";
 import { dayDiff } from "@/lib/utils/streak";
+import { getTodayRoutineKeys } from "@/app/lib/plan";
+import { toPlanView } from "@/lib/plan/state";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -54,14 +56,17 @@ export async function GET(request) {
         ]);
 
         const lastKey = user.lastActiveDayKey || (user.lastUploadDate ? getLocalDayKey(tz, user.lastUploadDate) : null);
-        const pmSteps = latestAnalyzed?.pmRoutine || [];
+        const planRoutine = await getTodayRoutineKeys(user._id, tz, now);
+        const amSteps = planRoutine ? planRoutine.am : latestAnalyzed?.amRoutine || [];
+        const pmSteps = planRoutine ? planRoutine.pm : latestAnalyzed?.pmRoutine || [];
         const reminder = pickReminder({
           slot,
           firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
           streak: user.currentStreak || 0,
           scannedToday: Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart),
           stepsDone: (todayLog?.amCompleted?.length || 0) + (todayLog?.pmCompleted?.length || 0),
-          stepsTotal: (latestAnalyzed?.amRoutine?.length || 0) + pmSteps.length,
+          stepsTotal: amSteps.length + pmSteps.length,
+          checkInDue: Boolean(planRoutine && toPlanView(planRoutine.plan, dayKey).nextCheckIn?.isDue),
           pmLeft: pmSteps.filter((s) => !todayLog?.pmCompleted?.includes(s)).length,
           daysSinceActive: lastKey ? dayDiff(lastKey, dayKey) : 0,
           seed: `${user._id}:${dayKey}:${slot}`,

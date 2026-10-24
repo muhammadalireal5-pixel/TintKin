@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Scan Your Skin",
-  description: "Take a selfie to get an instant AI-powered skin analysis. See your overall hydration, wrinkles, firmness, spots, and radiance scores.",
+  title: "Skin Check-in",
+  description: "Take a quick selfie to set your starting point or check your progress against your 30-day skin plan.",
   alternates: {
     canonical: "/capture",
   },

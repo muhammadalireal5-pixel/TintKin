@@ -21,20 +21,6 @@ function SubmitButton({ ready }) {
   );
 }
 
-/** Seven dots, one per scan, filled as the user progresses toward the next report. */
-export function ScanProgress({ count, required }) {
-  return (
-    <div className="flex items-center gap-1.5" aria-label={`${count} of ${required} scans`}>
-      {Array.from({ length: required }, (_, i) => (
-        <span
-          key={i}
-          className={`h-2 flex-1 max-w-8 rounded-full transition-colors ${i < count ? "bg-accent" : "bg-line"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function GenerateReportForm({ status, compact = false }) {
   const router = useRouter();
   const [state, formAction] = useActionState(generateReport, null);
@@ -49,14 +35,15 @@ export default function GenerateReportForm({ status, compact = false }) {
   return (
     <form action={formAction} className="space-y-3">
       {!compact && status && (
-        <div className="space-y-2">
-          <ScanProgress count={status.count} required={status.required} />
-          <p className="text-xs text-muted">
-            {ready
-              ? "All 7 scans done. Your report is ready!"
-              : `${status.count} of ${status.required} scans · ${status.remaining} more to unlock your next report`}
-          </p>
-        </div>
+        <p className="text-xs text-muted">
+          {ready
+            ? `Your day ${status.checkInDay} check-in is done. Your report is ready!`
+            : status.nextCheckInDay
+              ? `Unlocks when you complete your day ${status.nextCheckInDay} check-in.`
+              : status.hasPlan
+                ? "Your plan's check-ins are all done."
+                : "Reports unlock with your 30-day plan check-ins."}
+        </p>
       )}
       <SubmitButton ready={ready} />
       {state && !state.success && (

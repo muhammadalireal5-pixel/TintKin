@@ -13,7 +13,7 @@ import {
 // Phone bottom nav: four tabs around the centre Scan button (see AppShell).
 export const TAB_ITEMS = [
   { href: "/dashboard", label: "Today", icon: House },
-  { href: "/routine", label: "Routine", icon: ListChecks },
+  { href: "/routine", label: "Plan", icon: ListChecks },
   { href: "/progress", label: "Progress", icon: TrendingUp },
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
@@ -25,7 +25,7 @@ export const SIDEBAR_GROUPS = [
     label: "Your skin",
     items: [
       { href: "/dashboard", label: "Today", icon: House },
-      { href: "/routine", label: "Routine", icon: ListChecks },
+      { href: "/routine", label: "Plan", icon: ListChecks },
       { href: "/progress", label: "Progress", icon: TrendingUp },
     ],
   },

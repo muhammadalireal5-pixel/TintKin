@@ -3,8 +3,8 @@ import { Camera, ScanFace, Sparkles, ListChecks } from "lucide-react";
 
 const STEPS = [
   { icon: Camera, title: "Take a selfie", text: "Soft daylight, relaxed face, no filters." },
-  { icon: Sparkles, title: "Get your score", text: "Wrinkles, firmness, spots and radiance, read in seconds." },
-  { icon: ListChecks, title: "Follow your plan", text: "A morning and evening routine made for your skin." },
+  { icon: Sparkles, title: "Get your starting point", text: "Wrinkles, firmness, spots and radiance, read in seconds." },
+  { icon: ListChecks, title: "Follow your 30-day plan", text: "A morning and evening routine made for your skin, with weekly check-ins to show it working." },
 ];
 
 /**
@@ -25,11 +25,11 @@ export default function FirstScanWelcome({ firstName }) {
       <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-5 items-start">
         <section data-tour="score" className="tk-card p-6 sm:p-8 text-center lg:text-left">
           <span className="tk-icon-circle w-16 h-16 mx-auto lg:mx-0"><ScanFace size={32} strokeWidth={1.5} /></span>
-          <h2 className="mt-5 text-2xl sm:text-3xl font-semibold text-primary">Your skin story starts with one selfie</h2>
+          <h2 className="mt-5 text-2xl sm:text-3xl font-semibold text-primary">Your skin plan starts with one selfie</h2>
           <p className="mt-2 text-muted max-w-md mx-auto lg:mx-0">
-            Take your first scan and this page fills up with your score, your focus for the day and a routine made for you.
+            Take your first scan and this page fills up with your starting point, a 30-day plan and a routine made for you.
           </p>
-          <Link href="/capture" className="tk-pill-btn tk-btn-primary mt-6 w-full sm:w-auto sm:px-8 py-3.5 text-base">
+          <Link href="/welcome" className="tk-pill-btn tk-btn-primary mt-6 w-full sm:w-auto sm:px-8 py-3.5 text-base">
             <Camera size={18} /> Take my first scan
           </Link>
         </section>

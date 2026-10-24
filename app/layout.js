@@ -32,16 +32,16 @@ export const metadata = {
   metadataBase: new URL("https://tintkin.com"),
   title: {
     template: "%s | TintKin",
-    default: "TintKin — AI Skin Analysis & Wellness Journal",
+    default: "TintKin — Improve Your Skin in 30 Days",
   },
   icons: {
     icon: "/favicon.png",
     apple: "/apple-icon.png",
   },
-  description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis, what-if simulations, and personalized insights.",
+  description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
   openGraph: {
-    title: "TintKin — AI Skin Analysis & Wellness Journal",
-    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
+    title: "TintKin — Improve Your Skin in 30 Days",
+    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
     url: "https://tintkin.com",
     siteName: "TintKin",
     images: [
@@ -57,8 +57,8 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TintKin — AI Skin Analysis & Wellness Journal",
-    description: "Understand your skin's true potential. Upload a selfie and get instant AI-powered skin analysis.",
+    title: "TintKin — Improve Your Skin in 30 Days",
+    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
     images: ["/og-image.jpg"],
   },
   robots: {
@@ -75,7 +75,7 @@ const rootStructuredData = {
       "name": "TintKin",
       "url": "https://tintkin.com",
       "logo": "https://tintkin.com/favicon.png",
-      "description": "AI-powered longitudinal skin wellness tracking and simulation platform."
+      "description": "A personal 30-day skin plan with a daily routine, weekly check-ins and progress tracking."
     },
     {
       "@type": "WebSite",
@@ -86,7 +86,7 @@ const rootStructuredData = {
       "@type": "WebApplication",
       "name": "TintKin",
       "url": "https://tintkin.com",
-      "description": "AI-powered skincare wellness journal and analysis.",
+      "description": "A personal 30-day skin plan built from one selfie, with a daily routine, weekly check-ins and visible progress.",
       "applicationCategory": "HealthAndFitnessApplication",
       "operatingSystem": "Web",
       "offers": [
@@ -99,13 +99,13 @@ const rootStructuredData = {
         {
           "@type": "Offer",
           "name": "Standard Plan",
-          "price": "12",
+          "price": "8",
           "priceCurrency": "USD"
         },
         {
           "@type": "Offer",
           "name": "Pro Plan",
-          "price": "24",
+          "price": "15",
           "priceCurrency": "USD"
         }
       ]

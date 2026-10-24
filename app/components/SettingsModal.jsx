@@ -34,7 +34,7 @@ import { useAuthContext } from "../context/AuthContext";
 import { usePwaInstall } from "../context/PwaContext";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
-import { TIERS, TIER_NAMES, ACTIVE_SUBSCRIPTION_TIERS, STANDARD_PACING } from "@/lib/constants/tiers";
+import { TIERS, TIER_NAMES, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
 import { PHOTO_PRIVACY } from "@/lib/constants/privacy";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -60,7 +60,6 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [skinType, setSkinType] = useState("");
   const [optIn, setOptIn] = useState(false);
   const [photoPrivacy, setPhotoPrivacy] = useState(PHOTO_PRIVACY.STORE);
-  const [standardPlanFrequency, setStandardPlanFrequency] = useState(STANDARD_PACING.FLEXIBLE);
   const [isExporting, setIsExporting] = useState(false);
   const [isEmailingExport, setIsEmailingExport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -106,9 +105,6 @@ export default function SettingsModal({ isOpen, onClose }) {
           }
           if (data.skinType) {
             setSkinType(data.skinType);
-          }
-          if (data.standardPlanFrequency) {
-            setStandardPlanFrequency(data.standardPlanFrequency);
           }
           if (data.photoPrivacy) {
             setPhotoPrivacy(data.photoPrivacy);
@@ -345,12 +341,6 @@ export default function SettingsModal({ isOpen, onClose }) {
     setOptIn(nextVal);
     await updateUserSettings({ optInComparison: nextVal });
     setProfile((prev) => ({ ...prev, optInComparison: nextVal }));
-  };
-
-  const handleFrequencyChange = async (newFrequency) => {
-    setStandardPlanFrequency(newFrequency);
-    await updateUserSettings({ standardPlanFrequency: newFrequency });
-    setProfile((prev) => ({ ...prev, standardPlanFrequency: newFrequency }));
   };
 
   const handleChangeTier = async (newTier) => {
@@ -628,33 +618,6 @@ export default function SettingsModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {profile?.tier === TIERS.STANDARD && (
-              <div className="mt-3 pt-3 border-t border-line">
-                <label className="text-xs text-muted block mb-2">Scan Pacing</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleFrequencyChange(STANDARD_PACING.EVERY_OTHER_DAY)}
-                    className={`flex-1 py-1.5 px-2 rounded border tk-text-micro font-medium transition-colors ${
-                      standardPlanFrequency === STANDARD_PACING.EVERY_OTHER_DAY
-                        ? "bg-accent text-white border-accent"
-                        : "bg-white text-muted border-line hover:border-accent/40"
-                    }`}
-                  >
-                    Every Other Day
-                  </button>
-                  <button
-                    onClick={() => handleFrequencyChange(STANDARD_PACING.FLEXIBLE)}
-                    className={`flex-1 py-1.5 px-2 rounded border tk-text-micro font-medium transition-colors ${
-                      standardPlanFrequency === STANDARD_PACING.FLEXIBLE
-                        ? "bg-accent text-white border-accent"
-                        : "bg-white text-muted border-line hover:border-accent/40"
-                    }`}
-                  >
-                    Flexible
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Install App */}
