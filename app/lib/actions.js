@@ -21,7 +21,7 @@ import {
 } from "@/lib/utils/cloudinary";
 import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
-import { recordScanOnPlan, getTodayRoutineKeys } from "./plan";
+import { recordScanOnPlan, getTodayRoutineKeys, sweepPlanSafety } from "./plan";
 import { toPlanView } from "@/lib/plan/state";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
@@ -2096,10 +2096,17 @@ export async function updateSkinProfile(data) {
       return { success: false, error: validation.error || "Please check your answers." };
     }
     const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
-    await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile });
+    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile }, { new: true });
+    // Safety first: a step the new answers rule out stops now, whatever they
+    // choose to do with the rest of the plan.
+    const stopped = await sweepPlanSafety(updated, normalizeTimezone(updated.timezone)).catch((err) => {
+      Sentry.captureException(err, { tags: { scope: "profile-safety-sweep" } });
+      return 0;
+    });
     revalidatePath("/profile");
     revalidatePath("/dashboard");
-    return { success: true };
+    revalidatePath("/routine");
+    return { success: true, stopped };
   } catch (err) {
     Sentry.captureException(err, { tags: { scope: "update-skin-profile" } });
     return { success: false, error: "Something went wrong, please try again." };

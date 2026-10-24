@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Plan } from "./mongoose";
 import { checkRateLimit } from "./rate-limit";
-import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage } from "./plan";
+import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
 import { classifyProfile } from "@/lib/plan/engine";
@@ -116,6 +116,24 @@ export async function reviewCheckIn(timezone) {
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
     Sentry.captureException(err, { tags: { scope: "plan-review" } });
+    return FAILED;
+  }
+}
+
+/**
+ * Re-plans the rest of the running plan from the saved skin profile, keeping
+ * the day, check-ins and progress. The default after a profile update.
+ */
+export async function refreshPlanFromProfile(timezone) {
+  try {
+    const user = await getPlanUser();
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    const result = await mergePlanFromProfile(user, tz);
+    const plan = await findActivePlan(user._id);
+    return { success: true, ...result, plan: plan ? viewOf(plan, tz) : null };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-refresh" } });
     return FAILED;
   }
 }

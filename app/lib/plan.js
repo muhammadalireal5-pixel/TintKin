@@ -6,6 +6,7 @@ import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
 import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS } from "@/lib/constants/plan";
 import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
 import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, safetyBrief } from "@/lib/plan/engine";
+import { endUnsafeSteps, mergePlanWithProfile } from "@/lib/plan/rebuild";
 import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment, applySelfCheckIn, applyRatingsToCheckIn, cleanRatings } from "@/lib/plan/state";
 
 const DUPLICATE_KEY = 11000;
@@ -209,6 +210,45 @@ export async function editPlanFromMessage(user, message, timezone, now = new Dat
   if (!res.modifiedCount) return { ok: false, reply: "Your plan just changed. Please ask again.", dropped: [], added: [] };
   const textOf = (id) => changes.steps.find((s) => s.id === id)?.text ?? "";
   return { ok: true, reply, dropped: entry.dropped.map(textOf).filter(Boolean), added: entry.added.map(textOf).filter(Boolean) };
+}
+
+/**
+ * Safety sweep after the skin profile changes: stops any step in the running
+ * plan that the new answers rule out (for example a retinoid after "pregnant:
+ * yes"), right away. Runs automatically on every profile save.
+ * @returns {Promise<number>} how many steps were stopped
+ */
+export async function sweepPlanSafety(user, timezone, now = new Date()) {
+  const plan = await findActivePlan(user._id);
+  if (!plan) return 0;
+  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+  const { steps, stopped } = endUnsafeSteps(plan, plain, Math.max(1, day));
+  if (!stopped.length) return 0;
+  const version = plan.version + 1;
+  const entry = { version, at: now, day: Math.max(1, Math.min(day, plan.durationDays)), checkInDay: null, selfieId: null, note: "Stopped steps that are not safe for your updated answers.", dropped: stopped, added: [] };
+  const res = await Plan.updateOne(
+    { _id: plan._id, status: PLAN_STATUS.ACTIVE, version: plan.version },
+    { $set: { steps, version, adjustments: [...plan.adjustments, entry] } }
+  );
+  return res.modifiedCount ? stopped.length : 0;
+}
+
+/**
+ * Re-plans the rest of the running plan from the current skin profile. The day,
+ * check-ins, ticks and progress stay; steps that still fit are kept, the rest
+ * end, and new ones start tomorrow.
+ * @returns {Promise<{ merged: boolean, added: number, stopped: number }>}
+ */
+export async function mergePlanFromProfile(user, timezone, now = new Date()) {
+  const plan = await findActivePlan(user._id);
+  if (!plan) return { merged: false, added: 0, stopped: 0 };
+  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+  const result = mergePlanWithProfile(plan, plain, Math.max(1, day), { at: now });
+  if (!result) return { merged: false, added: 0, stopped: 0 };
+  const res = await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE, version: plan.version }, { $set: result.set });
+  return { merged: Boolean(res.modifiedCount), added: result.added.length, stopped: result.stopped.length };
 }
 
 /** Share of the last 7 days (up to today) on which the user ticked a routine step. */
