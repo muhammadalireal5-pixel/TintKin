@@ -3,13 +3,14 @@
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie } from "./mongoose";
+import { connectDb, User, Selfie, Plan } from "./mongoose";
 import { checkRateLimit } from "./rate-limit";
 import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
 import { classifyProfile } from "@/lib/plan/engine";
 import { CONCERNS } from "@/lib/constants/profile";
+import { PLAN_STATUS } from "@/lib/constants/plan";
 
 // Same checks as getDbUser() in actions.js.
 async function getPlanUser() {
@@ -115,6 +116,23 @@ export async function reviewCheckIn(timezone) {
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
     Sentry.captureException(err, { tags: { scope: "plan-review" } });
+    return FAILED;
+  }
+}
+
+/**
+ * Closes the active plan so a fresh one can be built from updated answers
+ * (/welcome builds it). Routine history, streaks and old reports are kept; the
+ * new plan starts again at day 1.
+ */
+export async function retireActivePlan() {
+  try {
+    const user = await getPlanUser();
+    await Plan.updateMany({ userId: user._id, status: PLAN_STATUS.ACTIVE }, { $set: { status: PLAN_STATUS.COMPLETED } });
+    return { success: true };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-retire" } });
     return FAILED;
   }
 }

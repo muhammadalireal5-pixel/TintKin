@@ -2031,6 +2031,8 @@ export async function getUserProfile() {
       isSubscribed: Boolean(user.isSubscribed),
       creditBalance: user.creditBalance || 0,
       skinType: user.skinType || null,
+      // False for accounts made before the skin questionnaire: they are asked to update it.
+      hasSkinProfile: Boolean(user.skinProfile?.concerns?.length),
       optInComparison: user.optInComparison || false,
       photoPrivacy: user.photoPrivacy || "store",
       // Reported as verified while confirmation emails are switched off, so no
@@ -2039,6 +2041,68 @@ export async function getUserProfile() {
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Current answers for the "update my skin profile" form. Accounts made before
+ * the questionnaire are prefilled from what they did tell us (birth date, sex,
+ * skin type, goals) and ask for the rest.
+ */
+export async function getSkinProfileForEdit() {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Please sign in again to continue." };
+    const sp = user.skinProfile ?? {};
+    const concerns = Array.isArray(sp.concerns) && sp.concerns.length
+      ? sp.concerns.map((c) => ({ key: c.key, rating: c.rating }))
+      : [];
+    return {
+      success: true,
+      hasProfile: concerns.length > 0,
+      initial: {
+        birthDate: user.birthDate ? new Date(user.birthDate).toISOString().slice(0, 10) : "",
+        sex: user.sex || "",
+        skinType: user.skinType || "",
+        sensitivity: sp.sensitivity || "",
+        phototype: sp.phototype || 0,
+        concerns: concerns.map((c) => c.key),
+        ratings: Object.fromEntries(concerns.map((c) => [c.key, c.rating])),
+        currentProducts: Array.isArray(sp.currentProducts) ? [...sp.currentProducts] : [],
+        sleep: sp.sleep || "",
+        outdoor: sp.outdoor || "",
+        smoker: typeof sp.smoker === "boolean" ? sp.smoker : null,
+        stress: sp.stress || "",
+        pregnancy: sp.pregnancy || "",
+        routineTime: sp.routineTime || "",
+      },
+    };
+  } catch {
+    return { success: false, error: "We couldn't load your answers. Please try again." };
+  }
+}
+
+/**
+ * Saves new questionnaire answers. Same validation as onboarding. It does not
+ * touch the current plan: the caller then offers to rebuild it.
+ */
+export async function updateSkinProfile(data) {
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false, error: "Please sign in again to continue." };
+
+    const validation = validateOnboarding(data);
+    if (!validation.isValid || !validation.sanitized.skinProfile) {
+      return { success: false, error: validation.error || "Please check your answers." };
+    }
+    const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
+    await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile });
+    revalidatePath("/profile");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "update-skin-profile" } });
+    return { success: false, error: "Something went wrong, please try again." };
   }
 }
 
@@ -2441,6 +2505,7 @@ export async function getCompanionState() {
     const planView = planRoutine ? toPlanView(planRoutine.plan, getLocalDayKey(tz)) : null;
     return {
       hasPlan: Boolean(planView),
+      hasProfile: Boolean(user.skinProfile?.concerns?.length),
       checkInDue: Boolean(planView?.nextCheckIn?.isDue),
       firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
       scanCount,

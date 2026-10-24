@@ -13,6 +13,7 @@ import CheckInReview from "@/app/plan/CheckInReview";
 import RatingsForm from "@/app/plan/RatingsForm";
 import PlanBuilder from "@/app/plan/PlanBuilder";
 import NextPlanCard from "@/app/plan/NextPlanCard";
+import ProfileUpdateBanner from "@/app/dashboard/ProfileUpdateBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ const STARTER_PRODUCTS = [
 
 export default async function RoutinePage({ searchParams }) {
     const { tab } = await searchParams;
-    const { latestSelfie, latestAnalyzedSelfie, todayRoutineLog } = await getLatestData(null, { selfieLimit: 1 });
+    const { user, latestSelfie, latestAnalyzedSelfie, todayRoutineLog } = await getLatestData(null, { selfieLimit: 1 });
 
     const source = latestAnalyzedSelfie || latestSelfie || {};
     const { amRoutine, pmRoutine, facialWorkout } = source;
@@ -56,6 +57,7 @@ export default async function RoutinePage({ searchParams }) {
 
             {plan ? (
                 <div className="flex flex-col gap-4">
+                    {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
                     {plan.needsRatings && <RatingsForm plan={plan} title="Your scan is in. How does your skin feel?" cta="Save my ratings" />}
                     {plan.pendingReview && !plan.needsRatings && <CheckInReview />}
                     {plan.expired && <NextPlanCard />}

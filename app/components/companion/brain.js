@@ -101,6 +101,15 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
     return null;
   }
 
+  // Accounts made before the skin questionnaire: ask once a day.
+  if (state.hasProfile === false && !done("update-profile")) {
+    return {
+      id: "update-profile",
+      text: `${name ? `${name}, ` : ""}TintKin got smarter! Answer a few new questions and I can make your plan safer and more personal.`,
+      cta: { label: "Update my profile", href: "/profile/skin" },
+    };
+  }
+
   // 2. Walkthrough of Today once they have a plan.
   if (pathname === "/dashboard" && !tours?.today) {
     return { id: "tour-offer-today", text: TOURS.today.offer, tour: "today" };

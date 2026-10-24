@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ChevronRight,
   Settings,
+  ClipboardList,
   Crown,
   Sparkles,
   FileText,
@@ -119,6 +120,7 @@ export default function ProfileClient({ profile }) {
 
       <div className="flex flex-col gap-6">
         <Group title="Account">
+          <Row icon={ClipboardList} label="Skin profile" sub={profile?.hasSkinProfile ? "Update your answers and rebuild your plan" : "Answer a few new questions for a better plan"} href="/profile/skin" />
           <Row icon={Settings} label="Settings & preferences" sub="Profile, notifications, privacy, data" onClick={openSettings} />
           <Row icon={Crown} label="Plans & billing" sub={`Current plan: ${tierName}`} href="/pricing" />
         </Group>

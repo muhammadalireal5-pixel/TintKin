@@ -13,6 +13,7 @@ import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import TodayView from "./TodayView";
 import ScanInvite from "./ScanInvite";
+import ProfileUpdateBanner from "./ProfileUpdateBanner";
 import { buildSkinSummary } from "./skin-summary";
 import { EMAIL_VERIFICATION_ENABLED } from "@/app/lib/feature-flags";
 
@@ -71,6 +72,7 @@ async function DashboardContent() {
                 planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} /> : <PlanBuilder compact />}
                 banners={
                     <>
+                        {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
                         {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />
