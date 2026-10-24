@@ -3,7 +3,8 @@ import dns from "dns";
 import * as Sentry from "@sentry/nextjs";
 import mongoose from 'mongoose';
 import { PRODUCT_TYPES } from "@/lib/constants/products";
-import { PLAN_METRICS, PLAN_STATUS, CHECKIN_STATUS } from "@/lib/constants/plan";
+import { PLAN_METRICS, STEP_METRICS, PLAN_STATUS, CHECKIN_STATUS } from "@/lib/constants/plan";
+import { CONCERN_KEYS } from "@/lib/constants/profile";
 
 // mongodb+srv:// needs SRV lookups via Node's own resolver, which reads the
 // adapter DNS list directly. When that list is loopback-only (VPNs, DNS
@@ -114,6 +115,23 @@ const UserSchema = new mongoose.Schema({
     skinType: { type: String },
     goals: [String],
     customGoal: String,
+    // Onboarding questionnaire the plan is built from (see lib/plan/engine.js).
+    skinProfile: {
+        _id: false,
+        type: new mongoose.Schema({
+            concerns: [{ _id: false, key: String, rating: Number }],
+            sensitivity: String,
+            phototype: Number,
+            currentProducts: [String],
+            sleep: String,
+            outdoor: String,
+            smoker: Boolean,
+            stress: String,
+            pregnancy: String,
+            routineTime: String,
+        }, { _id: false }),
+        default: undefined,
+    },
     onboardingComplete: { type: Boolean, default: false },
     // Ids of one-time "what's new" announcements already dismissed (lib/constants/announcements.js).
     seenAnnouncements: [String],
@@ -281,6 +299,8 @@ ReportSchema.index({ userId: 1, createdAt: -1 });
 ReportSchema.index({ userId: 1, planId: 1, checkInDay: 1 }, { unique: true, partialFilterExpression: { planId: { $type: 'objectId' } } });
 
 const planScores = Object.fromEntries(PLAN_METRICS.map((metric) => [metric, Number]));
+// Self-ratings (1-5) by concern key.
+const planRatings = Object.fromEntries(CONCERN_KEYS.map((key) => [key, Number]));
 
 // A user's skin plan (see lib/plan/). Steps carry their own start/end plan day
 // and a stable id, so the plan can be adjusted at a check-in without rewriting
@@ -295,17 +315,20 @@ const PlanSchema = new mongoose.Schema({
     startedAt: { type: Date, default: Date.now },
     endsAt: Date,
     createdFromSelfieId: { type: mongoose.Schema.Types.ObjectId, ref: 'Selfie', default: null },
-    generatedBy: { type: String, enum: ['ai', 'fallback'], default: 'ai' },
+    generatedBy: { type: String, enum: ['ai', 'fallback', 'rules'], default: 'ai' },
     goals: [String],
     summary: String,
     baseline: {
         overallScore: Number,
         skinAge: Number,
         scores: planScores,
+        ratings: planRatings,
     },
     focus: [{
         _id: false,
-        metric: { type: String, enum: PLAN_METRICS },
+        metric: { type: String, enum: STEP_METRICS },
+        // 'rating' = self-rated 1-5; 'score' = YouCam 0-100 (plans made from a scan).
+        scale: { type: String, enum: ['rating', 'score'], default: 'score' },
         label: String,
         baseline: Number,
         target: Number,
@@ -317,7 +340,7 @@ const PlanSchema = new mongoose.Schema({
         slot: { type: String, enum: ['am', 'pm'], required: true },
         text: { type: String, required: true },
         why: String,
-        metric: { type: String, enum: [...PLAN_METRICS, null], default: null },
+        metric: { type: String, enum: [...STEP_METRICS, null], default: null },
         startDay: { type: Number, default: 1 },
         endDay: { type: Number, default: null },
     }],
@@ -330,6 +353,9 @@ const PlanSchema = new mongoose.Schema({
         completedAt: Date,
         overallScore: Number,
         scores: planScores,
+        // Self-ratings (1-5) given at this check-in, and how it was completed.
+        ratings: planRatings,
+        method: { type: String, enum: ['self', 'scan', null], default: null },
     }],
     // The most recent scan, so progress reads need no extra query.
     latest: {
@@ -337,6 +363,7 @@ const PlanSchema = new mongoose.Schema({
         at: Date,
         overallScore: Number,
         scores: planScores,
+        ratings: planRatings,
     },
     adjustments: [{
         _id: false,

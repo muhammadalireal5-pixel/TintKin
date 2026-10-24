@@ -103,7 +103,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
       </div>
 
       <Link href="/capture" className="tk-pill-btn tk-btn-primary mt-7 w-full py-3.5 text-[15px]">
-        <Camera size={18} /> Scan your skin
+        <Camera size={18} /> Progress scan
       </Link>
 
       <nav className="mt-6 flex-1 flex flex-col gap-5">
@@ -217,7 +217,7 @@ function BottomNav() {
           <Link
             href="/capture"
             prefetch
-            aria-label="Scan your skin"
+            aria-label="Progress scan"
             aria-current={scanActive ? "page" : undefined}
             className="-mt-6 mb-1"
           >

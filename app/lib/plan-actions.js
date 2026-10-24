@@ -5,9 +5,11 @@ import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie } from "./mongoose";
 import { checkRateLimit } from "./rate-limit";
-import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn } from "./plan";
+import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
+import { classifyProfile } from "@/lib/plan/engine";
+import { CONCERNS } from "@/lib/constants/profile";
 
 // Same checks as getDbUser() in actions.js.
 async function getPlanUser() {
@@ -118,9 +120,55 @@ export async function reviewCheckIn(timezone) {
 }
 
 /**
- * What the first-scan welcome (/welcome) needs to decide where to start: the
- * user's chosen goals, whether consent is still due, and whether they already
- * have a scan (then only the plan needs building) or a plan (nothing to do).
+ * Kin changes the plan from a chat message. Rate limited (AI call) and
+ * length-bounded; the reply says what changed.
+ */
+export async function chatWithKin(message, timezone) {
+  try {
+    const user = await getPlanUser();
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    const text = typeof message === "string" ? message.trim().slice(0, 300) : "";
+    if (!text) return { success: false, error: "Tell me what you'd like to change." };
+
+    const rate = await checkRateLimit(user._id.toString(), "plan-chat", 12, 60 * 60 * 1000);
+    if (!rate.allowed) return { success: false, error: `Let's pause for a moment. Try again in ${rate.retryAfter}s.` };
+
+    const result = await editPlanFromMessage(user, text, tz);
+    const plan = await findActivePlan(user._id);
+    return { success: result.ok, reply: result.reply, dropped: result.dropped, added: result.added, plan: plan ? viewOf(plan, tz) : null };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-chat" } });
+    return { success: false, error: "Kin couldn't change your plan just now. Please try again." };
+  }
+}
+
+/**
+ * A quick self-rated check-in (no scan): `ratings` maps each focus area to 1-5.
+ * Completes the due check-in, or attaches the ratings to one a scan already
+ * completed. The caller then runs reviewCheckIn for the coach's note.
+ */
+export async function submitCheckInRatings(ratings, timezone) {
+  try {
+    const user = await getPlanUser();
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    const result = await recordSelfCheckIn(user, ratings, tz);
+    const plan = await findActivePlan(user._id);
+    if (!result.completedDay && !result.attached) {
+      return { success: false, error: "There is no check-in to complete right now.", plan: plan ? viewOf(plan, tz) : null };
+    }
+    return { success: true, ...result, plan: plan ? viewOf(plan, tz) : null };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-self-checkin" } });
+    return FAILED;
+  }
+}
+
+/**
+ * What the plan reveal (/welcome) needs: the user's profile (echoed on the
+ * building screen), whether photo consent is still due for the optional baseline
+ * selfie, and whether they already have a plan (then there is nothing to do).
  */
 export async function getWelcomeState() {
   try {
@@ -129,13 +177,26 @@ export async function getWelcomeState() {
       findActivePlan(user._id),
       Selfie.findOne({ userId: user._id, isAnalyzed: true, overallScore: { $ne: null } }).select("_id").lean(),
     ]);
+    const p = classifyProfile(user.toObject ? user.toObject() : user);
     return {
       success: true,
       firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
-      goals: Array.isArray(user.goals) ? user.goals.filter((g) => typeof g === "string").slice(0, 6) : [],
       needsConsent: !user.termsAcceptedAt,
       hasScan: Boolean(scan),
       hasPlan: Boolean(plan),
+      // Echoed back on the "building your plan" screen, so what it says is what they told us.
+      profile: {
+        skinType: p.skinType,
+        sensitivity: p.sensitive ? "high" : p.medium ? "medium" : "low",
+        phototype: p.phototype,
+        concerns: p.concerns.map((c) => ({ key: c.key, label: CONCERNS[c.key].label, rating: c.rating })),
+        pregnant: p.pregnant,
+        avoidUnsafe: p.avoidUnsafe,
+        usesRetinoid: p.usesRetinoid,
+        routineTime: p.routineTime,
+        sleepShort: p.sleep === "under6",
+        highSun: p.outdoor === "lots" || p.phototype <= 2,
+      },
     };
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;

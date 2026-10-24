@@ -1346,7 +1346,7 @@ export async function completeOnboarding(data) {
       return { success: false, error: validation.error };
     }
 
-    const { birthDate: parsedDate, sex: normalizedSex, skinType: normalizedSkinType, goals: validGoals, customGoal: cleanCustomGoal } = validation.sanitized;
+    const { birthDate: parsedDate, sex: normalizedSex, skinType: normalizedSkinType, goals: validGoals, customGoal: cleanCustomGoal, skinProfile } = validation.sanitized;
     
     const targetUser = await findSessionUser(decoded);
 
@@ -1357,7 +1357,8 @@ export async function completeOnboarding(data) {
       skinType: normalizedSkinType, 
       goals: validGoals, 
       customGoal: cleanCustomGoal,
-      onboardingComplete: true
+      onboardingComplete: true,
+      ...(skinProfile ? { skinProfile } : {}),
     };
 
     if (!targetUser) {

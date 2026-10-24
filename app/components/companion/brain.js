@@ -61,15 +61,11 @@ export const TOURS = {
   },
   today: {
     path: "/dashboard",
-    offer: "Your first scan is in! Want me to show you around?",
+    offer: "Your plan is ready! Want me to show you around?",
     steps: [
       { text: "This is your plan: the day you're on, today's steps and how your two focus areas are moving.", target: '[data-tour="plan-card"]' },
-      { text: "Your skin score is your starting point. The chip shows where you began.", target: '[data-tour="score"]' },
-      { text: "Switch between Today and This week to compare your latest scan with your weekly average.", target: '[data-tour="toggle"]' },
-      { text: "Four metrics: wrinkles, firmness, spots and radiance. Green arrows mean you improved since your last scan.", target: '[data-tour="metrics"]' },
-      { text: "Today's Focus is the one thing worth your attention right now.", target: '[data-tour="focus"]' },
       { text: "Today's Plan shows your morning and evening routine. Tap a tile to tick steps off.", target: '[data-tour="plan"]' },
-      { text: "Use the bottom bar to move around: Plan, Progress and Profile. The round button is for your check-in scans.", target: '[data-tour="nav"]' },
+      { text: "Use the bottom bar to move around: Plan, Progress and Profile. The round button is for optional progress scans.", target: '[data-tour="nav"]' },
       { text: "Under Explore you'll find What-If, Reports, the Leaderboard and the Shop. That's the tour. I'll be around!", target: '[data-tour="explore"]' },
     ],
   },
@@ -89,23 +85,23 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
   // The first-scan welcome walks them through it on its own.
   if (pathname === "/welcome") return null;
 
-  // 1. First-ever scan guidance.
-  if (state.scanCount === 0) {
+  // 1. No plan yet: the plan comes first, and it needs no scan.
+  if (!state.hasPlan) {
     if (pathname === "/capture") {
       if (!tours?.scan) return { id: "tour-offer-scan", text: TOURS.scan.offer, tour: "scan" };
       return null;
     }
-    if (!done("first-scan")) {
+    if (!done("first-plan")) {
       return {
-        id: "first-scan",
-        text: `${greeting(hour, name)} I'm Kin, your skin buddy. One selfie and I'll help you build your 30-day plan.`,
+        id: "first-plan",
+        text: `${greeting(hour, name)} I'm Kin, your skin buddy. Let's build your 30-day plan.`,
         cta: { label: "Build my plan", href: "/welcome" },
       };
     }
     return null;
   }
 
-  // 2. Walkthrough of the results screen right after the first scan.
+  // 2. Walkthrough of Today once they have a plan.
   if (pathname === "/dashboard" && !tours?.today) {
     return { id: "tour-offer-today", text: TOURS.today.offer, tour: "today" };
   }
@@ -130,31 +126,24 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
   if (!state.activeToday && state.streak > 0 && hour >= 17 && !done("streak-risk")) {
     return {
       id: "streak-risk",
-      text: `Want a quick scan or a routine step today? Your ${state.streak}-day streak will thank you.`,
-      cta: { label: state.hasPlan ? "Open my plan" : "Scan now", href: state.hasPlan ? "/routine" : "/capture" },
+      text: `Want to tick a routine step today? Your ${state.streak}-day streak will thank you.`,
+      cta: { label: "Open my plan", href: "/routine" },
     };
   }
   if (!state.activeToday && state.streak === 0 && state.longestStreak >= 3 && !done("welcome-back")) {
     return {
       id: "welcome-back",
       text: `Welcome back${name ? `, ${name}` : ""}! Your longest run so far is ${state.longestStreak} days. Ready to start a fresh one?`,
-      cta: { label: state.hasPlan ? "Open my plan" : "Scan now", href: state.hasPlan ? "/routine" : "/capture" },
+      cta: { label: "Open my plan", href: "/routine" },
     };
   }
-  // Skin changes slowly, so a scan is only worth asking for when a check-in is
-  // due (or there is no plan yet); the rest of the time the ask is the routine.
-  if (state.checkInDue && !state.scannedToday && !done("check-in-due")) {
+  // Skin changes slowly, so the only ask besides the routine is a check-in:
+  // a 30-second self-rating, with a scan as an optional extra.
+  if (state.checkInDue && !done("check-in-due")) {
     return {
       id: "check-in-due",
-      text: `${name ? `${name}, y` : "Y"}our check-in is ready. One scan shows how far your plan has taken you.`,
-      cta: { label: "Do my check-in", href: "/capture" },
-    };
-  }
-  if (!state.hasPlan && !state.scannedToday && !done("no-scan")) {
-    return {
-      id: "no-scan",
-      text: `${name ? `Hey ${name}` : "Hey"}, you haven't logged a scan today. Ready for a quick one?`,
-      cta: { label: "Scan now", href: "/capture" },
+      text: `${name ? `${name}, y` : "Y"}our check-in is ready. Rate how your skin feels and see how far your plan has taken you.`,
+      cta: { label: "Do my check-in", href: "/routine" },
     };
   }
   if (hour < 14 && state.am.total > 0 && state.am.done < state.am.total && !done("am-pending")) {
@@ -180,8 +169,8 @@ export function pickMessage({ state, pathname, hour, seen, tours, today }) {
       cta: { label: "View report", href: "/reports" },
     };
   }
-  if (state.scannedToday && routinesDone && !done("all-done")) {
-    return { id: "all-done", text: "Scan done and every step ticked. You're glowing today. See you tomorrow!" };
+  if (routinesDone && !done("all-done")) {
+    return { id: "all-done", text: "Every step ticked. You're glowing today. See you tomorrow!" };
   }
   return null;
 }

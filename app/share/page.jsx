@@ -13,7 +13,7 @@ export const metadata = {
 export default async function SharePage() {
   const { user, latestAnalyzedSelfie, realAge } = await getLatestData();
 
-  if (!latestAnalyzedSelfie) redirect("/capture");
+  if (!latestAnalyzedSelfie) redirect("/progress");
 
   const { overallScore, skinAge, scores } = latestAnalyzedSelfie;
 

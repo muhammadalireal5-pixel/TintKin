@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ScanFace, CalendarClock, CheckCircle2 } from "lucide-react";
+import RatingsForm from "./RatingsForm";
 
 /**
- * The next check-in: a scan that measures progress against the plan. Due (or
- * nearly due) it is a call to action; otherwise a quiet countdown.
+ * The next check-in. Due (or nearly due) it is a 30-second self-rating, with an
+ * optional scan to add measured numbers; otherwise a quiet countdown.
  */
 export default function CheckInCard({ plan }) {
   const next = plan.nextCheckIn;
@@ -21,6 +22,18 @@ export default function CheckInCard({ plan }) {
   }
 
   const daysAway = Math.max(0, next.day - plan.day);
+
+  const rated = plan.progress.focus.some((f) => f.scale === "rating");
+  if (next.isDue && rated) {
+    return (
+      <div className="flex flex-col gap-3">
+        <RatingsForm plan={plan} title={`Day ${next.day} check-in: how is your skin?`} />
+        <Link href="/capture" className="tk-pill-btn tk-btn-ghost w-full">
+          <ScanFace size={16} /> Add a progress scan too (optional)
+        </Link>
+      </div>
+    );
+  }
 
   if (next.isDue) {
     return (
@@ -44,7 +57,7 @@ export default function CheckInCard({ plan }) {
         <p className="text-[15px] font-semibold text-primary">
           Next check-in {daysAway === 0 ? "is today" : daysAway === 1 ? "is tomorrow" : `in ${daysAway} days`}
         </p>
-        <p className="text-sm text-muted">Day {next.day}. Just follow your routine until then; there is nothing to scan before it.</p>
+        <p className="text-sm text-muted">Day {next.day}. Just follow your routine until then; your check-in takes 30 seconds.</p>
       </div>
     </section>
   );

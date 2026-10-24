@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, Sparkles, ArrowRight, ShoppingBag } from "lucide-react";
 import { getLatestData } from "@/app/lib/actions";
@@ -11,6 +10,7 @@ import PlanProgress from "@/app/plan/PlanProgress";
 import PlanTimeline from "@/app/plan/PlanTimeline";
 import CheckInCard from "@/app/plan/CheckInCard";
 import CheckInReview from "@/app/plan/CheckInReview";
+import RatingsForm from "@/app/plan/RatingsForm";
 import PlanBuilder from "@/app/plan/PlanBuilder";
 import NextPlanCard from "@/app/plan/NextPlanCard";
 
@@ -31,9 +31,8 @@ const STARTER_PRODUCTS = [
 export default async function RoutinePage({ searchParams }) {
     const { tab } = await searchParams;
     const { latestSelfie, latestAnalyzedSelfie, todayRoutineLog } = await getLatestData(null, { selfieLimit: 1 });
-    if (!latestSelfie) redirect("/capture");
 
-    const source = latestAnalyzedSelfie || latestSelfie;
+    const source = latestAnalyzedSelfie || latestSelfie || {};
     const { amRoutine, pmRoutine, facialWorkout } = source;
 
     // Never throws: a failed load just means "no plan to show yet", and the
@@ -41,7 +40,7 @@ export default async function RoutinePage({ searchParams }) {
     const planRes = await getActivePlan();
     const plan = planRes?.success ? planRes.plan : null;
 
-    const hasPersonalized = Array.isArray(latestSelfie.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
+    const hasPersonalized = Array.isArray(latestSelfie?.recommendedProducts) && latestSelfie.recommendedProducts.length > 0;
     const products = hasPersonalized ? latestSelfie.recommendedProducts : STARTER_PRODUCTS;
 
     const [workoutTitle, ...workoutRest] = (facialWorkout || "").split(":");
@@ -52,12 +51,13 @@ export default async function RoutinePage({ searchParams }) {
             <PageHeader
                 eyebrow={plan ? `Day ${plan.day} of ${plan.durationDays}` : "Your plan for today"}
                 title="Plan"
-                subtitle="Morning and evening steps, built from your scan and adjusted at every check-in."
+                subtitle="Morning and evening steps built around your skin, adjusted at every check-in."
             />
 
             {plan ? (
                 <div className="flex flex-col gap-4">
-                    {plan.pendingReview && <CheckInReview />}
+                    {plan.needsRatings && <RatingsForm plan={plan} title="Your scan is in. How does your skin feel?" cta="Save my ratings" />}
+                    {plan.pendingReview && !plan.needsRatings && <CheckInReview />}
                     {plan.expired && <NextPlanCard />}
                     <PlanHeader plan={plan} />
                     {!plan.expired && <CheckInCard plan={plan} />}
@@ -103,7 +103,8 @@ export default async function RoutinePage({ searchParams }) {
                     </div>
                 ) : (
                     <p className="text-sm text-muted rounded-2xl bg-blush/50 p-4 text-center">
-                        Analyze a new selfie to get a personalised facial workout.
+                        Optional: add a progress scan to get a facial workout matched to your skin.{" "}
+                        <Link href="/capture" className="font-semibold text-accent hover:text-accent-deep">Add a scan</Link>
                     </p>
                 )}
             </section>
@@ -120,7 +121,7 @@ export default async function RoutinePage({ searchParams }) {
                 <p className="text-sm text-muted mb-4">
                     {hasPersonalized
                         ? "Your routine for 30 days (consider a 1-month supply)."
-                        : "A general starting routine — check in to get picks personalised to your results."}
+                        : "A general starting routine — add a progress scan to get picks personalised to your results."}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {products.map((prod, idx) => (

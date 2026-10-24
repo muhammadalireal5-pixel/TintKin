@@ -47,7 +47,7 @@ test("computeTarget aims for a realistic gain and never reaches perfect", () => 
 test("pickFocus takes the two weakest scored metrics", () => {
   const focus = pickFocus(SCORES);
   assert.deepEqual(focus.map((f) => f.metric), ["radiance", "spots"]);
-  assert.deepEqual(focus[0], { metric: "radiance", label: "Radiance", baseline: 48, target: 56 });
+  assert.deepEqual(focus[0], { metric: "radiance", label: "Radiance", baseline: 48, target: 56, scale: "score" });
   assert.deepEqual(pickFocus({ wrinkles: null, firmness: 80 }).map((f) => f.metric), ["firmness"]);
   assert.deepEqual(pickFocus({}), []);
 });

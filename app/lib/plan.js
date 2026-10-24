@@ -1,11 +1,12 @@
 import "server-only";
 import * as Sentry from "@sentry/nextjs";
 import { connectDb, Plan, Selfie, RoutineLog } from "./mongoose";
-import { generatePlanDraft, generatePlanAdjustment } from "./qwen";
+import { generatePlanAdjustment, generatePlanEdit } from "./qwen";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
-import { PLAN_STATUS, CHECKIN_STATUS } from "@/lib/constants/plan";
-import { pickFocus, sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
-import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment } from "@/lib/plan/state";
+import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS } from "@/lib/constants/plan";
+import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
+import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, safetyBrief } from "@/lib/plan/engine";
+import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment, applySelfCheckIn, applyRatingsToCheckIn, cleanRatings } from "@/lib/plan/state";
 
 const DUPLICATE_KEY = 11000;
 
@@ -21,28 +22,33 @@ function scoresOf(selfie) {
 }
 
 /**
- * Builds and stores a plan from a scan. Asks the AI for the steps and quietly
- * falls back to the rule-based plan if that fails, so a user always gets one.
- * If a concurrent call created the plan first (the unique active-plan index
- * rejects the second), that one is returned instead.
+ * Builds and stores a plan from the user's onboarding profile with the rules
+ * engine (see lib/plan/engine.js). No scan is needed; if the user has one it is
+ * stored as the measured baseline. If a concurrent call created the plan first
+ * (the unique active-plan index rejects the second), that one is returned.
+ * `ratings` carry a finished plan's latest self-ratings into the next 30 days.
  */
-export async function createPlanFromSelfie(user, selfie, timezone, now = new Date()) {
-  const scores = scoresOf(selfie);
-  const focus = pickFocus(scores);
-
-  const ai = await generatePlanDraft(user, scores, selfie.overallScore, selfie.skinAge, focus);
-  const aiOk = Boolean(ai && ai.success !== false && ai.draft);
+export async function createPlan(user, timezone, now = new Date(), { selfie = null, ratings = null } = {}) {
+  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const profile = classifyProfile(plain);
+  if (ratings) {
+    profile.concerns = profile.concerns.map((c) => ({ ...c, rating: Number.isInteger(ratings[c.key]) ? ratings[c.key] : c.rating }));
+  }
+  const focus = buildFocus(profile);
+  const scores = selfie ? scoresOf(selfie) : {};
 
   const plan = buildPlan({
-    draft: aiOk ? sanitizeDraft(ai.draft) : null,
-    generatedBy: aiOk ? "ai" : "fallback",
+    draft: sanitizeDraft(buildDraft({ ...plain, skinProfile: { ...(plain.skinProfile ?? {}), concerns: profile.concerns } })),
+    generatedBy: "rules",
     scores,
-    overallScore: selfie.overallScore,
-    skinAge: selfie.skinAge,
+    overallScore: selfie?.overallScore ?? null,
+    skinAge: selfie?.skinAge ?? null,
     goals: user.goals,
     startDayKey: getLocalDayKey(timezone, now),
     startedAt: now,
-    selfieId: selfie._id,
+    selfieId: selfie?._id ?? null,
+    focus,
+    ratings: Object.fromEntries(focus.map((f) => [f.metric, f.baseline])),
   });
 
   try {
@@ -79,25 +85,23 @@ async function latestAnalyzedSelfie(userId) {
 }
 
 /**
- * The user's current plan, creating the first one from their latest scan if
- * they have none. Returns { plan, created, reason }: `plan` is null with
- * reason "no_scan" until the user has a scan to build from.
- * An expired plan is returned as-is (the UI offers "start your next 30 days").
+ * The user's current plan, creating the first one from their profile if they
+ * have none (a scan is optional). An expired plan is returned as-is (the UI
+ * offers "start your next 30 days").
  */
 export async function ensureActivePlan(user, timezone) {
   const existing = await findActivePlan(user._id);
   if (existing) return { plan: existing, created: false, reason: null };
 
   const selfie = await latestAnalyzedSelfie(user._id);
-  if (!selfie) return { plan: null, created: false, reason: "no_scan" };
-
-  const plan = await createPlanFromSelfie(user, selfie, timezone);
+  const plan = await createPlan(user, timezone, new Date(), { selfie });
   return { plan, created: true, reason: null };
 }
 
 /**
- * Closes the current plan and starts the next 30 days from the latest scan.
- * Only allowed once the current plan has run its course (or if there is none).
+ * Closes the current plan and starts the next 30 days, carrying the latest
+ * self-ratings forward as the new starting point. Only allowed once the current
+ * plan has run its course (or if there is none).
  */
 export async function startNextPlan(user, timezone, now = new Date()) {
   const existing = await findActivePlan(user._id);
@@ -105,12 +109,11 @@ export async function startNextPlan(user, timezone, now = new Date()) {
     return { plan: existing, created: false, reason: "still_active" };
   }
   const selfie = await latestAnalyzedSelfie(user._id);
-  if (!selfie) return { plan: null, created: false, reason: "no_scan" };
 
   if (existing) {
     await Plan.updateOne({ _id: existing._id, status: PLAN_STATUS.ACTIVE }, { $set: { status: PLAN_STATUS.COMPLETED } });
   }
-  const plan = await createPlanFromSelfie(user, selfie, timezone, now);
+  const plan = await createPlan(user, timezone, now, { selfie, ratings: existing?.latest?.ratings ?? null });
   return { plan, created: true, reason: null };
 }
 
@@ -126,17 +129,86 @@ export async function recordScanOnPlan(user, selfie, timezone) {
     if (!plan) return null;
     const now = new Date();
     const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+    // A plan made without a scan takes the first scan as its measured baseline,
+    // and that scan does not count as a check-in.
+    const scores = scoresOf(selfie);
+    const needsBaseline = !PLAN_METRICS.some((m) => typeof plan.baseline?.scores?.[m] === "number");
     const { checkIns, latest, completedDay } = applyScanToPlan(
       plan,
-      { selfieId: selfie._id, takenAt: selfie.takenAt ?? now, overallScore: selfie.overallScore, scores: scoresOf(selfie) },
-      day
+      { selfieId: selfie._id, takenAt: selfie.takenAt ?? now, overallScore: selfie.overallScore, scores },
+      needsBaseline ? 1 : day
     );
-    await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: { checkIns, latest } });
+    const set = { checkIns, latest: { ...latest, ratings: plan.latest?.ratings ?? {} } };
+    if (needsBaseline) {
+      set["baseline.scores"] = scores;
+      set["baseline.overallScore"] = selfie.overallScore ?? null;
+      set["baseline.skinAge"] = selfie.skinAge ?? null;
+    }
+    await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: set });
     return { completedDay, day };
   } catch (err) {
     Sentry.captureException(err, { tags: { scope: "plan-record-scan" } });
     return null;
   }
+}
+
+/**
+ * Completes the due check-in from a quick self-rating, or, when a scan already
+ * completed it without ratings, attaches the ratings to that check-in.
+ * @returns {Promise<{ completedDay: number|null, attached: boolean }>}
+ */
+export async function recordSelfCheckIn(user, ratings, timezone, now = new Date()) {
+  const plan = await findActivePlan(user._id);
+  if (!plan) return { completedDay: null, attached: false };
+  const clean = cleanRatings(plan, ratings);
+  if (!Object.keys(clean).length) return { completedDay: null, attached: false };
+
+  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+  const done = applySelfCheckIn(plan, clean, day, now);
+  if (done.completedDay != null) {
+    await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: { checkIns: done.checkIns, latest: done.latest } });
+    return { completedDay: done.completedDay, attached: false };
+  }
+
+  const lastDone = [...plan.checkIns].reverse().find((c) => c.status === CHECKIN_STATUS.DONE && !Object.keys(c.ratings ?? {}).length);
+  const attached = lastDone ? applyRatingsToCheckIn(plan, clean, lastDone.day) : null;
+  if (!attached) return { completedDay: null, attached: false };
+  await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: attached });
+  return { completedDay: null, attached: true };
+}
+
+/**
+ * Kin edits the plan from a chat message. The AI proposes drops and adds; both
+ * are bounded and safety-filtered, and the plan only changes if the version has
+ * not moved meanwhile. While the plan is brand new (day 1) the change applies
+ * today, otherwise from tomorrow.
+ * @returns {Promise<{ ok: boolean, reply: string, dropped: string[], added: string[] }>}
+ */
+export async function editPlanFromMessage(user, message, timezone, now = new Date()) {
+  const plan = await findActivePlan(user._id);
+  if (!plan) return { ok: false, reply: "You don't have a plan to change yet.", dropped: [], added: [] };
+  const day = getPlanDay(plan, getLocalDayKey(timezone, now));
+  if (day > plan.durationDays) return { ok: false, reply: "Your 30 days are complete. Start your next plan to change it.", dropped: [], added: [] };
+
+  const result = await generatePlanEdit(user, plan, { day: Math.max(1, day), message, safety: safetyBrief(user) });
+  if (!result || result.success === false || !result.edit) {
+    return { ok: false, reply: "I couldn't change your plan just now. Please try again in a moment.", dropped: [], added: [] };
+  }
+
+  const edit = sanitizeAdjustment({ note: result.edit.reply, drop: result.edit.drop, add: result.edit.add });
+  const proposed = edit.add.am.length + edit.add.pm.length;
+  edit.add = { am: filterSafeSteps(edit.add.am, user), pm: filterSafeSteps(edit.add.pm, user) };
+  const skipped = proposed - (edit.add.am.length + edit.add.pm.length);
+  const changes = applyAdjustment(plan, edit, Math.max(1, day), { immediate: day <= 1, at: now });
+  const entry = changes.adjustments[changes.adjustments.length - 1];
+  const reply = `${edit.note || "Done."}${skipped > 0 ? " I left out a suggestion that wouldn't be safe for your skin profile." : ""}`;
+  if (!entry.dropped.length && !entry.added.length) return { ok: true, reply, dropped: [], added: [] };
+
+  // Version guard: a concurrent change makes this match nothing instead of overwriting it.
+  const res = await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE, version: plan.version }, { $set: changes });
+  if (!res.modifiedCount) return { ok: false, reply: "Your plan just changed. Please ask again.", dropped: [], added: [] };
+  const textOf = (id) => changes.steps.find((s) => s.id === id)?.text ?? "";
+  return { ok: true, reply, dropped: entry.dropped.map(textOf).filter(Boolean), added: entry.added.map(textOf).filter(Boolean) };
 }
 
 /** Share of the last 7 days (up to today) on which the user ticked a routine step. */
@@ -172,10 +244,13 @@ export async function adjustPlanAfterCheckIn(user, timezone, now = new Date()) {
   if (day >= plan.durationDays) return { adjusted: false, reason: "plan_ending" };
 
   const adherencePercent = await recentAdherencePercent(user._id, timezone, plan, now);
-  const result = await generatePlanAdjustment(user, plan, { day, scores: plan.latest?.scores, adherencePercent });
+  const result = await generatePlanAdjustment(user, plan, { day, scores: plan.latest?.scores, ratings: plan.latest?.ratings, adherencePercent, safety: safetyBrief(user) });
   if (!result || result.success === false || !result.adjustment) return { adjusted: false, reason: "ai_unavailable" };
 
-  const changes = applyAdjustment(plan, sanitizeAdjustment(result.adjustment), day, {
+  const adjustment = sanitizeAdjustment(result.adjustment);
+  // The AI may reword and trim, but may not add what the engine would refuse.
+  adjustment.add = { am: filterSafeSteps(adjustment.add.am, user), pm: filterSafeSteps(adjustment.add.pm, user) };
+  const changes = applyAdjustment(plan, adjustment, day, {
     selfieId: checkIn.selfieId,
     checkInDay: checkIn.day,
     at: now,

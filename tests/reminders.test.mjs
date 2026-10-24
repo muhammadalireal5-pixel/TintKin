@@ -27,9 +27,9 @@ test("evening nudges depend on what is left", () => {
   assert.equal(pickReminder({ ...base, slot: "pm", scannedToday: true, stepsDone: 6, pmLeft: 0 }), null);
 });
 
-test("a scan is only asked for in the morning when a check-in is due", () => {
+test("the morning ask is the routine unless a check-in is due", () => {
   const due = pickReminder({ ...base, slot: "am", checkInDue: true });
-  assert.equal(due.url, "/capture");
+  assert.equal(due.url, "/routine");
   assert.match(due.body, /check-in/i);
   assert.doesNotMatch(pickReminder({ ...base, slot: "am" }).body, /scan/i);
   assert.equal(pickReminder({ ...base, slot: "am", checkInDue: true, stepsDone: 1 }), null);

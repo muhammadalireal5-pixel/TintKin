@@ -121,7 +121,7 @@ export default function Companion() {
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
-  const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.scanCount > 0);
+  const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
   const visible =
     Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
@@ -147,7 +147,7 @@ export default function Companion() {
 
   // Offer reminders at most 3 times, at least 4 days apart, only after the
   // first scan, and only where the browser can actually do push.
-  const scanned = (state?.scanCount || 0) > 0;
+  const scanned = Boolean(state?.hasPlan);
   useEffect(() => {
     if (!visible || !scanned) return;
     getPushAskStatus().then((s) => setPushCanAsk(s.canAsk));

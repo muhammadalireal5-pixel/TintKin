@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Flame, Share2, History, ChevronRight, Sparkles, CalendarCheck } from "lucide-react";
 import { getLatestData } from "@/app/lib/actions";
+import { getActivePlan } from "@/app/lib/plan-actions";
+import PlanProgress from "@/app/plan/PlanProgress";
+import ScanInvite from "@/app/dashboard/ScanInvite";
 import PageHeader from "@/app/components/ui/PageHeader";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import { ProgressChart, RadarChartClient } from "@/app/dashboard/LazyCharts";
@@ -34,9 +37,12 @@ function Stat({ label, value, sub, icon: Icon }) {
 
 export default async function ProgressPage() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, hasMoreSelfies, realAge, weeklyAverage, habitConsistency, achievements, achievementStats, activity } = await getLatestData(null, { selfieLimit: SELFIE_LIMIT });
-    if (!latestSelfie) redirect("/capture");
+    const noScan = !latestSelfie;
+    const planRes = await getActivePlan();
+    const plan = planRes?.success ? planRes.plan : null;
+    if (noScan && !plan) redirect("/dashboard");
 
-    const source = latestAnalyzedSelfie || latestSelfie;
+    const source = latestAnalyzedSelfie || latestSelfie || {};
     const hasSkinAge = typeof source.skinAge === "number";
     const ageDiff = hasSkinAge && typeof realAge === "number" ? realAge - source.skinAge : null;
 
@@ -60,6 +66,13 @@ export default async function ProgressPage() {
                     value={`${user?.currentStreak || 0}d`}
                     sub={user?.currentStreak > 0 ? (user?.longestStreak > user.currentStreak ? `Longest: ${user.longestStreak}d` : "Keep it going") : user?.longestStreak > 0 ? `Welcome back. Longest: ${user.longestStreak}d` : "Scan or tick a step to start"}
                 />
+                {noScan ? (
+                    <>
+                        <Stat icon={CalendarCheck} label="Plan day" value={plan ? `${plan.day}/${plan.durationDays}` : "—"} sub={plan?.phase?.name || ""} />
+                        <Stat icon={Sparkles} label="Check-ins" value={plan ? `${plan.checkIns.filter((c) => c.status === "done").length}/${plan.checkIns.length}` : "—"} sub="Days 7, 14 and 28" />
+                    </>
+                ) : (
+                    <>
                 <Stat
                     icon={CalendarCheck}
                     label="This week"
@@ -72,6 +85,8 @@ export default async function ProgressPage() {
                     value={hasSkinAge ? source.skinAge : "—"}
                     sub={ageDiff == null ? "Add birth date to compare" : ageDiff > 0 ? `${ageDiff} yrs younger than you` : ageDiff < 0 ? `${-ageDiff} yrs above your age` : "On your age"}
                 />
+                    </>
+                )}
                 <Stat
                     icon={CalendarCheck}
                     label="Consistency"
@@ -80,6 +95,12 @@ export default async function ProgressPage() {
                 />
             </div>
 
+            {noScan ? (
+                <div className="grid lg:grid-cols-3 gap-5">
+                    <div className="lg:col-span-2">{plan && <PlanProgress progress={plan.progress} />}</div>
+                    <ScanInvite />
+                </div>
+            ) : (
             <div className="grid lg:grid-cols-3 gap-5">
                 <section className="tk-card p-5 sm:p-6 lg:col-span-2 flex flex-col min-h-[22rem]">
                     <div className="flex items-center justify-between mb-3">
@@ -105,6 +126,8 @@ export default async function ProgressPage() {
                     </div>
                 </section>
             </div>
+
+            )}
 
             <section className="mt-8 max-w-xl">
                 <YouVsYouCard activity={activity} longestStreak={user?.longestStreak || 0} />

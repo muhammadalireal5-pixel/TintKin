@@ -278,7 +278,7 @@ function ExploreGrid({ reportReady, showLeaderboard }) {
  * the latest scan and the weekly average), score card, four metrics, focus,
  * plan and shortcuts. On desktop it splits into a main column and a side rail.
  */
-export default function TodayView({ data, radar, banners, planCard, sinceStart, showLeaderboard = true }) {
+export default function TodayView({ data, radar, banners, planCard, sinceStart, scanInvite = null, showLeaderboard = true }) {
   const [mode, setMode] = useState("today");
   const greeting = useSyncExternalStore(noopSubscribe, greetingNow, () => "Hello,");
   const week = data.weekScore;
@@ -286,6 +286,8 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
   const isLarge = useSyncExternalStore(subscribeLg, () => window.matchMedia(LG_QUERY).matches, () => false);
 
   const score = mode === "week" ? week.overall : data.score;
+  // No scan yet: the plan leads and scan-based cards stay out of the way.
+  const noScan = data.score == null && !data.metrics.some((m) => m.today != null);
 
   // One warm line per newly reached milestone, then quiet (it is persisted as
   // unlocked server-side, so a reload does not repeat it).
@@ -311,34 +313,40 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
 
         {planCard && <div className="order-2">{planCard}</div>}
 
-        <SegmentedTabs
-          data-tour="toggle"
-          className="order-2 lg:max-w-sm"
-          label="Score view"
-          value={mode}
-          onChange={setMode}
-          items={[
-            { id: "today", label: "Today" },
-            { id: "week", label: "This week" },
-          ]}
-        />
+        {noScan ? (
+          scanInvite && <div className="order-3">{scanInvite}</div>
+        ) : (
+          <>
+            <SegmentedTabs
+              data-tour="toggle"
+              className="order-2 lg:max-w-sm"
+              label="Score view"
+              value={mode}
+              onChange={setMode}
+              items={[
+                { id: "today", label: "Today" },
+                { id: "week", label: "This week" },
+              ]}
+            />
 
-        <div className="order-3">
-          <ScoreCard
-            mode={mode}
-            score={score}
-            delta={data.delta}
-            band={mode === "week" ? null : data.band}
-            skinAgeLine={data.skinAgeLine}
-            photoUrl={data.photoUrl}
-            weekScans={week.scanCount}
-            sinceStart={sinceStart}
-          />
-        </div>
+            <div className="order-3">
+              <ScoreCard
+                mode={mode}
+                score={score}
+                delta={data.delta}
+                band={mode === "week" ? null : data.band}
+                skinAgeLine={data.skinAgeLine}
+                photoUrl={data.photoUrl}
+                weekScans={week.scanCount}
+                sinceStart={sinceStart}
+              />
+            </div>
 
-        <div className="order-4">
-          <MetricRow metrics={data.metrics} mode={mode} />
-        </div>
+            <div className="order-4">
+              <MetricRow metrics={data.metrics} mode={mode} />
+            </div>
+          </>
+        )}
 
         <div className="order-6">
           <PlanSection plan={data.plan} />
@@ -346,7 +354,7 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">
-        <div className="order-5"><FocusCard focus={data.focus} /></div>
+        {!noScan && <div className="order-5"><FocusCard focus={data.focus} /></div>}
         <div className="order-7"><StreakCard streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} /></div>
         {radar && isLarge && (
           <section className="tk-card p-4 sm:p-5 order-8" aria-label="Skin profile">

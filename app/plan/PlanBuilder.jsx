@@ -2,19 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Loader2, Sparkles, RotateCw } from "lucide-react";
 import { ensurePlan } from "@/app/lib/plan-actions";
 
 /**
- * Builds the user's first plan from their latest scan, then refreshes the
- * server-rendered page. Used wherever a user with a scan has no plan yet
+ * Builds the user's first plan from their skin profile (no scan needed), then
+ * refreshes the server-rendered page. Used wherever a user has no plan yet
  * (every existing account the first time they open the app after this ships).
  */
 export default function PlanBuilder({ compact = false }) {
   const router = useRouter();
   const started = useRef(false);
-  const [state, setState] = useState("building"); // building | error | no_scan
+  const [state, setState] = useState("building"); // building | error
   const [message, setMessage] = useState("");
 
   const build = async () => {
@@ -24,8 +23,6 @@ export default function PlanBuilder({ compact = false }) {
     if (!res?.success) {
       setMessage(res?.error || "We couldn't build your plan just now.");
       setState("error");
-    } else if (res.reason === "no_scan") {
-      setState("no_scan");
     } else {
       router.refresh();
     }
@@ -48,7 +45,7 @@ export default function PlanBuilder({ compact = false }) {
         <>
           <h2 className="text-lg font-semibold text-primary mt-4">Building your 30-day plan</h2>
           <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
-            Reading your latest scan and choosing the steps that fit your skin. This takes a few seconds.
+            Choosing the steps that fit your skin, your goals and your routine. This takes a few seconds.
           </p>
         </>
       )}
@@ -59,13 +56,6 @@ export default function PlanBuilder({ compact = false }) {
           <button type="button" onClick={build} className="tk-pill-btn tk-btn-primary mt-4 px-6">
             <RotateCw size={15} /> Try again
           </button>
-        </>
-      )}
-      {state === "no_scan" && (
-        <>
-          <h2 className="text-lg font-semibold text-primary mt-4">Take a scan to start your plan</h2>
-          <p className="text-sm text-muted mt-1 max-w-sm mx-auto">Your plan is built from your starting point.</p>
-          <Link href="/capture" className="tk-pill-btn tk-btn-primary mt-4 px-6">Take my first scan</Link>
         </>
       )}
     </section>

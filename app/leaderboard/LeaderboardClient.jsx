@@ -268,13 +268,13 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
               Be the first on the board!
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed mb-6">
-              No one in {data?.activeScopeLabel || "this area"} has logged a day of care this month yet. A scan or a routine step gets you on the board.
+              No one in {data?.activeScopeLabel || "this area"} has logged a day of care this month yet. Ticking a routine step gets you on the board.
             </p>
             <Link
-              href="/capture"
+              href="/routine"
               className="tk-pill-btn tk-btn-primary inline-flex items-center justify-center"
             >
-              Take a Skin Scan
+              Open my plan
             </Link>
           </div>
         ) : (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck, ChevronRight, ScanFace } from "lucide-react";
+import { CalendarCheck, ChevronRight, HeartHandshake } from "lucide-react";
 import PlanProgress from "./PlanProgress";
 
 /**
@@ -31,8 +31,8 @@ export default function PlanTodayCard({ plan, stepsLeft }) {
       </div>
 
       {due && (
-        <Link href="/capture" className="tk-pill-btn tk-btn-primary w-full mt-5">
-          <ScanFace size={16} /> Check-in due: see your progress
+        <Link href="/routine" className="tk-pill-btn tk-btn-primary w-full mt-5">
+          <HeartHandshake size={16} /> Check-in due: rate your skin
         </Link>
       )}
     </section>

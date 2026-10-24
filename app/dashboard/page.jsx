@@ -12,7 +12,7 @@ import EmailVerificationBanner from "./EmailVerificationBanner";
 import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import TodayView from "./TodayView";
-import FirstScanWelcome from "./FirstScanWelcome";
+import ScanInvite from "./ScanInvite";
 import { buildSkinSummary } from "./skin-summary";
 import { EMAIL_VERIFICATION_ENABLED } from "@/app/lib/feature-flags";
 
@@ -22,14 +22,11 @@ const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
     const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
-    // Brand-new account: show a welcome with one clear next step (Kin adds its own
-    // prompt) instead of bouncing straight to the camera.
-    if (!latestSelfie) return <FirstScanWelcome firstName={(user?.displayName || "").trim().split(/\s+/)[0]} />;
     const [reportStatus, planRes] = await Promise.all([getReportStatus(), getActivePlan()]);
     const plan = planRes?.success ? planRes.plan : null;
 
     // Today's step counts come from the plan when there is one (not the scan).
-    const sourceData = { ...(latestAnalyzedSelfie || latestSelfie), amRoutine: todayRoutine.am, pmRoutine: todayRoutine.pm };
+    const sourceData = { ...(latestAnalyzedSelfie || latestSelfie || {}), amRoutine: todayRoutine.am, pmRoutine: todayRoutine.pm };
     const summary = buildSkinSummary({
         user,
         sourceData,
@@ -51,7 +48,7 @@ async function DashboardContent() {
 
     const firstWeek = plan && plan.day <= 14
         ? [
-            { label: "Take your first scan", done: true },
+            { label: "Tell us about your skin", done: true },
             { label: "Get your 30-day plan", done: true },
             { label: "Tick your first routine step", done: (user?.routineDays || 0) > 0, href: "/routine", hint: "Tap a step on your plan once you have done it." },
             {
@@ -78,16 +75,17 @@ async function DashboardContent() {
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />
                         {firstWeek && <FirstWeekChecklist items={firstWeek} />}
-                        {latestSelfie.isAnalyzed === false && (
+                        {latestSelfie?.isAnalyzed === false && (
                             <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                         )}
                     </>
                 }
-                radar={
+                scanInvite={latestSelfie ? null : <ScanInvite />}
+                radar={sourceData.scores ? (
                     <ComponentErrorFallback title="Radar Chart">
                         <RadarChartClient scores={sourceData.scores} />
                     </ComponentErrorFallback>
-                }
+                ) : null}
             />
         </div>
     );
