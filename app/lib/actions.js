@@ -46,6 +46,7 @@ import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/pro
 import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
 import { findPendingReport, buildCheckInReport } from "@/lib/plan/report";
 import { loadReportInputs, getUserReportStatus, notifyReportReadyIfDue } from "./report-notify";
+import { sealSkinProfile } from "@/lib/utils/field-crypto";
 import { sendReportReadyEmail } from "./email";
 import { ALLOWED_PHOTO_PRIVACY } from "@/lib/constants/privacy";
 import {
@@ -1359,7 +1360,7 @@ export async function completeOnboarding(data) {
       goals: validGoals, 
       customGoal: cleanCustomGoal,
       onboardingComplete: true,
-      ...(skinProfile ? { skinProfile } : {}),
+      ...(skinProfile ? { skinProfile: sealSkinProfile(skinProfile) } : {}),
     };
 
     if (!targetUser) {
@@ -2097,7 +2098,7 @@ export async function updateSkinProfile(data) {
       return { success: false, error: validation.error || "Please check your answers." };
     }
     const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
-    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile }, { new: true });
+    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile(skinProfile) }, { new: true });
     // Safety first: a step the new answers rule out stops now, whatever they
     // choose to do with the rest of the plan.
     const stopped = await sweepPlanSafety(updated, normalizeTimezone(updated.timezone)).catch((err) => {

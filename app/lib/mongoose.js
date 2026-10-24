@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { PRODUCT_TYPES } from "@/lib/constants/products";
 import { PLAN_METRICS, STEP_METRICS, PLAN_STATUS, CHECKIN_STATUS } from "@/lib/constants/plan";
 import { CONCERN_KEYS } from "@/lib/constants/profile";
+import { encryptField, decryptField } from "@/lib/utils/field-crypto";
 
 // mongodb+srv:// needs SRV lookups via Node's own resolver, which reads the
 // adapter DNS list directly. When that list is loopback-only (VPNs, DNS
@@ -120,14 +121,16 @@ const UserSchema = new mongoose.Schema({
         _id: false,
         type: new mongoose.Schema({
             concerns: [{ _id: false, key: String, rating: Number }],
-            sensitivity: String,
+            // Health-related answers are encrypted at rest (lib/utils/field-crypto.js);
+            // reading through a document decrypts, so use toObject({ getters: true }).
+            sensitivity: { type: String, set: encryptField, get: decryptField },
             phototype: Number,
             currentProducts: [String],
             sleep: String,
             outdoor: String,
             smoker: Boolean,
             stress: String,
-            pregnancy: String,
+            pregnancy: { type: String, set: encryptField, get: decryptField },
             routineTime: String,
         }, { _id: false }),
         default: undefined,

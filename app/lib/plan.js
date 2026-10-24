@@ -5,7 +5,7 @@ import { generatePlanAdjustment, generatePlanEdit } from "./qwen";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
 import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS } from "@/lib/constants/plan";
 import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
-import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, safetyBrief } from "@/lib/plan/engine";
+import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, safetyBrief, toPlainUser } from "@/lib/plan/engine";
 import { endUnsafeSteps, mergePlanWithProfile } from "@/lib/plan/rebuild";
 import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment, applySelfCheckIn, applyRatingsToCheckIn, cleanRatings } from "@/lib/plan/state";
 
@@ -54,7 +54,7 @@ function scoresOf(selfie) {
  * `ratings` carry a finished plan's latest self-ratings into the next 30 days.
  */
 export async function createPlan(user, timezone, now = new Date(), { selfie = null, ratings = null } = {}) {
-  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const plain = toPlainUser(user);
   const profile = classifyProfile(plain);
   if (ratings) {
     profile.concerns = profile.concerns.map((c) => ({ ...c, rating: Number.isInteger(ratings[c.key]) ? ratings[c.key] : c.rating }));
@@ -243,7 +243,7 @@ export async function editPlanFromMessage(user, message, timezone, now = new Dat
  * @returns {Promise<number>} how many steps were stopped
  */
 export async function sweepPlanSafety(user, timezone, now = new Date()) {
-  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const plain = toPlainUser(user);
   const out = await updatePlanGuarded(user._id, (plan) => {
     const day = Math.max(1, getPlanDay(plan, getLocalDayKey(timezone, now)));
     const { steps, stopped } = endUnsafeSteps(plan, plain, day);
@@ -262,7 +262,7 @@ export async function sweepPlanSafety(user, timezone, now = new Date()) {
  * @returns {Promise<{ merged: boolean, added: number, stopped: number }>}
  */
 export async function mergePlanFromProfile(user, timezone, now = new Date()) {
-  const plain = typeof user.toObject === "function" ? user.toObject() : user;
+  const plain = toPlainUser(user);
   const out = await updatePlanGuarded(user._id, (plan) => {
     const day = Math.max(1, getPlanDay(plan, getLocalDayKey(timezone, now)));
     const merged = mergePlanWithProfile(plan, plain, day, { at: now });

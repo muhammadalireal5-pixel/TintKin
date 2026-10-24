@@ -9,7 +9,7 @@ import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
 import { notifyReportReadyIfDue } from "./report-notify";
-import { classifyProfile } from "@/lib/plan/engine";
+import { classifyProfile, toPlainUser } from "@/lib/plan/engine";
 import { CONCERNS } from "@/lib/constants/profile";
 import { PLAN_STATUS } from "@/lib/constants/plan";
 
@@ -216,7 +216,7 @@ export async function getWelcomeState() {
       findActivePlan(user._id),
       Selfie.findOne({ userId: user._id, isAnalyzed: true, overallScore: { $ne: null } }).select("_id").lean(),
     ]);
-    const p = classifyProfile(user.toObject ? user.toObject() : user);
+    const p = classifyProfile(toPlainUser(user));
     return {
       success: true,
       firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
