@@ -1,11 +1,12 @@
 import "server-only";
 import * as Sentry from "@sentry/nextjs";
-import { connectDb, Plan, Selfie, RoutineLog } from "./mongoose";
+import { connectDb, Plan, Selfie, RoutineLog, User } from "./mongoose";
 import { generatePlanAdjustment, generatePlanEdit } from "./qwen";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
-import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS } from "@/lib/constants/plan";
+import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS, normalizeMonths, MAX_PLAN_MONTHS } from "@/lib/constants/plan";
+import { buildMonthReview, applyProposals, carryOverSteps } from "@/lib/plan/review";
 import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
-import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, safetyBrief, toPlainUser } from "@/lib/plan/engine";
+import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, filterNotDenied, safetyBrief, toPlainUser } from "@/lib/plan/engine";
 import { endUnsafeSteps, mergePlanWithProfile } from "@/lib/plan/rebuild";
 import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment, applySelfCheckIn, applyRatingsToCheckIn, cleanRatings } from "@/lib/plan/state";
 
@@ -51,19 +52,28 @@ function scoresOf(selfie) {
  * engine (see lib/plan/engine.js). No scan is needed; if the user has one it is
  * stored as the measured baseline. If a concurrent call created the plan first
  * (the unique active-plan index rejects the second), that one is returned.
- * `ratings` carry a finished plan's latest self-ratings into the next 30 days.
+ * `ratings` carry a finished month's latest self-ratings into the next one.
+ * For a later month, `carry` is the routine that was running (it becomes week 1)
+ * and `proposals` are the accepted end-of-month changes (see lib/plan/review.js).
  */
-export async function createPlan(user, timezone, now = new Date(), { selfie = null, ratings = null } = {}) {
+export async function createPlan(user, timezone, now = new Date(), { selfie = null, ratings = null, monthIndex = 1, totalMonths = null, carry = null, proposals = [] } = {}) {
   const plain = toPlainUser(user);
   const profile = classifyProfile(plain);
   if (ratings) {
     profile.concerns = profile.concerns.map((c) => ({ ...c, rating: Number.isInteger(ratings[c.key]) ? ratings[c.key] : c.rating }));
   }
+  const months = Math.max(totalMonths ?? normalizeMonths(plain.skinProfile?.planMonths, 1), monthIndex);
+  const changed = applyProposals(profile.concerns, profile.routineTime, proposals);
+  profile.concerns = changed.concerns;
+  profile.routineTime = changed.routineTime;
   const focus = buildFocus(profile);
   const scores = selfie ? scoresOf(selfie) : {};
 
   const plan = buildPlan({
-    draft: sanitizeDraft(buildDraft({ ...plain, skinProfile: { ...(plain.skinProfile ?? {}), concerns: profile.concerns } })),
+    draft: sanitizeDraft(buildDraft(
+      { ...plain, skinProfile: { ...(plain.skinProfile ?? {}), concerns: profile.concerns, routineTime: profile.routineTime } },
+      { carry, month: monthIndex, totalMonths: months }
+    )),
     generatedBy: "rules",
     scores,
     overallScore: selfie?.overallScore ?? null,
@@ -74,6 +84,8 @@ export async function createPlan(user, timezone, now = new Date(), { selfie = nu
     selfieId: selfie?._id ?? null,
     focus,
     ratings: Object.fromEntries(focus.map((f) => [f.metric, f.baseline])),
+    monthIndex,
+    totalMonths: months,
   });
 
   try {
@@ -123,23 +135,90 @@ export async function ensureActivePlan(user, timezone) {
   return { plan, created: true, reason: null };
 }
 
+const DAY_MS = 86400000;
+
 /**
- * Closes the current plan and starts the next 30 days, carrying the latest
- * self-ratings forward as the new starting point. Only allowed once the current
- * plan has run its course (or if there is none).
+ * Share of the plan's last two weeks (up to its final day) on which the user
+ * ticked a routine step. Looks at the plan's own days, so coming back a week
+ * late does not make a good month look like a bad one.
  */
-export async function startNextPlan(user, timezone, now = new Date()) {
+async function planAdherencePercent(userId, timezone, plan) {
+  const span = Math.min(14, plan.durationDays);
+  const keys = new Set();
+  for (let i = plan.durationDays - span; i < plan.durationDays; i += 1) {
+    keys.add(new Date(Date.parse(plan.startDayKey) + i * DAY_MS).toISOString().slice(0, 10));
+  }
+  const logs = await RoutineLog.find({ userId, date: { $gte: new Date(new Date(plan.startedAt).getTime() - DAY_MS) } })
+    .select("date amCompleted pmCompleted")
+    .lean();
+  const days = new Set(
+    logs
+      .filter((l) => (l.amCompleted?.length || 0) + (l.pmCompleted?.length || 0) > 0)
+      .map((l) => getLocalDayKey(timezone, new Date(l.date)))
+      .filter((k) => keys.has(k))
+  );
+  return Math.round((days.size / span) * 100);
+}
+
+/**
+ * What happened this month and what we propose for the next one, for a plan
+ * that has run its 30 days. Null if there is no finished plan.
+ */
+export async function getMonthReview(user, timezone, now = new Date()) {
+  const plan = await findActivePlan(user._id);
+  if (!plan || !isPlanExpired(plan, getLocalDayKey(timezone, now))) return null;
+  const adherencePercent = await planAdherencePercent(user._id, timezone, plan);
+  return buildMonthReview(plan, { adherencePercent });
+}
+
+/**
+ * Closes the finished month and starts the next one. The routine that was
+ * running carries over as week 1, the latest self-ratings become the new
+ * starting point, and, only if `accept` is true, the proposed changes from
+ * the month review are applied (they are recomputed here from the records, never
+ * taken from the client). Finishing the last month of the journey adds one more
+ * month. Only allowed once the current plan has run its course (or if there is none).
+ */
+export async function startNextPlan(user, timezone, now = new Date(), { accept = false } = {}) {
   const existing = await findActivePlan(user._id);
   if (existing && !isPlanExpired(existing, getLocalDayKey(timezone, now))) {
     return { plan: existing, created: false, reason: "still_active" };
   }
   const selfie = await latestAnalyzedSelfie(user._id);
 
+  let options = { selfie, ratings: existing?.latest?.ratings ?? null };
   if (existing) {
+    const monthIndex = (existing.monthIndex || 1) + 1;
+    const totalMonths = Math.min(MAX_PLAN_MONTHS, Math.max(existing.totalMonths || 1, monthIndex));
+    const review = accept ? buildMonthReview(existing, { adherencePercent: await planAdherencePercent(user._id, timezone, existing) }) : null;
+    const carry = carryOverSteps(existing);
+    const safe = { am: filterNotDenied(carry.am, user), pm: filterNotDenied(carry.pm, user) };
+    options = { ...options, monthIndex, totalMonths, carry: safe, proposals: review?.proposals ?? [] };
     await Plan.updateOne({ _id: existing._id, status: PLAN_STATUS.ACTIVE }, { $set: { status: PLAN_STATUS.COMPLETED } });
+    // Finishing the last month and carrying on stretches the journey by a month.
+    if (totalMonths > (user.skinProfile?.planMonths ?? 0)) {
+      await User.updateOne({ _id: user._id }, { $set: { "skinProfile.planMonths": totalMonths } });
+    }
   }
-  const plan = await createPlan(user, timezone, now, { selfie, ratings: existing?.latest?.ratings ?? null });
+  const plan = await createPlan(user, timezone, now, options);
   return { plan, created: true, reason: null };
+}
+
+/**
+ * Changes how many months the person wants to work on their skin. It cannot go
+ * below the month they are already in. Saved on the profile (so later plans
+ * follow it) and on the running plan.
+ * @returns {Promise<{ months: number }|null>} null if `months` is not valid
+ */
+export async function setPlanMonths(user, months) {
+  const wanted = normalizeMonths(months);
+  if (!wanted) return null;
+  await connectDb();
+  const plan = await findActivePlan(user._id);
+  const total = Math.max(wanted, plan?.monthIndex || 1);
+  await User.updateOne({ _id: user._id }, { $set: { "skinProfile.planMonths": total } });
+  if (plan) await Plan.updateOne({ _id: plan._id, status: PLAN_STATUS.ACTIVE }, { $set: { totalMonths: total } });
+  return { months: total };
 }
 
 /**
@@ -212,7 +291,7 @@ export async function editPlanFromMessage(user, message, timezone, now = new Dat
   const plan = await findActivePlan(user._id);
   if (!plan) return { ok: false, reply: "You don't have a plan to change yet.", dropped: [], added: [] };
   const day = getPlanDay(plan, getLocalDayKey(timezone, now));
-  if (day > plan.durationDays) return { ok: false, reply: "Your 30 days are complete. Start your next plan to change it.", dropped: [], added: [] };
+  if (day > plan.durationDays) return { ok: false, reply: "This month is complete. Start your next month to change your plan.", dropped: [], added: [] };
 
   const result = await generatePlanEdit(user, plan, { day: Math.max(1, day), message, safety: safetyBrief(user) });
   if (!result || result.success === false || !result.edit) {

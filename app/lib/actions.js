@@ -21,7 +21,7 @@ import {
 } from "@/lib/utils/cloudinary";
 import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
-import { recordScanOnPlan, getTodayRoutineKeys, sweepPlanSafety } from "./plan";
+import { recordScanOnPlan, getTodayRoutineKeys, sweepPlanSafety, setPlanMonths } from "./plan";
 import { toPlanView } from "@/lib/plan/state";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
@@ -2077,6 +2077,7 @@ export async function getSkinProfileForEdit() {
         stress: sp.stress || "",
         pregnancy: sp.pregnancy || "",
         routineTime: sp.routineTime || "",
+        planMonths: sp.planMonths || 0,
       },
     };
   } catch {
@@ -2098,9 +2099,13 @@ export async function updateSkinProfile(data) {
       return { success: false, error: validation.error || "Please check your answers." };
     }
     const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
-    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile(skinProfile) }, { new: true });
+    // Keep an earlier length choice if this form did not send one.
+    const planMonths = skinProfile.planMonths ?? user.skinProfile?.planMonths;
+    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile({ ...skinProfile, planMonths }) }, { new: true });
     // Safety first: a step the new answers rule out stops now, whatever they
     // choose to do with the rest of the plan.
+    // A new length applies to the running plan too (never below the month they are in).
+    if (skinProfile.planMonths) await setPlanMonths(updated, skinProfile.planMonths).catch(() => {});
     const stopped = await sweepPlanSafety(updated, normalizeTimezone(updated.timezone)).catch((err) => {
       Sentry.captureException(err, { tags: { scope: "profile-safety-sweep" } });
       return 0;
@@ -2477,6 +2482,8 @@ export async function getCompanionState() {
       hasPlan: Boolean(planView),
       hasProfile: Boolean(user.skinProfile?.concerns?.length),
       checkInDue: Boolean(planView?.nextCheckIn?.isDue),
+      // Walkthroughs already finished or declined, remembered per account (not per browser).
+      seenTours: Array.isArray(user.seenTours) ? [...user.seenTours] : [],
       firstName: (user.displayName || "").trim().split(/\s+/)[0] || "",
       scanCount,
       scannedToday: Boolean(latest?.takenAt && new Date(latest.takenAt) >= todayStart),

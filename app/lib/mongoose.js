@@ -132,12 +132,17 @@ const UserSchema = new mongoose.Schema({
             stress: String,
             pregnancy: { type: String, set: encryptField, get: decryptField },
             routineTime: String,
+            // Months the person wants to work on their skin (1-12); unset on accounts that were never asked.
+            planMonths: Number,
         }, { _id: false }),
         default: undefined,
     },
     onboardingComplete: { type: Boolean, default: false },
     // Ids of one-time "what's new" announcements already dismissed (lib/constants/announcements.js).
     seenAnnouncements: [String],
+    // Kin walkthroughs the person has finished or declined ('today', 'scan'), so
+    // Kin offers each once per account instead of once per browser.
+    seenTours: [String],
     recommendationsLockedUntil: { type: Date, default: null },
     workoutLockedUntil: { type: Date, default: null },
     isSubscribed: { type: Boolean, default: false },
@@ -315,6 +320,9 @@ const PlanSchema = new mongoose.Schema({
     // Bumped on every guarded write so two writers racing on one plan cannot undo each other.
     rev: { type: Number, default: 0 },
     durationDays: { type: Number, default: 30 },
+    // Each month of a longer journey is its own plan: "month 2 of 5".
+    monthIndex: { type: Number, default: 1 },
+    totalMonths: { type: Number, default: 1 },
     // Local day key ("YYYY-MM-DD", the user's timezone) of plan day 1.
     startDayKey: { type: String, required: true },
     startedAt: { type: Date, default: Date.now },

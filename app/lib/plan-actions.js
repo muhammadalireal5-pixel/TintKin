@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Plan } from "./mongoose";
 import { checkRateLimit } from "./rate-limit";
-import { ensureActivePlan, findActivePlan, startNextPlan, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
+import { ensureActivePlan, findActivePlan, startNextPlan, getMonthReview, setPlanMonths, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
 import { notifyReportReadyIfDue } from "./report-notify";
@@ -77,8 +77,43 @@ export async function ensurePlan(timezone) {
   }
 }
 
-/** Starts the next 30 days once the current plan has finished. */
-export async function startNextPlanAction(timezone) {
+/**
+ * The end-of-month review for a finished plan: what the records show and what we
+ * propose for the next month. `review: null` while a month is still running.
+ */
+export async function getMonthReviewAction(timezone) {
+  try {
+    const user = await getPlanUser();
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    return { success: true, review: await getMonthReview(user, tz) };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-review-month" } });
+    return FAILED;
+  }
+}
+
+/** Changes how many months the person wants to work on their skin (1-12, never below the month they are in). */
+export async function setPlanLength(months, timezone) {
+  try {
+    const user = await getPlanUser();
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    const out = await setPlanMonths(user, months);
+    if (!out) return { success: false, error: "Please pick between 1 and 12 months." };
+    const plan = await findActivePlan(user._id);
+    return { success: true, months: out.months, plan: plan ? viewOf(plan, tz) : null };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-length" } });
+    return FAILED;
+  }
+}
+
+/**
+ * Starts the next month once the current one has finished. `accept` says
+ * whether the person agreed to the changes we proposed in the month review.
+ */
+export async function startNextPlanAction(timezone, accept = false) {
   try {
     const user = await getPlanUser();
     const tz = normalizeTimezone(timezone ?? user.timezone);
@@ -88,7 +123,7 @@ export async function startNextPlanAction(timezone) {
       return { success: false, error: `You're doing that a lot. Please try again in ${rate.retryAfter}s.` };
     }
 
-    const { plan, created, reason } = await startNextPlan(user, tz);
+    const { plan, created, reason } = await startNextPlan(user, tz, new Date(), { accept: accept === true });
     return { success: true, created, reason, plan: plan ? viewOf(plan, tz) : null };
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;

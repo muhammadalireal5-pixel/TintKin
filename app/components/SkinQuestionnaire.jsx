@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import KinAvatar from "@/app/components/companion/KinAvatar";
 import Typewriter from "@/app/components/companion/Typewriter";
+import DurationPicker from "@/app/components/DurationPicker";
 import {
   SKIN_TYPES, SEX_OPTIONS, CONCERNS, CONCERN_KEYS, MAX_CONCERNS, RATING_LABELS,
   SENSITIVITY_OPTIONS, SUN_REACTIONS, CURRENT_PRODUCTS, SLEEP_OPTIONS, OUTDOOR_OPTIONS,
@@ -41,6 +42,7 @@ const STEPS = [
   { id: "routine", title: "What do you already use?", sub: "So we build on your routine instead of doubling up." },
   { id: "life", title: "Your daily life", sub: "Sleep, sun and stress all show up on skin." },
   { id: "safety", title: "Last two things", sub: "Safety first, then how much time you have." },
+  { id: "length", title: "How long shall we work on your skin?", sub: "Each month we review your progress and suggest changes. You decide." },
 ];
 
 // Kin writes down what you tell it: one short line per answer, so the form
@@ -55,8 +57,16 @@ const KIN_INTRO = {
   rate: "No judging. Honest answers make a better plan.",
   routine: "Skip anything you don't use at least weekly.",
   life: "Small habits, big effect on skin.",
-  safety: "Last bit, then I'll build your plan!",
+  safety: "Nearly done! Just a couple of safety questions.",
+  length: "Skin takes time. I'll check in with you every month.",
 };
+const KIN_MONTHS = {
+  1: "One month: a good first step.",
+  3: "Three months. Time to really see change!",
+  5: "Five months. I like your commitment.",
+  7: "Seven months. Let's do this properly.",
+};
+const kinMonths = (n) => KIN_MONTHS[n] || `${n} months. Noted, I'll be with you all the way.`;
 const KIN_SKIN_TYPE = {
   oily: "Oily, noted. We'll balance shine without stripping.",
   dry: "Dry, writing that down. Comfort comes first.",
@@ -158,6 +168,7 @@ export const EMPTY_SKIN_FORM = {
   stress: "",
   pregnancy: "",
   routineTime: "",
+  planMonths: 0, // months to work on their skin; 0 = not chosen yet
 };
 
 /**
@@ -213,6 +224,7 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
       case "rate": return form.concerns.some((k) => !form.ratings[k]) ? "Please rate each concern." : "";
       case "life": return !form.sleep || !form.outdoor || !form.stress || form.smoker === null ? "Please answer each question." : "";
       case "safety": return (!male && !form.pregnancy) || !form.routineTime ? "Please answer both to build a safe plan." : "";
+      case "length": return !form.planMonths ? "Please pick how long you'd like to work on your skin." : "";
       default: return "";
     }
   };
@@ -248,6 +260,7 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
       stress: form.stress,
       pregnancy: male ? "no" : form.pregnancy,
       routineTime: form.routineTime,
+      planMonths: form.planMonths,
     };
     const validation = validateOnboarding(payload);
     if (!validation.isValid) {
@@ -478,6 +491,13 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
                       ))}
                     </div>
                   </Field>
+                </>
+              )}
+
+              {current.id === "length" && (
+                <>
+                  <DurationPicker value={form.planMonths} onChange={(n) => pick({ planMonths: n }, kinMonths(n))} compact />
+                  <p className="text-xs text-muted">You can change this any time from your plan.</p>
                 </>
               )}
             </div>

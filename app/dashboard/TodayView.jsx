@@ -15,7 +15,7 @@ import {
   ScanFace,
 } from "lucide-react";
 import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
-import WeeklyGoalRing from "./WeeklyGoalRing";
+import StreakChip from "./StreakChip";
 import { kinSay } from "@/app/components/companion/store";
 import { milestoneLine } from "@/app/components/companion/brain";
 
@@ -48,59 +48,41 @@ function Delta({ value }) {
   );
 }
 
-function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans, sinceStart }) {
+function ScoreCard({ mode, score, delta, band, skinAgeLine, weekScans, sinceStart }) {
   const label = mode === "week" ? "WEEKLY SKIN SCORE" : "SKIN SCORE";
   // The skin age number sits next to the name; here only how it compares.
   const ageNote = skinAgeLine?.replace(/^Skin age d+s*(·s*)?/, "") || "";
   return (
-    <section data-tour="score" className="tk-card relative overflow-hidden h-[13.25rem] sm:h-[14.5rem] lg:h-[17rem]" aria-label="Skin score">
-      {/* Latest scan. Fixed 3:4 frame pinned to the right so the photo keeps the
-          same size when the numbers on the left change (Today / This week). */}
-      <div
-        className="absolute inset-y-0 right-0 aspect-[3/4]"
-        style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 38%)", maskImage: "linear-gradient(to right, transparent 0%, #000 38%)" }}
-        aria-hidden="true"
-      >
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover object-center" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-accent-soft to-blush flex flex-col items-center justify-center gap-2 pl-6">
-            <ScanFace size={56} className="text-accent/40" strokeWidth={1.25} />
-            <span className="tk-text-micro text-muted/80 text-center leading-tight px-2">Photo not stored</span>
+    <section data-tour="score" className="tk-card p-5 sm:p-6 lg:p-8" aria-label="Skin score">
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="tk-eyebrow">{label}</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-[3.25rem] sm:text-[4rem] lg:text-[5rem] font-semibold leading-none text-primary tabular-nums">
+              {typeof score === "number" ? score : "—"}
+            </span>
+            <span className="text-lg lg:text-2xl text-muted">/ 100</span>
           </div>
+        </div>
+        {band && mode !== "week" && <span className="text-sm font-semibold text-success pb-1.5 text-right">{band}</span>}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {mode === "today" && typeof delta === "number" && delta !== 0 && (
+          <span className={`tk-chip ${delta > 0 ? "tk-chip-success" : "tk-chip-danger"}`}>
+            {delta > 0 ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
+            {Math.abs(delta)} vs. last scan
+          </span>
+        )}
+        {mode === "today" && sinceStart && (
+          <span className="tk-chip">Started at {sinceStart.from}{sinceStart.delta ? ` · ${sinceStart.delta > 0 ? "+" : "−"}${Math.abs(sinceStart.delta)}` : ""}</span>
+        )}
+        {mode === "week" && weekScans > 0 && (
+          <span className="tk-chip">{weekScans} {weekScans === 1 ? "scan" : "scans"} this week</span>
         )}
       </div>
 
-      <div className="relative p-5 sm:p-6 lg:p-9 max-w-[66%] sm:max-w-[60%]">
-        <p className="tk-eyebrow">{label}</p>
-        <div className="flex items-baseline gap-1.5 mt-1.5">
-          <span className="text-[3.5rem] sm:text-[4rem] lg:text-[5.5rem] font-semibold leading-none text-primary tabular-nums">
-            {typeof score === "number" ? score : "—"}
-          </span>
-          <span className="text-lg lg:text-2xl text-muted">/ 100</span>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {mode === "today" && typeof delta === "number" && delta !== 0 && (
-            <span className={`tk-chip ${delta > 0 ? "tk-chip-success" : "tk-chip-danger"}`}>
-              {delta > 0 ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
-              {Math.abs(delta)} vs. last scan
-            </span>
-          )}
-          {mode === "today" && sinceStart && (
-            <span className="tk-chip">Started at {sinceStart.from}{sinceStart.delta ? ` · ${sinceStart.delta > 0 ? "+" : "−"}${Math.abs(sinceStart.delta)}` : ""}</span>
-          )}
-          {mode === "week" && weekScans > 0 && (
-            <span className="tk-chip">{weekScans} {weekScans === 1 ? "scan" : "scans"} this week</span>
-          )}
-          {band && (
-            <span className="text-xs font-semibold text-success">{band}</span>
-          )}
-        </div>
-
-        {ageNote && <p className="mt-3 text-sm text-muted leading-snug">{ageNote}</p>}
-      </div>
+      {ageNote && <p className="mt-3 text-sm text-muted leading-snug">{ageNote}</p>}
     </section>
   );
 }
@@ -123,60 +105,6 @@ function MetricRow({ metrics, mode }) {
         );
       })}
     </div>
-  );
-}
-
-function StreakCard({ streak, longestStreak, weeklyGoal, trophies }) {
-  const returning = streak === 0 && longestStreak > 0;
-  const title = streak > 0 ? `${streak} day streak` : returning ? "Welcome back" : "Start your streak";
-  const sub =
-    streak > 0
-      ? longestStreak > streak
-        ? `Longest so far: ${longestStreak} days.`
-        : "A scan or a routine step keeps it going."
-      : returning
-        ? `Your longest run was ${longestStreak} days. Start a fresh one today.`
-        : "A scan or a routine step today begins it.";
-  return (
-    <section className="tk-card p-4 sm:p-5">
-      <div className="flex items-center gap-3">
-        <span className="tk-icon-circle w-11 h-11">
-          <Flame size={20} className={streak > 0 ? "tk-anim-flame" : ""} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-primary">{title}</p>
-          <p className="text-xs text-muted">{sub}</p>
-        </div>
-        <Link href="/share" className="tk-pill-btn tk-btn-soft px-3.5 py-2 text-xs">
-          <Share2 size={13} /> Share
-        </Link>
-      </div>
-      {weeklyGoal && (
-        <div className="mt-3 flex items-center gap-3 rounded-xl bg-blush/70 px-3 py-2.5">
-          <WeeklyGoalRing days={weeklyGoal.days} target={weeklyGoal.target} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-primary">
-              {weeklyGoal.days >= weeklyGoal.target ? "Weekly goal reached" : "This week's goal"}
-            </p>
-            <p className="text-xs text-muted">
-              {weeklyGoal.days >= weeklyGoal.target
-                ? "Lovely rhythm. Anything more is a bonus."
-                : `${weeklyGoal.days} of ${weeklyGoal.target} days of care so far.`}
-            </p>
-          </div>
-        </div>
-      )}
-      {trophies?.totalCount > 0 && (
-        <Link
-          href="/progress"
-          className="mt-3 flex items-center gap-2 rounded-xl bg-blush/70 px-3 py-2.5 text-sm text-primary hover:bg-blush transition-colors"
-        >
-          <Trophy size={15} className="text-accent" />
-          <span className="flex-1">{trophies.unlockedCount} of {trophies.totalCount} milestones reached</span>
-          <ChevronRight size={15} className="text-muted" />
-        </Link>
-      )}
-    </section>
   );
 }
 
@@ -216,7 +144,7 @@ function ExploreGrid({ reportReady, showLeaderboard }) {
  * the latest scan and the weekly average), score card, four metrics,
  * and shortcuts (the plan card is the one way into today's steps). On desktop it splits into a main column and a side rail.
  */
-export default function TodayView({ data, radar, banners, planCard, sinceStart, scanInvite = null, showLeaderboard = true }) {
+export default function TodayView({ data, radar, banners, planCard, afterPlan = null, sinceStart, scanInvite = null, showLeaderboard = true }) {
   const [mode, setMode] = useState("today");
   const greeting = useSyncExternalStore(noopSubscribe, greetingNow, () => "Hello,");
   const week = data.weekScore;
@@ -239,24 +167,35 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0">
-        <header className="order-1 flex items-end justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-muted">{greeting}</p>
-            <h1 className="text-[2rem] sm:text-4xl lg:text-5xl font-semibold text-primary leading-tight truncate">
-              {data.firstName || "Welcome back"}
-            </h1>
-          </div>
-          {typeof data.skinAge === "number" && (
-            <div className="shrink-0 text-right pb-1" aria-label={`Skin age ${data.skinAge}`}>
-              <p className="tk-eyebrow">Skin age</p>
-              <p className="text-[2rem] sm:text-4xl font-semibold text-accent-deep leading-none tabular-nums mt-1">{data.skinAge}</p>
+        <header className="order-1">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted">{greeting}</p>
+              <h1 className="text-[2rem] sm:text-4xl lg:text-5xl font-semibold text-primary leading-tight truncate">
+                {data.firstName || "Welcome back"}
+              </h1>
             </div>
-          )}
+            {!noScan && data.photoUrl && (
+              <div className="relative shrink-0 pb-2" aria-label={typeof data.skinAge === "number" ? `Your latest scan. Skin age ${data.skinAge}` : "Your latest scan"}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={data.photoUrl} alt="" referrerPolicy="no-referrer" className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover object-center border-2 border-white shadow-[0_6px_16px_-6px_rgb(var(--tk-ink-rgb)/0.45)]" />
+                {typeof data.skinAge === "number" && (
+                  <span className="absolute left-1/2 -translate-x-1/2 bottom-0 whitespace-nowrap rounded-full bg-cocoa px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
+                    Skin age {data.skinAge}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="mt-2.5">
+            <StreakChip streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} />
+          </div>
         </header>
 
         {banners && <div className="order-1 flex flex-col gap-3 empty:hidden">{banners}</div>}
 
         {planCard && <div className="order-2">{planCard}</div>}
+        {afterPlan && <div className="order-2">{afterPlan}</div>}
 
         {noScan ? (
           scanInvite && <div className="order-3">{scanInvite}</div>
@@ -281,7 +220,6 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
                 delta={data.delta}
                 band={mode === "week" ? null : data.band}
                 skinAgeLine={data.skinAgeLine}
-                photoUrl={data.photoUrl}
                 weekScans={week.scanCount}
                 sinceStart={sinceStart}
               />
@@ -296,7 +234,6 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">
-        <div className="order-7"><StreakCard streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} /></div>
         {radar && isLarge && (
           <section className="tk-card p-4 sm:p-5 order-8" aria-label="Skin profile">
             <h2 className="text-base font-semibold text-primary mb-1">Skin profile</h2>

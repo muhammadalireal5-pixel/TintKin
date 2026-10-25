@@ -193,7 +193,7 @@ export async function generatePlanAdjustment(user, plan, { day, scores, ratings,
       })
       .join("; ");
 
-    const prompt = `You are a dermatologist and skincare coach reviewing a check-in on day ${day} of a ${plan.durationDays}-day skin plan.
+    const prompt = `You are a dermatologist and skincare coach reviewing a check-in on day ${day} of month ${plan.monthIndex || 1} of a ${Math.max(plan.totalMonths || 1, plan.monthIndex || 1)}-month skin plan (each month is a ${plan.durationDays}-day block).
 
     User: ${describeUser(user)}
     Progress on focus areas: ${moved}
@@ -204,6 +204,7 @@ export async function generatePlanAdjustment(user, plan, { day, scores, ratings,
 
     Decide what, if anything, should change from tomorrow. Rules:
     - If consistency is low, prefer simplifying (drop a step) over adding. If progress is good, change little.
+    - In a later month the routine is already established: add at most one new active, and only if the person is consistent.
     - "drop" is a list of step ids from the list above. "add" has at most ${PLAN_LIMITS.addsPerPhase} new steps per slot, same step shape as before ("text", "why" tied to this person, "metric").
     - Keep it behavioural and safe: no SPF numbers, percentages or concentrations.
     - "note" is 1-2 encouraging sentences telling the user what you changed and why (or that the plan stays as it is).
@@ -234,7 +235,7 @@ export async function generatePlanEdit(user, plan, { day, message, safety = "" }
       .join(NEWLINE_INDENT);
     const focus = plan.focus.map((f) => f.label).join(", ");
 
-    const prompt = `You are Kin, a friendly skincare coach inside a 30-day skin plan app. The person wants to change their plan.
+    const prompt = `You are Kin, a friendly skincare coach inside a skin plan app. The person is in month ${plan.monthIndex || 1} of a ${Math.max(plan.totalMonths || 1, plan.monthIndex || 1)}-month plan and wants to change it.
 
     User: ${describeUser(user)}
     Focus areas: ${focus}

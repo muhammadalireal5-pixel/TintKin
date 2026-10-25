@@ -9,34 +9,34 @@ import PlanProgress from "./PlanProgress";
 export default function PlanTodayCard({ plan, stepsLeft }) {
   const due = plan.nextCheckIn?.isDue && !plan.expired;
   const headline = plan.expired
-    ? "Your 30 days are complete"
+    ? `Month ${plan.monthIndex} is complete`
     : stepsLeft > 0
       ? `${stepsLeft} ${stepsLeft === 1 ? "step" : "steps"} left today`
       : "Today's routine is done";
 
   return (
-    <section data-tour="plan-card" className="tk-card p-5 sm:p-6" aria-label="Your plan">
+    <section data-tour="plan-card" className="tk-card p-4 sm:p-5" aria-label="Your plan">
       <Link href="/routine" className="flex items-start justify-between gap-3 group">
         <div className="min-w-0">
           <p className="tk-eyebrow flex items-center gap-1.5">
-            <CalendarCheck size={13} /> Day {plan.day} of {plan.durationDays} &middot; {plan.phase.name}
+            <CalendarCheck size={13} /> {plan.totalMonths > 1 ? `Month ${plan.monthIndex}/${plan.totalMonths} · ` : ""}Day {plan.day} of {plan.durationDays} &middot; {plan.phase.name}
           </p>
-          <h2 className="text-xl sm:text-2xl font-semibold text-primary leading-tight mt-1.5">{headline}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-primary leading-tight mt-1">{headline}</h2>
         </div>
         <ChevronRight size={20} className="text-muted shrink-0 mt-1 group-hover:text-accent transition-colors" />
       </Link>
 
-      <div className="mt-4">
-        <PlanProgress progress={plan.progress} compact />
-      </div>
-
-      <Link href="/routine" className="tk-pill-btn tk-btn-primary w-full mt-5">
+      <Link href="/routine" className="tk-pill-btn tk-btn-primary w-full mt-3">
         {due ? (
           <><HeartHandshake size={16} /> Check-in due: rate your skin</>
         ) : (
           <>{stepsLeft > 0 || plan.expired ? "Open today's steps" : "See today's plan"} <ChevronRight size={16} /></>
         )}
       </Link>
+
+      <div className="mt-3.5">
+        <PlanProgress progress={plan.progress} compact dense />
+      </div>
     </section>
   );
 }

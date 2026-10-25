@@ -26,6 +26,7 @@ import UserAvatar from "@/app/components/UserAvatar";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import { updateCompanionPrefs, useCompanionPrefs } from "@/app/components/companion/store";
 import { openFeedback } from "@/app/components/companion/FeedbackModal";
+import { resetSeenTours } from "@/app/lib/tour-actions";
 import { TIERS, TIER_NAMES } from "@/lib/constants/tiers";
 
 function Switch({ checked, onChange, label }) {
@@ -175,7 +176,10 @@ export default function ProfileClient({ profile }) {
             )}
             <button
               type="button"
-              onClick={() => updateCompanionPrefs({ enabled: true, pos: null, tours: {}, seen: {} })}
+              onClick={() => {
+                updateCompanionPrefs({ enabled: true, pos: null, tours: {}, seen: {} });
+                resetSeenTours();
+              }}
               className="mt-3 text-sm font-semibold text-accent hover:text-accent-deep"
             >
               Replay the walkthrough and reset Kin&apos;s position

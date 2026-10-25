@@ -11,6 +11,7 @@ import { pickMessage, nextTip, dayKeyNow, TOURS, pageGreeting } from "./brain";
 import { getPushAskStatus, enablePush } from "./push-client";
 import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
+import { markTourSeen } from "@/app/lib/tour-actions";
 
 const SIZE = 104;
 const MARGIN = 8;
@@ -20,6 +21,34 @@ const TAP_SLOP = 6;
 const HIDDEN_PREFIXES = ["/admin", "/onboarding"];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+// Kin never talks more than twice in a row unprompted. The count is per browser
+// session and resets when the person talks to Kin (taps it, asks for a tip, starts a tour).
+const UNPROMPTED_KEY = "tk:kin-unprompted";
+const MAX_UNPROMPTED = 2;
+const unprompted = {
+  get() {
+    try {
+      return Number(window.sessionStorage.getItem(UNPROMPTED_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  },
+  bump() {
+    try {
+      window.sessionStorage.setItem(UNPROMPTED_KEY, String(unprompted.get() + 1));
+    } catch {
+      // storage blocked: the cap simply does not persist
+    }
+  },
+  reset() {
+    try {
+      window.sessionStorage.removeItem(UNPROMPTED_KEY);
+    } catch {
+      // storage blocked
+    }
+  },
+};
 
 // Quick-jump "weapon wheel" that fans out around Kin on tap.
 const WHEEL_ITEMS = [
@@ -124,8 +153,34 @@ export default function Companion() {
   }, []);
   const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
+  // Kin arrives after the page itself has loaded, so it never competes with the
+  // content (or its data requests) for the first moments.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let timer = 0;
+    const arrive = () => {
+      timer = window.setTimeout(() => setReady(true), 1200);
+    };
+    if (document.readyState === "complete") arrive();
+    else window.addEventListener("load", arrive, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("load", arrive);
+    };
+  }, []);
+
   const visible =
-    Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+    ready && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+
+  // Walkthroughs finished on this device before the account remembered them: record them there too.
+  const syncedTours = useRef(false);
+  useEffect(() => {
+    if (!state || syncedTours.current) return;
+    syncedTours.current = true;
+    const known = new Set(state.seenTours ?? []);
+    Object.keys(prefs.tours ?? {}).filter((k) => prefs.tours[k] && !known.has(k)).forEach((k) => markTourSeen(k));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   /* ── account snapshot ─────────────────────────────────────────────── */
   const load = useCallback(() => {
@@ -153,6 +208,12 @@ export default function Companion() {
     if (!visible || !scanned) return;
     getPushAskStatus().then((s) => setPushCanAsk(s.canAsk));
   }, [visible, scanned]);
+
+  // Walkthroughs done on this device or, since the account remembers them, on any other.
+  const seenTours = useMemo(
+    () => ({ ...prefs.tours, ...Object.fromEntries((state?.seenTours ?? []).map((k) => [k, true])) }),
+    [prefs.tours, state?.seenTours]
+  );
 
   const askState = useMemo(() => {
     if (!state) return state;
@@ -254,9 +315,11 @@ export default function Companion() {
       const today = dayKeyNow();
       const greetKey = `greet-${pathname}`;
       if (!justScanned && (isQuietNow(cur.prefs) || cur.prefs.seen?.[greetKey] === today)) return;
+      if (!justScanned && unprompted.get() >= MAX_UNPROMPTED) return;
       const text = pageGreeting(pathname, { hour: new Date().getHours(), name: cur.name, justScanned });
       if (!text) return;
       say(text);
+      if (!justScanned) unprompted.bump();
       updateCompanionPrefs((p) => ({ seen: { ...p.seen, [greetKey]: today } }));
     }, 900);
     return () => window.clearTimeout(t);
@@ -289,16 +352,20 @@ export default function Companion() {
     if (!visible || !state || tour || bubble || wheel) return undefined;
     const timer = window.setTimeout(() => {
       // Unprompted nudges respect quiet hours; the first-scan offer and tours are exempt.
+      if (unprompted.get() >= MAX_UNPROMPTED) return;
       const quiet = isQuietNow(live.current.prefs);
       const msg = pickMessage({
         state: askState,
         pathname,
         hour: new Date().getHours(),
         seen: prefs.seen,
-        tours: prefs.tours,
+        tours: seenTours,
         today: dayKeyNow(),
       });
-      if (msg && (!quiet || msg.tour)) show(msg);
+      if (msg && (!quiet || msg.tour)) {
+        show(msg);
+        unprompted.bump();
+      }
     }, 4000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,6 +384,9 @@ export default function Companion() {
     setTour(null);
     setBubble(null);
     updateCompanionPrefs((p) => ({ tours: { ...p.tours, [key]: true } }));
+    // Remember it on the account so Kin doesn't offer it again at the next sign-in.
+    setState((s) => (s ? { ...s, seenTours: [...new Set([...(s.seenTours ?? []), key])] } : s));
+    markTourSeen(key);
   }, []);
 
   // A tour belongs to its page: leaving it ends it quietly.
@@ -410,7 +480,7 @@ export default function Companion() {
 
   const showTip = () => {
     const msg = state
-      ? pickMessage({ state: askState, pathname, hour: new Date().getHours(), seen: prefs.seen, tours: prefs.tours, today: dayKeyNow() })
+      ? pickMessage({ state: askState, pathname, hour: new Date().getHours(), seen: prefs.seen, tours: seenTours, today: dayKeyNow() })
       : null;
     if (msg) {
       show(msg);
@@ -422,6 +492,7 @@ export default function Companion() {
 
   // Tap toggles the quick-jump wheel.
   const onTap = () => {
+    unprompted.reset();
     if (tour) return;
     setBubble(null);
     setWheel((w) => (w ? null : pos ? openWheelState(pos) : null));
@@ -569,6 +640,7 @@ export default function Companion() {
               <button
                 type="button"
                 onClick={() => {
+                  unprompted.reset();
                   setBubble(null);
                   setTour({ key: bubble.tour, step: 0 });
                 }}

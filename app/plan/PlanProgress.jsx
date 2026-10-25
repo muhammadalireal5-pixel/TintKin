@@ -11,7 +11,7 @@ function Change({ delta, unit = "" }) {
 }
 
 /** Start -> now -> aim for each focus area. Movement, not a verdict. */
-export default function PlanProgress({ progress, compact = false }) {
+export default function PlanProgress({ progress, compact = false, dense = false }) {
   if (!progress?.focus?.length) return null;
   return (
     <section className={compact ? "" : "tk-card p-5 sm:p-6"} aria-label="Your 30-day aim">
@@ -22,18 +22,18 @@ export default function PlanProgress({ progress, compact = false }) {
         </h2>
       )}
       {!compact && <p className="text-sm text-muted mb-4">The areas this plan works on, and how far you have come.</p>}
-      <ul className="space-y-4">
+      <ul className={dense ? "space-y-2.5" : "space-y-4"}>
         {progress.focus.map((f) => (
           <li key={f.metric}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-sm font-semibold text-primary">{f.label}</span>
-              <span className="text-xs text-muted tabular-nums">
+              <span className={`text-xs text-muted tabular-nums ${dense ? "hidden sm:inline" : ""}`}>
                 {f.scale === "rating" ? RATING_LABELS[f.baseline] : f.baseline} <span aria-hidden="true">&rarr;</span>{" "}
                 <strong className="text-primary">{f.scale === "rating" ? RATING_LABELS[f.current] : (f.current ?? "—")}</strong> &middot; aim {f.scale === "rating" ? RATING_LABELS[f.target] : f.target}
               </span>
             </div>
             <div
-              className="mt-1.5 h-2 rounded-full bg-line overflow-hidden"
+              className={`${dense ? "mt-1" : "mt-1.5"} h-2 rounded-full bg-line overflow-hidden`}
               role="progressbar"
               aria-label={`${f.label} progress toward aim`}
               aria-valuemin={0}
@@ -42,10 +42,10 @@ export default function PlanProgress({ progress, compact = false }) {
             >
               <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${Math.max(f.percentToTarget, 3)}%` }} />
             </div>
-            <p className="text-xs mt-1">
+            {!dense && <p className="text-xs mt-1">
               {f.scale === "rating" && !f.rated ? <span className="text-muted">Rate it at your first check-in</span> : <Change delta={f.scale === "rating" ? f.delta : f.delta} unit={f.scale === "rating" ? "level" : ""} />}
               {f.measured && <span className="text-muted"> &middot; scan: {f.measured.from} &rarr; {f.measured.to}</span>}
-            </p>
+            </p>}
           </li>
         ))}
       </ul>
