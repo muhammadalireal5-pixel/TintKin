@@ -380,7 +380,7 @@ export default function WhatIfPage() {
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "single"
                   ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
-                  : "bg-white text-primary border-line hover:border-accent/40"
+                  : "bg-paper text-primary border-line hover:border-accent/40"
               }`}
             >
               <FlaskConical size={18} className="text-current" />
@@ -392,7 +392,7 @@ export default function WhatIfPage() {
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "compare"
                   ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
-                  : "bg-white text-primary border-line hover:border-accent/40"
+                  : "bg-paper text-primary border-line hover:border-accent/40"
               }`}
             >
               <Scale size={18} className="text-current" />
@@ -404,7 +404,7 @@ export default function WhatIfPage() {
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "full"
                   ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
-                  : "bg-white text-primary border-line hover:border-accent/40"
+                  : "bg-paper text-primary border-line hover:border-accent/40"
               }`}
             >
               <Star size={18} className="text-current" />
@@ -416,7 +416,7 @@ export default function WhatIfPage() {
               className={`py-3 px-4 rounded-2xl text-xs font-semibold transition-all flex flex-col items-center gap-1.5 border cursor-pointer ${
                 simMode === "custom"
                   ? "bg-accent-soft text-accent-deep border-accent shadow-sm"
-                  : "bg-white text-primary border-line hover:border-accent/40"
+                  : "bg-paper text-primary border-line hover:border-accent/40"
               }`}
             >
               <Settings size={18} className="text-current" />
@@ -452,8 +452,8 @@ export default function WhatIfPage() {
                   key={idx}
                   className={`
                     tk-card rounded-3xl p-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group border
-                    ${simMode === "single" && isSelectedSingle ? "ring-2 ring-accent shadow-lg border-accent/40 bg-white scale-[1.02]" : "border-line hover:border-line hover:shadow-md"}
-                    ${simMode === "compare" && (isProdA || isProdB) ? "ring-2 ring-cocoa border-cocoa/40 bg-white scale-[1.02]" : ""}
+                    ${simMode === "single" && isSelectedSingle ? "ring-2 ring-accent shadow-lg border-accent/40 bg-paper scale-[1.02]" : "border-line hover:border-line hover:shadow-md"}
+                    ${simMode === "compare" && (isProdA || isProdB) ? "ring-2 ring-cocoa border-cocoa/40 bg-paper scale-[1.02]" : ""}
                   `}
                 >
                   <div className="flex justify-between items-start mb-3 z-10">
@@ -483,7 +483,7 @@ export default function WhatIfPage() {
                     )}
                   </div>
 
-                  <div className="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-white border border-line shadow-inner group-hover:scale-[1.01] transition-transform">
+                  <div className="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-paper border border-line shadow-inner group-hover:scale-[1.01] transition-transform">
                     <ProductImage
                       type={prod.type}
                       alt={prod.formula || prod.type}
@@ -508,7 +508,7 @@ export default function WhatIfPage() {
                         className={`w-full py-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                           isSelectedSingle
                             ? "bg-accent text-white shadow-sm"
-                            : "bg-white text-primary hover:bg-blush hover:shadow-xs"
+                            : "bg-paper text-primary hover:bg-blush hover:shadow-xs"
                         }`}
                       >
                         {isSelectedSingle ? <span className="flex items-center justify-center gap-1">Selected for Test <Check size={14}/></span> : "Select Product"}
@@ -522,7 +522,7 @@ export default function WhatIfPage() {
                           className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             isProdA
                               ? "bg-accent text-white shadow-xs"
-                              : "bg-white text-primary hover:bg-blush"
+                              : "bg-paper text-primary hover:bg-blush"
                           }`}
                         >
                           {isProdA ? <span className="flex items-center justify-center gap-1">Set for A <Check size={14}/></span> : "Set Product A"}
@@ -532,7 +532,7 @@ export default function WhatIfPage() {
                           className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             isProdB
                               ? "bg-cocoa text-white shadow-xs"
-                              : "bg-white text-primary hover:bg-blush"
+                              : "bg-paper text-primary hover:bg-blush"
                           }`}
                         >
                           {isProdB ? <span className="flex items-center justify-center gap-1">Set for B <Check size={14}/></span> : "Set Product B"}
@@ -547,7 +547,7 @@ export default function WhatIfPage() {
                           className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             inCustomA
                               ? "bg-accent text-white shadow-xs"
-                              : "bg-white text-muted hover:bg-blush"
+                              : "bg-paper text-muted hover:bg-blush"
                           }`}
                         >
                           {inCustomA ? <span className="flex items-center justify-center gap-1">In Scenario A <Check size={14}/></span> : "+ Add to A"}
@@ -557,7 +557,7 @@ export default function WhatIfPage() {
                           className={`py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
                             inCustomB
                               ? "bg-cocoa text-white shadow-xs"
-                              : "bg-white text-muted hover:bg-blush"
+                              : "bg-paper text-muted hover:bg-blush"
                           }`}
                         >
                           {inCustomB ? <span className="flex items-center justify-center gap-1">In Scenario B <Check size={14}/></span> : "+ Add to B"}
@@ -602,7 +602,7 @@ export default function WhatIfPage() {
                 Scan ingredients label from your real skincare products to test custom formulations.
               </p>
               <div className="mt-auto pt-3 border-t border-line w-full">
-                <span className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-full text-xs font-semibold bg-white text-primary group-hover:bg-accent group-hover:text-white transition-all shadow-xs">
+                <span className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-full text-xs font-semibold bg-paper text-primary group-hover:bg-accent group-hover:text-white transition-all shadow-xs">
                   {userTier === 'premium' ? (
                     <>
                       <Sparkles size={14} />
@@ -707,7 +707,7 @@ export default function WhatIfPage() {
                   <span className="text-xs font-semibold text-white flex items-center min-w-0">
                     <span className="truncate">{result.scenarioB.label}</span> <ArrowRight size={14} className="ml-1 shrink-0" />
                   </span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-white shrink-0"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-paper shrink-0"></span>
                 </div>
               </div>
 
@@ -840,7 +840,7 @@ export default function WhatIfPage() {
                   <button
                     onClick={handleDiscardSimulation}
                     disabled={isSavingPrivacy}
-                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-full text-sm font-semibold text-muted bg-white hover:bg-blush hover:text-danger transition-colors border border-line shadow-sm disabled:opacity-50"
+                    className="flex-1 sm:flex-none px-5 py-2.5 rounded-full text-sm font-semibold text-muted bg-paper hover:bg-blush hover:text-danger transition-colors border border-line shadow-sm disabled:opacity-50"
                   >
                     Delete Results
                   </button>
@@ -1020,7 +1020,7 @@ export default function WhatIfPage() {
               Upgrade to <strong>Pro</strong> to scan ingredient labels from any vanity skincare product and simulate how your exact routine impacts facial aging.
             </p>
 
-            <div className="space-y-2.5 mb-6 bg-white p-4 rounded-2xl border border-accent/25 text-sm sm:text-xs text-primary">
+            <div className="space-y-2.5 mb-6 bg-paper p-4 rounded-2xl border border-accent/25 text-sm sm:text-xs text-primary">
               <div className="flex items-center gap-2">
                 <span className="text-accent font-bold">✓</span>
                 <span>Unlimited custom formula label scans</span>

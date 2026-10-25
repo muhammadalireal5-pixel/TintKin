@@ -39,7 +39,7 @@ function Switch({ checked, onChange, label }) {
       onClick={() => onChange(!checked)}
       className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-line"}`}
     >
-      <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+      <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-paper shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
     </button>
   );
 }

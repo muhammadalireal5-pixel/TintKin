@@ -11,7 +11,8 @@
 @theme {
   --color-base: #FCF4F2;
   --color-cream: #FCF4F2;
-  --color-surface: #FFFBFA;
+  --color-surface: #FFF6F2;
+  --color-paper: #FFFAF6;       /* inputs, tiles and chips on a card: cream, never pure white */
   --color-blush: #F6E2E2;
   --color-line: #EFDCDC;
 
@@ -58,7 +59,7 @@
   --tk-accent-sage: #B5546A;
   --tk-accent-peach: #F8DCE1;
 
-  --tk-surface-card: #FFFBFA;
+  --tk-surface-card: #FFF6F2;
   --tk-border-solid: #EFDCDC;
   --tk-border-glass: #EFDCDC;
   --tk-shadow-card: 0 1px 2px rgb(var(--tk-ink-rgb) / 0.04), 0 10px 28px -14px rgb(var(--tk-ink-rgb) / 0.18);
@@ -93,7 +94,8 @@
 html[data-theme="sage"] {
   --color-base: #FDFBF7;
   --color-cream: #FDFBF7;
-  --color-surface: #FFFFFF;
+  --color-surface: #FFFCF5;
+  --color-paper: #FFFEFA;
   --color-blush: #F0EFE3;
   --color-line: #E8E6DA;
   --color-primary: #2C3E50;
@@ -119,7 +121,7 @@ html[data-theme="sage"] {
   --tk-accent-lavender: #F0EFE3;
   --tk-accent-sage: #8A9A5B;
   --tk-accent-peach: #EEF0DC;
-  --tk-surface-card: #FFFFFF;
+  --tk-surface-card: #FFFCF5;
   --tk-border-solid: #E8E6DA;
   --tk-border-glass: #E8E6DA;
   --tk-accent-rgb: 102 118 64;
@@ -138,7 +140,8 @@ html[data-theme="sage"] {
 html[data-theme="terracotta"] {
   --color-base: #FBF3EE;
   --color-cream: #FBF3EE;
-  --color-surface: #FFFBF8;
+  --color-surface: #FFF6EE;
+  --color-paper: #FFFAF4;
   --color-blush: #F7E6DC;
   --color-line: #F0DFD4;
   --color-primary: #4A2A1F;
@@ -164,7 +167,7 @@ html[data-theme="terracotta"] {
   --tk-accent-lavender: #F7E6DC;
   --tk-accent-sage: #B7543A;
   --tk-accent-peach: #F8DFD3;
-  --tk-surface-card: #FFFBF8;
+  --tk-surface-card: #FFF6EE;
   --tk-border-solid: #F0DFD4;
   --tk-border-glass: #F0DFD4;
   --tk-accent-rgb: 183 84 58;
@@ -416,7 +419,7 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Form fields ───────────────────────────────────────────────────────── */
 .tk-input {
   width: 100%;
-  background: #FFFFFF;
+  background: var(--color-paper);
   border: 1px solid var(--tk-border-strong);
   border-radius: 0.875rem;
   padding: 0.8rem 1rem;
@@ -438,7 +441,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.25rem;
   padding: 0.25rem;
   border-radius: 9999px;
-  background: #FFFFFF;
+  background: var(--color-paper);
   border: 1px solid var(--tk-border-solid);
   box-shadow: 0 1px 2px rgb(var(--tk-ink-rgb) / 0.04);
 }

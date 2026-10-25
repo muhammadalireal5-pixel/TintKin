@@ -13,7 +13,7 @@ const HINTS = {
 
 const tile = (on) =>
   `relative text-left rounded-2xl border px-3 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-    on ? "bg-accent-soft border-accent ring-1 ring-accent text-accent-deep" : "bg-white border-line text-primary hover:border-accent/50"
+    on ? "bg-accent-soft border-accent ring-1 ring-accent text-accent-deep" : "bg-paper border-line text-primary hover:border-accent/50"
   }`;
 
 /**
@@ -77,7 +77,7 @@ export default function DurationPicker({ value, onChange, min = 1, compact = fal
               onClick={() => step(-1)}
               disabled={value <= min}
               aria-label="One month less"
-              className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center text-primary disabled:opacity-40"
+              className="w-8 h-8 rounded-full bg-paper border border-line flex items-center justify-center text-primary disabled:opacity-40"
             >
               <Minus size={14} />
             </button>
@@ -87,7 +87,7 @@ export default function DurationPicker({ value, onChange, min = 1, compact = fal
               onClick={() => step(1)}
               disabled={value >= MAX_PLAN_MONTHS}
               aria-label="One month more"
-              className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center text-primary disabled:opacity-40"
+              className="w-8 h-8 rounded-full bg-paper border border-line flex items-center justify-center text-primary disabled:opacity-40"
             >
               <Plus size={14} />
             </button>

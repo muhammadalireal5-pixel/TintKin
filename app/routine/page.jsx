@@ -141,7 +141,7 @@ export default async function RoutinePage({ searchParams }) {
                 href="/what-if"
                 className="tk-card mt-8 flex items-center gap-4 p-5 sm:p-6 bg-gradient-to-r from-accent-soft/70 to-surface hover:border-accent/40 transition-colors"
             >
-                <span className="tk-icon-circle w-12 h-12 bg-white"><Sparkles size={22} /></span>
+                <span className="tk-icon-circle w-12 h-12 bg-paper"><Sparkles size={22} /></span>
                 <span className="flex-1 min-w-0">
                     <span className="block text-base font-semibold text-primary">Curious how these could change your skin?</span>
                     <span className="block text-sm text-muted mt-0.5">See a 6-month preview in the What-If simulator.</span>

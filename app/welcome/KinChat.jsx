@@ -61,7 +61,7 @@ export default function KinChat({ plan, onPlan, onApprove, intro, suggestions })
         <div className="flex-1 min-w-0 space-y-2.5">
           {messages.map((m, i) =>
             m.from === "kin" ? (
-              <div key={i} className="rounded-2xl rounded-tl-md bg-white border border-line px-3.5 py-2.5 text-sm text-primary leading-relaxed shadow-sm">
+              <div key={i} className="rounded-2xl rounded-tl-md bg-paper border border-line px-3.5 py-2.5 text-sm text-primary leading-relaxed shadow-sm">
                 {i === lastKin && m.typed ? <Typewriter key={m.text} text={m.text} /> : m.text}
                 {(m.added?.length > 0 || m.dropped?.length > 0) && (
                   <ul className="mt-2 space-y-1">
@@ -79,7 +79,7 @@ export default function KinChat({ plan, onPlan, onApprove, intro, suggestions })
             )
           )}
           {busy && (
-            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-md bg-white border border-line px-3.5 py-2.5 text-sm text-muted">
+            <div className="inline-flex items-center gap-2 rounded-2xl rounded-tl-md bg-paper border border-line px-3.5 py-2.5 text-sm text-muted">
               <Loader2 size={14} className="animate-spin" /> Kin is thinking…
             </div>
           )}
@@ -92,7 +92,7 @@ export default function KinChat({ plan, onPlan, onApprove, intro, suggestions })
           Looks great
         </button>
         {suggestions.map((s) => (
-          <button key={s} type="button" onClick={() => send(s)} disabled={busy} className="rounded-full border border-line bg-white px-3.5 py-2 text-xs font-medium text-primary hover:border-accent/50 transition-colors disabled:opacity-50">
+          <button key={s} type="button" onClick={() => send(s)} disabled={busy} className="rounded-full border border-line bg-paper px-3.5 py-2 text-xs font-medium text-primary hover:border-accent/50 transition-colors disabled:opacity-50">
             {s}
           </button>
         ))}

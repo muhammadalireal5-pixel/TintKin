@@ -310,7 +310,7 @@ export default function ReportCard({ report, userName }) {
                 </span>
               </>
             );
-            const cls = "flex items-center gap-3 p-3 rounded-2xl border border-line bg-white hover:bg-blush transition-colors";
+            const cls = "flex items-center gap-3 p-3 rounded-2xl border border-line bg-paper hover:bg-blush transition-colors";
             return href ? (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setShareOpen(false)}>{inner}</a>
             ) : (

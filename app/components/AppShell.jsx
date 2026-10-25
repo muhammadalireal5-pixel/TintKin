@@ -18,7 +18,9 @@ import Companion from "./companion/Companion";
 import FeedbackModal from "./companion/FeedbackModal";
 import { TAB_ITEMS, SIDEBAR_GROUPS, isActivePath } from "./nav-items";
 
-function Avatar({ user, size = "w-9 h-9" }) {
+function Avatar({ user, size = "w-9 h-9", loading = false }) {
+  // A skeleton until the account has loaded, so the avatar never flashes a placeholder initial.
+  if (loading) return <span className={`${size} rounded-full bg-blush animate-pulse shrink-0 block`} aria-hidden="true" />;
   return (
     <span className={`${size} rounded-full overflow-hidden bg-accent-soft border border-line flex items-center justify-center shrink-0`}>
       <UserAvatar photoURL={user?.photoURL} name={user?.displayName} email={user?.email} className="text-sm" />
@@ -90,6 +92,7 @@ function PublicShell({ children }) {
 }
 
 function Sidebar({ user, reportReady, onOpenSettings }) {
+  const { loading: authLoading } = useAuthContext();
   const pathname = usePathname();
   return (
     <aside
@@ -145,7 +148,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
         className="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-base/60 p-3 text-left hover:bg-blush/60 transition-colors"
         aria-label="Open settings"
       >
-        <Avatar user={user} size="w-10 h-10" />
+        <Avatar user={user} size="w-10 h-10" loading={authLoading} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-primary truncate">{user?.displayName || "Your account"}</span>
           <span className="block text-xs text-muted truncate">{user?.email}</span>
@@ -162,6 +165,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
 }
 
 function TopBar({ user, reportReady, focus }) {
+  const { loading } = useAuthContext();
   return (
     <header className="sticky top-0 z-30 bg-base/85 backdrop-blur-md md:bg-transparent md:backdrop-blur-none">
       <div className="h-16 px-5 md:px-8 flex items-center justify-between gap-3">
@@ -172,7 +176,7 @@ function TopBar({ user, reportReady, focus }) {
           <div className="flex items-center gap-2.5 ml-auto">
             <ReportBell ready={reportReady} />
             <Link href="/profile" aria-label="Profile" className="rounded-full hover:opacity-85 transition-opacity">
-              <Avatar user={user} size="w-10 h-10" />
+              <Avatar user={user} size="w-10 h-10" loading={loading} />
             </Link>
           </div>
         )}

@@ -43,7 +43,7 @@ function unlockScroll() {
 }
 
 // Solid, warm surface that matches the app's cards instead of frosted glass.
-const SURFACE = "bg-white text-primary border border-line shadow-[0_24px_64px_-16px_rgba(74,42,31,0.35)]";
+const SURFACE = "bg-paper text-primary border border-line shadow-[0_24px_64px_-16px_rgba(74,42,31,0.35)]";
 
 const SIZES = {
   sm: "sm:max-w-sm",

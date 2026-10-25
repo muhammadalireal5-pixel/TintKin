@@ -39,7 +39,7 @@ export default function CheckInCard({ plan }) {
     return (
       <section className="tk-card p-5 border-accent/40 bg-accent-soft/40" aria-label="Check-in due">
         <div className="flex items-center gap-4">
-          <span className="tk-icon-circle w-11 h-11 bg-white"><ScanFace size={20} /></span>
+          <span className="tk-icon-circle w-11 h-11 bg-paper"><ScanFace size={20} /></span>
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-semibold text-primary">Check-in due: see how far you&apos;ve come</p>
             <p className="text-sm text-muted">One scan in good, even light shows your progress against your aim.</p>

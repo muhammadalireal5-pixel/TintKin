@@ -1,8 +1,8 @@
+import { redirect } from "next/navigation";
 import { getLatestData, getReportStatus } from "@/app/lib/actions";
 import { getActivePlan } from "@/app/lib/plan-actions";
 import PlanTodayCard from "@/app/plan/PlanTodayCard";
 import PlanBuilder from "@/app/plan/PlanBuilder";
-import PlanLengthPrompt from "@/app/plan/PlanLengthPrompt";
 import FirstWeekChecklist from "./FirstWeekChecklist";
 import AnnouncementModal from "./AnnouncementModal";
 import { CURRENT_ANNOUNCEMENT, shouldShowAnnouncement } from "@/lib/constants/announcements";
@@ -48,8 +48,9 @@ async function DashboardContent() {
         ? { from: Math.round(plan.baseline.overallScore), delta: plan.progress.overallDelta }
         : null;
 
-    // Accounts from before plans could run for months were never asked how long.
-    const needsLength = Boolean(plan) && !user?.skinProfile?.planMonths;
+    // Accounts from before plans could run for months were never asked how long:
+    // send them to the same questionnaire, opened at that one question.
+    if (user?.skinProfile?.concerns?.length && !user.skinProfile.planMonths) redirect("/profile/skin?step=length");
     const firstWeek = plan && plan.day <= 14
         ? [
             { label: "Tell us about your skin", done: true },
@@ -74,18 +75,13 @@ async function DashboardContent() {
                 showLeaderboard={(user?.routineDays || 0) >= 3}
                 planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} /> : <PlanBuilder compact />}
                 // Under the plan card, which stays the first thing you see.
-                afterPlan={plan && (needsLength || firstWeek) ? (
-                    <div className="flex flex-col gap-4">
-                        {needsLength && <PlanLengthPrompt />}
-                    </div>
-                ) : null}
+                afterPlan={firstWeek ? <FirstWeekChecklist items={firstWeek} /> : null}
                 banners={
                     <>
                         {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
                         {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />
-                        {firstWeek && <FirstWeekChecklist items={firstWeek} />}
                         {latestSelfie?.isAnalyzed === false && (
                             <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                         )}

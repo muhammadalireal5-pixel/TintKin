@@ -500,7 +500,7 @@ export default function SettingsModal({ isOpen, onClose }) {
       panelClassName="flex flex-col max-h-[calc(92dvh-env(safe-area-inset-bottom))] sm:max-h-none sm:h-full"
     >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-6 pb-4 sm:pt-5 border-b border-line shrink-0 bg-white">
+        <div className="flex items-center justify-between px-5 pt-6 pb-4 sm:pt-5 border-b border-line shrink-0 bg-paper">
           <p className="text-lg font-semibold text-primary">Settings</p>
           <button
             onClick={onClose}
@@ -674,7 +674,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                       className={`px-2.5 py-1 rounded-full text-xs capitalize transition-all border ${
                         isSelected
                           ? "bg-accent text-white border-accent font-medium shadow-sm"
-                          : "bg-white text-muted border-line hover:border-accent/40"
+                          : "bg-paper text-muted border-line hover:border-accent/40"
                       }`}
                     >
                       {type}
@@ -700,7 +700,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-paper shadow ring-0 transition duration-200 ease-in-out ${
                     optIn ? "translate-x-4" : "translate-x-0"
                   }`}
                 />
@@ -741,7 +741,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                       }`}
                     >
                       <span
-                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-paper shadow ring-0 transition duration-200 ease-in-out ${
                           notifSubscribed ? "translate-x-4" : "translate-x-0"
                         }`}
                       />
@@ -825,7 +825,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     placeholder="Enter city name…"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/40 bg-white"
+                    className="flex-1 px-3 py-2 text-sm border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/40 bg-paper"
                     autoFocus
                   />
                   <button
@@ -1008,7 +1008,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         </div>
 
         {/* Sign out — pinned to bottom */}
-        <div className="px-5 py-4 border-t border-line shrink-0 bg-white pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="px-5 py-4 border-t border-line shrink-0 bg-paper pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={async () => {
               try {
@@ -1063,7 +1063,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-danger/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-danger bg-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-danger/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-danger bg-paper"
                 autoFocus
               />
             </div>

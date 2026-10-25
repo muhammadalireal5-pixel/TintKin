@@ -126,6 +126,7 @@ export default function Companion() {
   const prefs = useCompanionPrefs();
 
   const [state, setState] = useState(null);
+  const [loaded, setLoaded] = useState(false); // the account snapshot has come back (even if it failed)
   const [pushCanAsk, setPushCanAsk] = useState(false);
   const [bubble, setBubble] = useState(null); // { id, text, cta?, tour? }
   const [tour, setTour] = useState(null); // { key, step }
@@ -153,24 +154,9 @@ export default function Companion() {
   }, []);
   const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
-  // Kin arrives after the page itself has loaded, so it never competes with the
-  // content (or its data requests) for the first moments.
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    let timer = 0;
-    const arrive = () => {
-      timer = window.setTimeout(() => setReady(true), 1200);
-    };
-    if (document.readyState === "complete") arrive();
-    else window.addEventListener("load", arrive, { once: true });
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("load", arrive);
-    };
-  }, []);
-
+  // No timers: Kin simply shows once its own data has arrived (see `loaded`).
   const visible =
-    ready && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+    Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   // Walkthroughs finished on this device before the account remembered them: record them there too.
   const syncedTours = useRef(false);
@@ -184,7 +170,10 @@ export default function Companion() {
 
   /* ── account snapshot ─────────────────────────────────────────────── */
   const load = useCallback(() => {
-    getCompanionState().then(setState).catch(() => {});
+    getCompanionState()
+      .then(setState)
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -515,7 +504,7 @@ export default function Companion() {
     }
   };
 
-  if (!visible || !pos) {
+  if (!visible || !pos || !loaded) {
     // Keep the element out of the DOM until placed so it never flashes at 0,0.
     return null;
   }

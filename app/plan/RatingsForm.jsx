@@ -47,7 +47,7 @@ export default function RatingsForm({ plan, title = "How does your skin feel tod
   return (
     <section className="tk-card p-5 sm:p-6 border-accent/40 bg-accent-soft/40" aria-label="Check-in">
       <div className="flex items-center gap-3">
-        <span className="tk-icon-circle w-11 h-11 bg-white"><HeartHandshake size={20} /></span>
+        <span className="tk-icon-circle w-11 h-11 bg-paper"><HeartHandshake size={20} /></span>
         <div className="min-w-0">
           <p className="text-[15px] font-semibold text-primary">{title}</p>
           <p className="text-sm text-muted">Rate each area as it looks and feels right now. It takes 30 seconds.</p>
@@ -70,7 +70,7 @@ export default function RatingsForm({ plan, title = "How does your skin feel tod
                     onClick={() => setRatings((r) => ({ ...r, [f.metric]: n }))}
                     aria-pressed={on}
                     className={`rounded-xl border px-1 py-2.5 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                      on ? `${TONES[n]} scale-[1.04] shadow-sm font-semibold` : "bg-white border-line text-muted hover:border-accent/50"
+                      on ? `${TONES[n]} scale-[1.04] shadow-sm font-semibold` : "bg-paper border-line text-muted hover:border-accent/50"
                     }`}
                   >
                     <span className="block text-base tabular-nums">{n}</span>

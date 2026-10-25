@@ -24,7 +24,7 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
             <ul className="space-y-3">
               {BENEFITS.map((b) => (
                 <li key={b} className="flex items-start gap-3 text-sm text-primary">
-                  <span className="tk-icon-circle w-6 h-6 shrink-0 bg-white text-accent" aria-hidden="true">
+                  <span className="tk-icon-circle w-6 h-6 shrink-0 bg-paper text-accent" aria-hidden="true">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                   </span>
                   {b}

@@ -53,7 +53,7 @@ export default function NextPlanCard() {
   return (
     <section className="tk-card p-5 sm:p-6 bg-accent-soft/40 border-accent/30" aria-label="Month review">
       <div className="flex items-start gap-3">
-        <span className="tk-icon-circle w-10 h-10 bg-white shrink-0"><PartyPopper size={18} /></span>
+        <span className="tk-icon-circle w-10 h-10 bg-paper shrink-0"><PartyPopper size={18} /></span>
         <div className="min-w-0">
           <p className="text-base font-semibold text-primary">
             {final ? `You finished your ${review.totalMonths}-month journey` : `Month ${month} complete`}
@@ -94,7 +94,7 @@ export default function NextPlanCard() {
           </ul>
 
           {hasChanges && (
-            <div className="rounded-2xl bg-white border border-line p-4">
+            <div className="rounded-2xl bg-paper border border-line p-4">
               <p className="flex items-center gap-1.5 text-sm font-semibold text-primary">
                 <Sparkles size={15} className="text-accent" /> Are you okay if we change month {next} like this?
               </p>

@@ -13,7 +13,7 @@ function RoutineCheckbox({ checked }) {
     <motion.div
       whileTap={{ scale: 0.82 }}
       className={`mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-        checked ? "bg-accent border-accent text-white" : "border-[var(--tk-border-strong)] bg-white"
+        checked ? "bg-accent border-accent text-white" : "border-[var(--tk-border-strong)] bg-paper"
       }`}
     >
       <AnimatePresence>

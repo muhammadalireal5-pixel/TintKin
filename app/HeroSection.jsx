@@ -115,7 +115,7 @@ export function HeroSection() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/sign-up" className="tk-pill-btn tk-btn-primary w-full sm:w-auto">Build my free plan</Link>
-            <Link href="/pricing" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto bg-white">See pricing</Link>
+            <Link href="/pricing" className="tk-pill-btn tk-btn-ghost w-full sm:w-auto bg-paper">See pricing</Link>
           </div>
         </div>
       </section>

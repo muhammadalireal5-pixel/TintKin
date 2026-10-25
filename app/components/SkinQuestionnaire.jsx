@@ -115,7 +115,7 @@ const PREGNANCY_SHORT = [
 // changes size when it is tapped.
 const tile = (on) =>
   `relative w-full text-left rounded-2xl border px-3 py-2 min-h-[2.75rem] text-[13px] leading-snug font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-    on ? "bg-accent-soft border-accent text-accent-deep ring-1 ring-accent" : "bg-white border-line text-primary hover:border-accent/50"
+    on ? "bg-accent-soft border-accent text-accent-deep ring-1 ring-accent" : "bg-paper border-line text-primary hover:border-accent/50"
   }`;
 
 const Tick = () => (
@@ -177,11 +177,14 @@ export const EMPTY_SKIN_FORM = {
  * `{ success, error }`; the caller decides what happens next. `fit` sizes the
  * card to the screen (focused onboarding shell, no nav) so no step scrolls.
  */
-export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit, finalLabel = "Build my plan", fit = false }) {
-  const [step, setStep] = useState(0);
+export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit, finalLabel = "Build my plan", fit = false, startStep = null }) {
+  // `startStep` opens at a given step (an existing user who only needs the new
+  // question lands on it, with Back still there for the earlier answers).
+  const firstStep = Math.max(0, STEPS.findIndex((s) => s.id === startStep));
+  const [step, setStep] = useState(firstStep);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [kin, setKin] = useState({ text: KIN_INTRO.about, nudge: 0 });
+  const [kin, setKin] = useState({ text: KIN_INTRO[STEPS[firstStep].id], nudge: 0 });
 
   const [form, setForm] = useState({ ...EMPTY_SKIN_FORM, ...initial });
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -243,6 +246,14 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
     setError("");
     if (step < STEPS.length - 1) {
       goTo(step + 1);
+      return;
+    }
+
+    // Anything left unanswered (an older account, or a skipped step) sends them back to it.
+    const gap = STEPS.findIndex((s) => missing(s.id));
+    if (gap >= 0) {
+      goTo(gap);
+      setError(missing(STEPS[gap].id));
       return;
     }
 
@@ -308,7 +319,7 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
             </div>
             <div className="flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1}>
               {STEPS.map((s, i) => (
-                <span key={s.id} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= step ? "bg-accent" : "bg-white/70"}`} />
+                <span key={s.id} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= step ? "bg-accent" : "bg-paper/70"}`} />
               ))}
             </div>
             <h1 key={current.id} className="text-[1.3rem] sm:text-2xl font-semibold text-primary leading-tight mt-3 tk-anim-2">{current.title}</h1>
@@ -414,7 +425,7 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
                               onClick={() => pick({ ratings: { ...form.ratings, [key]: n } }, KIN_RATING[n])}
                               aria-pressed={on}
                               className={`rounded-xl border px-0.5 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                                on ? `${RATING_TONES[n]} ring-1 font-semibold` : "bg-white border-line text-muted hover:border-accent/50"
+                                on ? `${RATING_TONES[n]} ring-1 font-semibold` : "bg-paper border-line text-muted hover:border-accent/50"
                               }`}
                             >
                               <span className="block text-base tabular-nums leading-none">{n}</span>

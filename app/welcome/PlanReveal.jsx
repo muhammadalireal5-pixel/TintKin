@@ -15,7 +15,7 @@ const TINTS = [
   { card: "from-sage/50 to-surface", dot: "bg-success", ring: "ring-success" },
 ];
 
-function Chip({ children, delay, tone = "bg-white" }) {
+function Chip({ children, delay, tone = "bg-paper" }) {
   return (
     <span className={`tk-float inline-flex items-center rounded-full ${tone} border border-white/70 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-primary shadow-sm`} style={{ "--d": `${delay}s` }}>
       {children}
@@ -30,7 +30,7 @@ function RatingTrack({ baseline, target, tint }) {
         {[1, 2, 3, 4, 5].map((n) => (
           <span
             key={n}
-            className={`h-2.5 flex-1 rounded-full ${n <= baseline ? tint.dot : "bg-white/80"} ${n === target ? `ring-2 ring-offset-1 ${tint.ring}` : ""}`}
+            className={`h-2.5 flex-1 rounded-full ${n <= baseline ? tint.dot : "bg-paper/80"} ${n === target ? `ring-2 ring-offset-1 ${tint.ring}` : ""}`}
           />
         ))}
       </div>
@@ -49,7 +49,7 @@ function StepList({ title, icon: Icon, steps }) {
       <ul className="space-y-1.5">
         {steps.map((s) => (
           <li key={s.id}>
-            <details className="group rounded-xl bg-white/70 px-3 py-2">
+            <details className="group rounded-xl bg-paper/70 px-3 py-2">
               <summary className="cursor-pointer list-none text-sm text-primary leading-snug flex items-start justify-between gap-2">
                 <span>{s.text}</span>
                 {s.why && <span className="text-[10px] font-semibold uppercase tracking-wide text-accent shrink-0 mt-0.5 group-open:hidden">why</span>}
@@ -133,7 +133,7 @@ export default function PlanReveal({ plan: initialPlan, profile, firstName }) {
       </section>
 
       <section className="tk-pop rounded-2xl bg-gradient-to-br from-sage/50 to-surface border border-white/70 p-4 flex items-start gap-3" style={{ "--d": "0.1s" }} aria-label="Safety">
-        <span className="tk-icon-circle w-10 h-10 bg-white shrink-0"><ShieldCheck size={18} /></span>
+        <span className="tk-icon-circle w-10 h-10 bg-paper shrink-0"><ShieldCheck size={18} /></span>
         <div>
           <p className="text-sm font-semibold text-primary">Built to be safe for you</p>
           <p className="text-sm text-primary/80 leading-relaxed">{safetyLine(profile)}</p>

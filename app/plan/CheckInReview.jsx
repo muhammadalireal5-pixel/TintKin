@@ -37,7 +37,7 @@ export default function CheckInReview() {
   return (
     <section className="tk-card p-5 bg-accent-soft/40 border-accent/30" role="status" aria-live="polite" aria-label="Check-in review">
       <div className="flex items-start gap-3">
-        <span className="tk-icon-circle w-10 h-10 bg-white shrink-0">
+        <span className="tk-icon-circle w-10 h-10 bg-paper shrink-0">
           {state === "reviewing" ? <Loader2 size={18} className="animate-spin" /> : <MessageCircleHeart size={18} />}
         </span>
         <div className="min-w-0">

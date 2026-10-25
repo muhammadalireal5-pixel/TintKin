@@ -46,7 +46,7 @@ export default function StreakChip({ streak, longestStreak, weeklyGoal, trophies
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1.5 rounded-full bg-white border border-line pl-2.5 pr-3 py-1.5 text-sm font-semibold text-primary shadow-sm hover:border-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="inline-flex items-center gap-1.5 rounded-full bg-paper border border-line pl-2.5 pr-3 py-1.5 text-sm font-semibold text-primary shadow-sm hover:border-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <Flame size={15} className={`text-accent ${streak > 0 ? "tk-anim-flame" : ""}`} />
         {label}

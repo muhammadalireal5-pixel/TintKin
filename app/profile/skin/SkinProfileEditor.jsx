@@ -14,7 +14,7 @@ import { retireActivePlan, refreshPlanFromProfile } from "@/app/lib/plan-actions
  * the rest of the plan to match (day and progress kept), start over from day 1,
  * or leave the plan as it is.
  */
-export default function SkinProfileEditor({ initial, hasProfile, hasPlan }) {
+export default function SkinProfileEditor({ initial, hasProfile, hasPlan, lengthOnly = false }) {
   const router = useRouter();
   const [saved, setSaved] = useState(null); // { stopped }
   const [busy, setBusy] = useState("");
@@ -95,6 +95,11 @@ export default function SkinProfileEditor({ initial, hasProfile, hasPlan }) {
         <Link href="/profile" className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-deep">
           <ArrowLeft size={15} /> Back to profile
         </Link>
+        {lengthOnly && (
+          <p className="mt-3 rounded-2xl bg-accent-soft/60 border border-accent/20 px-4 py-3 text-sm text-primary">
+            Plans can now run for months. Tell us how long you&apos;d like to work on your skin, and we&apos;ll carry on from where you are.
+          </p>
+        )}
         {!hasProfile && (
           <p className="mt-3 rounded-2xl bg-accent-soft/60 border border-accent/20 px-4 py-3 text-sm text-primary">
             We&apos;ve improved how TintKin builds your plan. A few new questions let us make it safer and more personal.
@@ -104,9 +109,14 @@ export default function SkinProfileEditor({ initial, hasProfile, hasPlan }) {
       <SkinQuestionnaire
         initial={initial}
         finalLabel="Save my answers"
+        startStep={lengthOnly ? "length" : null}
         onSubmit={async (payload) => {
           const res = await updateSkinProfile(payload);
-          if (res?.success) setSaved({ stopped: res.stopped || 0 });
+          if (res?.success) {
+            // Only the length was new: back to where they were, nothing to rebuild.
+            if (lengthOnly) router.replace("/dashboard");
+            else setSaved({ stopped: res.stopped || 0 });
+          }
           return res;
         }}
       />

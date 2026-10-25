@@ -205,7 +205,7 @@ function SignInForm() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
-              className="tk-pill-btn tk-btn-ghost w-full gap-3 bg-white disabled:opacity-50"
+              className="tk-pill-btn tk-btn-ghost w-full gap-3 bg-paper disabled:opacity-50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
