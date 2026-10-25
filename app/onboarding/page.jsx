@@ -8,6 +8,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   return (
     <SkinQuestionnaire
+      fit
       onSubmit={async (payload) => {
         const res = await completeOnboarding(payload);
         if (res.success) router.replace("/welcome");

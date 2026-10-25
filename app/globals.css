@@ -17,7 +17,7 @@
 
   --color-primary: #4A2530;     /* ink: text + dark UI */
   --color-cocoa: #6B3342;       /* active segment / dark chips */
-  --color-muted: #7E5B64;
+  --color-muted: #6B4651;
   --color-faint: #B09AA0;
 
   --color-accent: #B5546A;      /* rose clay: primary buttons, links, FAB */
@@ -42,7 +42,7 @@
   --tk-bg: #FCF4F2;
   --tk-bg-top: #F9E6E6;
   --tk-text-primary: #4A2530;
-  --tk-text-muted: #7E5B64;
+  --tk-text-muted: #6B4651;
   --tk-text-faint: #B09AA0;
 
   --tk-accent: #B5546A;
@@ -143,7 +143,7 @@ html[data-theme="terracotta"] {
   --color-line: #F0DFD4;
   --color-primary: #4A2A1F;
   --color-cocoa: #6E3B2B;
-  --color-muted: #86685A;
+  --color-muted: #704F42;
   --color-faint: #AE968A;
   --color-accent: #B7543A;
   --color-accent-deep: #9C432C;
@@ -154,7 +154,7 @@ html[data-theme="terracotta"] {
   --tk-bg: #FBF3EE;
   --tk-bg-top: #FBE9DF;
   --tk-text-primary: #4A2A1F;
-  --tk-text-muted: #86685A;
+  --tk-text-muted: #704F42;
   --tk-text-faint: #AE968A;
   --tk-accent: #B7543A;
   --tk-accent-deep: #9C432C;
@@ -337,17 +337,17 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--tk-accent);
   }
   .tk-eyebrow {
-    font-size: 0.6875rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--tk-text-muted);
+    color: var(--tk-accent-deep);
   }
   /* Type scale for small text. Use these instead of text-[10px] / text-[11px].
      caption: helper text, timestamps, chip labels (12px)
-     micro:   badges and dense labels, never body copy (11px) */
+     micro:   badges and dense labels, never body copy (12px) */
   .tk-text-caption { font-size: 0.75rem; line-height: 1.1rem; }
-  .tk-text-micro { font-size: 0.6875rem; line-height: 1rem; }
+  .tk-text-micro { font-size: 0.75rem; line-height: 1rem; }
   /* Radius scale: inputs/chips rounded-lg, tiles rounded-xl, cards rounded-2xl,
      modals/sheets rounded-3xl, buttons rounded-full. */
   .tk-section-title {

@@ -6,11 +6,6 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronRight,
-  Target,
-  CalendarCheck,
-  Sun,
-  Moon,
-  Dumbbell,
   ShoppingBag,
   Sparkles,
   FileText,
@@ -55,6 +50,8 @@ function Delta({ value }) {
 
 function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans, sinceStart }) {
   const label = mode === "week" ? "WEEKLY SKIN SCORE" : "SKIN SCORE";
+  // The skin age number sits next to the name; here only how it compares.
+  const ageNote = skinAgeLine?.replace(/^Skin age d+s*(·s*)?/, "") || "";
   return (
     <section data-tour="score" className="tk-card relative overflow-hidden h-[13.25rem] sm:h-[14.5rem] lg:h-[17rem]" aria-label="Skin score">
       {/* Latest scan. Fixed 3:4 frame pinned to the right so the photo keeps the
@@ -102,7 +99,7 @@ function ScoreCard({ mode, score, delta, band, skinAgeLine, photoUrl, weekScans,
           )}
         </div>
 
-        {skinAgeLine && <p className="mt-3 text-xs lg:text-sm text-muted leading-snug">{skinAgeLine}</p>}
+        {ageNote && <p className="mt-3 text-sm text-muted leading-snug">{ageNote}</p>}
       </div>
     </section>
   );
@@ -129,65 +126,6 @@ function MetricRow({ metrics, mode }) {
   );
 }
 
-function FocusCard({ focus }) {
-  return (
-    <Link
-      data-tour="focus"
-      href="/routine"
-      className="tk-card flex items-center gap-3.5 p-4 sm:p-5 hover:border-accent/40 transition-colors"
-    >
-      <span className="tk-icon-circle w-11 h-11"><Target size={20} /></span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-primary">Today&apos;s Focus</span>
-        <span className="block text-sm font-medium text-primary/90 mt-0.5">{focus.title}</span>
-        <span className="block text-xs text-muted mt-0.5 line-clamp-2">{focus.text}</span>
-      </span>
-      <ChevronRight size={18} className="text-muted shrink-0" />
-    </Link>
-  );
-}
-
-function PlanSection({ plan }) {
-  const tiles = [
-    { href: "/routine?tab=am", label: "Morning Routine", icon: Sun, done: plan.amDone, total: plan.amTotal },
-    { href: "/routine?tab=pm", label: "Evening Routine", icon: Moon, done: plan.pmDone, total: plan.pmTotal },
-    { href: "/routine#workout", label: "Face Workout", icon: Dumbbell, text: plan.hasWorkout ? "1 move" : "—" },
-    { href: "/routine#products", label: "Products", icon: ShoppingBag, text: plan.productCount ? `${plan.productCount} picks` : "—" },
-  ];
-  const total = plan.amTotal + plan.pmTotal;
-  const done = plan.amDone + plan.pmDone;
-  return (
-    <section data-tour="plan" className="tk-card p-4 sm:p-5 lg:p-6" aria-label="Today's plan">
-      <div className="flex items-center justify-between gap-2 mb-3.5">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-primary">
-          <CalendarCheck size={18} className="text-accent" /> Today&apos;s Plan
-        </h2>
-        {total > 0 && <span className="text-xs text-muted tabular-nums">{done} of {total} completed</span>}
-      </div>
-      <div className="grid grid-cols-4 gap-2 sm:gap-3">
-        {tiles.map(({ href, label, icon: Icon, done: d, total: t, text }) => {
-          const complete = typeof t === "number" && t > 0 && d >= t;
-          return (
-            <Link
-              key={label}
-              href={href}
-              className={`tk-tile flex flex-col items-center text-center gap-1.5 px-1.5 py-3 lg:py-6 hover:border-accent/40 transition-colors ${complete ? "bg-success-soft" : ""}`}
-            >
-              <span className={`w-8 h-8 flex items-center justify-center ${complete ? "text-success" : "text-accent"}`}>
-                <Icon size={22} strokeWidth={1.8} className="lg:scale-125" />
-              </span>
-              <span className="tk-text-micro sm:text-xs lg:text-sm font-semibold text-primary leading-tight">{label}</span>
-              <span className="tk-text-micro text-muted tabular-nums">
-                {typeof t === "number" ? `${d}/${t}` : text}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function StreakCard({ streak, longestStreak, weeklyGoal, trophies }) {
   const returning = streak === 0 && longestStreak > 0;
   const title = streak > 0 ? `${streak} day streak` : returning ? "Welcome back" : "Start your streak";
@@ -206,7 +144,7 @@ function StreakCard({ streak, longestStreak, weeklyGoal, trophies }) {
           <Flame size={20} className={streak > 0 ? "tk-anim-flame" : ""} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-primary">{title}</p>
+          <p className="text-base font-semibold text-primary">{title}</p>
           <p className="text-xs text-muted">{sub}</p>
         </div>
         <Link href="/share" className="tk-pill-btn tk-btn-soft px-3.5 py-2 text-xs">
@@ -251,7 +189,7 @@ function ExploreGrid({ reportReady, showLeaderboard }) {
   ].filter(Boolean);
   return (
     <section data-tour="explore" aria-label="Explore" className="rounded-2xl">
-      <h2 className="text-[15px] font-semibold text-primary mb-3">Explore</h2>
+      <h2 className="text-base font-semibold text-primary mb-3">Explore</h2>
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {items.map(({ href, label, sub, icon: Icon, dot }) => (
           <Link
@@ -275,8 +213,8 @@ function ExploreGrid({ reportReady, showLeaderboard }) {
 /**
  * The "Today" screen: greeting, Today/This-week toggle (the reference's
  * Skin | Hair toggle — TintKin is skin-only, so it switches the score between
- * the latest scan and the weekly average), score card, four metrics, focus,
- * plan and shortcuts. On desktop it splits into a main column and a side rail.
+ * the latest scan and the weekly average), score card, four metrics,
+ * and shortcuts (the plan card is the one way into today's steps). On desktop it splits into a main column and a side rail.
  */
 export default function TodayView({ data, radar, banners, planCard, sinceStart, scanInvite = null, showLeaderboard = true }) {
   const [mode, setMode] = useState("today");
@@ -301,12 +239,19 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0">
-        <header className="order-1">
-          <p className="text-[15px] text-muted">{greeting}</p>
-          <h1 className="text-[2rem] sm:text-4xl lg:text-5xl font-semibold text-primary leading-tight truncate">
-            {data.firstName || "Welcome back"}
-          </h1>
-          <p className="text-sm text-muted mt-0.5">Your skin story continues here.</p>
+        <header className="order-1 flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted">{greeting}</p>
+            <h1 className="text-[2rem] sm:text-4xl lg:text-5xl font-semibold text-primary leading-tight truncate">
+              {data.firstName || "Welcome back"}
+            </h1>
+          </div>
+          {typeof data.skinAge === "number" && (
+            <div className="shrink-0 text-right pb-1" aria-label={`Skin age ${data.skinAge}`}>
+              <p className="tk-eyebrow">Skin age</p>
+              <p className="text-[2rem] sm:text-4xl font-semibold text-accent-deep leading-none tabular-nums mt-1">{data.skinAge}</p>
+            </div>
+          )}
         </header>
 
         {banners && <div className="order-1 flex flex-col gap-3 empty:hidden">{banners}</div>}
@@ -348,17 +293,13 @@ export default function TodayView({ data, radar, banners, planCard, sinceStart, 
           </>
         )}
 
-        <div className="order-6">
-          <PlanSection plan={data.plan} />
-        </div>
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">
-        {!noScan && <div className="order-5"><FocusCard focus={data.focus} /></div>}
         <div className="order-7"><StreakCard streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} /></div>
         {radar && isLarge && (
           <section className="tk-card p-4 sm:p-5 order-8" aria-label="Skin profile">
-            <h2 className="text-[15px] font-semibold text-primary mb-1">Skin profile</h2>
+            <h2 className="text-base font-semibold text-primary mb-1">Skin profile</h2>
             <div className="relative h-60">{radar}</div>
           </section>
         )}

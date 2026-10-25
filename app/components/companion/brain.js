@@ -63,8 +63,7 @@ export const TOURS = {
     path: "/dashboard",
     offer: "Your plan is ready! Want me to show you around?",
     steps: [
-      { text: "This is your plan: the day you're on, today's steps and how your two focus areas are moving.", target: '[data-tour="plan-card"]' },
-      { text: "Today's Plan shows your morning and evening routine. Tap a tile to tick steps off.", target: '[data-tour="plan"]' },
+      { text: "This is your plan: the day you're on and how your focus areas are moving. Tap it to open today's steps.", target: '[data-tour="plan-card"]' },
       { text: "Use the bottom bar to move around: Plan, Progress and Profile. The round button is for optional progress scans.", target: '[data-tour="nav"]' },
       { text: "Under Explore you'll find What-If, Reports, the Leaderboard and the Shop. That's the tour. I'll be around!", target: '[data-tour="explore"]' },
     ],

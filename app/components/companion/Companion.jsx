@@ -15,8 +15,9 @@ import { openFeedback } from "./FeedbackModal";
 const SIZE = 104;
 const MARGIN = 8;
 const TAP_SLOP = 6;
-// Kin follows signed-in users everywhere except the admin portal.
-const HIDDEN_PREFIXES = ["/admin"];
+// Kin follows signed-in users everywhere except the admin portal. Onboarding has
+// its own inline Kin (it would otherwise sit on top of the questionnaire).
+const HIDDEN_PREFIXES = ["/admin", "/onboarding"];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -337,6 +338,16 @@ export default function Companion() {
     return () => el.removeAttribute("data-tour-active");
   }, [tour]);
 
+  // Tapping anywhere outside a message closes it (tours wait for Next / Done).
+  useEffect(() => {
+    if (!bubble || tour) return undefined;
+    const onDown = (e) => {
+      if (!e.target.closest?.("[data-kin-ignore]")) setBubble(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [bubble, tour]);
+
   /* ── dragging ─────────────────────────────────────────────────────── */
   const onPointerDown = (e) => {
     if (!pos) return;
@@ -527,11 +538,11 @@ export default function Companion() {
             type="button"
             aria-label="Close"
             onClick={() => (tour ? finishTour(tour.key) : setBubble(null))}
-            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-muted hover:bg-blush"
+            className="absolute top-1 right-1 w-8 h-8 rounded-full flex items-center justify-center text-primary/70 bg-blush/70 hover:bg-blush hover:text-primary focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
-          <Typewriter key={text} text={text} className="text-sm text-primary leading-snug pr-5" />
+          <Typewriter key={text} text={text} className="text-sm text-primary leading-snug pr-7" />
 
           {tour ? (
             <div className="mt-3 flex items-center justify-between gap-2">
@@ -597,6 +608,17 @@ export default function Companion() {
                 <span />
               )}
               <span className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBubble(null);
+                    updateCompanionPrefs({ enabled: false });
+                  }}
+                  className="tk-text-micro text-muted underline hover:text-primary"
+                  title="You can turn Kin back on in Profile"
+                >
+                  Hide Kin
+                </button>
                 <button
                   type="button"
                   onClick={() => {

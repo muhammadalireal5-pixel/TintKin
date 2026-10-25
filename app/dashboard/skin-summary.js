@@ -110,6 +110,7 @@ export function buildSkinSummary({
     delta,
     band: scoreBand(overallScore),
     skinAgeLine,
+    skinAge: hasSkinAge ? skinAge : null,
     photoUrl: sourceData.imageUrl || latestSelfie?.imageUrl || null,
     metrics,
     weekScore: {

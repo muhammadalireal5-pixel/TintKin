@@ -201,8 +201,11 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
         ]}
       />
 
+      {/* On a phone both lists share one grid cell and the hidden one keeps its
+          space, so the card is as tall as the longer list and switching tabs
+          never changes the page height. */}
       <div className="grid md:grid-cols-2 gap-4 items-start">
-        <div className={tab === "am" ? "" : "hidden md:block"}>
+        <div className={`col-start-1 row-start-1 md:row-start-auto ${tab === "am" ? "" : "max-md:invisible max-md:pointer-events-none"}`}>
           <StepList
             id="morning"
             title="Morning Routine"
@@ -214,7 +217,7 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
             emptyText="Take a selfie to get your personalised AM routine."
           />
         </div>
-        <div className={tab === "pm" ? "" : "hidden md:block"}>
+        <div className={`col-start-1 row-start-1 md:col-start-2 md:row-start-auto ${tab === "pm" ? "" : "max-md:invisible max-md:pointer-events-none"}`}>
           <StepList
             id="evening"
             title="Evening Routine"

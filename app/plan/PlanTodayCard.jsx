@@ -30,11 +30,13 @@ export default function PlanTodayCard({ plan, stepsLeft }) {
         <PlanProgress progress={plan.progress} compact />
       </div>
 
-      {due && (
-        <Link href="/routine" className="tk-pill-btn tk-btn-primary w-full mt-5">
-          <HeartHandshake size={16} /> Check-in due: rate your skin
-        </Link>
-      )}
+      <Link href="/routine" className="tk-pill-btn tk-btn-primary w-full mt-5">
+        {due ? (
+          <><HeartHandshake size={16} /> Check-in due: rate your skin</>
+        ) : (
+          <>{stepsLeft > 0 || plan.expired ? "Open today's steps" : "See today's plan"} <ChevronRight size={16} /></>
+        )}
+      </Link>
     </section>
   );
 }
