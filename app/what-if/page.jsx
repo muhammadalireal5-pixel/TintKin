@@ -151,8 +151,8 @@ export default function WhatIfPage() {
           setHasSelfie(false);
         }
         
-        if (d.latestSelfie && d.latestSelfie.recommendedProducts && d.latestSelfie.recommendedProducts.length > 0) {
-          setProducts(d.latestSelfie.recommendedProducts);
+        if (Array.isArray(d.recommendedProducts) && d.recommendedProducts.length > 0) {
+          setProducts(d.recommendedProducts);
         }
       })
       .catch((err) => {
@@ -205,7 +205,7 @@ export default function WhatIfPage() {
       labelB = "Without Routine";
     } else if (simMode === "compare") {
       const pA = products[prodAIndex] || products[0];
-      const pB = products[prodBIndex] || products[1];
+      const pB = products[prodBIndex] || products[1] || products[0];
       interventionsA = [pA];
       interventionsB = [pB];
       labelA = `Using ${pA.type} (${pA.formula || pA.type})`;

@@ -22,7 +22,7 @@ export const metadata = {
 
 export default async function RoutinePage({ searchParams }) {
     const { tab } = await searchParams;
-    const { user, latestSelfie, latestAnalyzedSelfie, todayRoutineLog } = await getLatestData(null, { selfieLimit: 1 });
+    const { user, latestSelfie, latestAnalyzedSelfie, todayRoutineLog, recommendedProducts } = await getLatestData(null, { selfieLimit: 1 });
 
     const source = latestAnalyzedSelfie || latestSelfie || {};
     const { amRoutine, pmRoutine, facialWorkout } = source;
@@ -33,7 +33,7 @@ export default async function RoutinePage({ searchParams }) {
     const plan = planRes?.success ? planRes.plan : null;
 
     // Only picks made for this person count; there is no generic starter list here.
-    const products = Array.isArray(latestSelfie?.recommendedProducts) ? latestSelfie.recommendedProducts : [];
+    const products = Array.isArray(recommendedProducts) ? recommendedProducts : [];
     const routineProps = {
         completedAm: todayRoutineLog?.amCompleted || [],
         completedPm: todayRoutineLog?.pmCompleted || [],

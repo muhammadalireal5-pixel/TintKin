@@ -25,7 +25,8 @@ import {
 import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
 import { recordScanOnPlan, getTodayRoutineKeys, sweepPlanSafety, setPlanMonths } from "./plan";
-import { toPlanView } from "@/lib/plan/state";
+import { toPlanView, getPlanDay } from "@/lib/plan/state";
+import { deriveProductsFromPlan } from "@/lib/plan/products";
 import { sanitizeRecommendedProducts, makeAdviceSafe, makeProductsSafe } from "@/lib/plan/scan-safety";
 import { toPlainUser } from "@/lib/plan/engine";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
@@ -991,6 +992,9 @@ export async function getLatestData(timezone = null, options = {}) {
       row.recommendedProducts = makeProductsSafe(row.recommendedProducts, plainUser);
     }
   }
+  const recommendedProducts = planRoutine
+    ? deriveProductsFromPlan(planRoutine.plan, getPlanDay(planRoutine.plan, getLocalDayKey(timezone, now)))
+    : latestSelfie?.recommendedProducts ?? [];
 
   if (latestSelfie?.imageUrl) {
     latestSelfie.imageUrl = signCloudinaryUrl(latestSelfie.imageUrl);
@@ -1012,6 +1016,7 @@ export async function getLatestData(timezone = null, options = {}) {
     todayRoutineLog,
     todayRoutine,
     habitConsistency,
+    recommendedProducts,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
     activity,
@@ -2129,7 +2134,7 @@ export async function updateSkinProfile(data) {
     const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
     // Keep an earlier length choice if this form did not send one.
     const planMonths = skinProfile.planMonths ?? user.skinProfile?.planMonths;
-    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile({ ...skinProfile, planMonths }) }, { new: true });
+    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile({ ...skinProfile, planMonths }), recommendationsLockedUntil: null }, { new: true });
     // Safety first: a step the new answers rule out stops now, whatever they
     // choose to do with the rest of the plan.
     // A new length applies to the running plan too (never below the month they are in).
