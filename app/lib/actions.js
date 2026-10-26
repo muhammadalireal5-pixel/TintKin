@@ -8,6 +8,9 @@ import { revalidatePath } from "next/cache";
 import { verifyAdminSession } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo, SIM_CROP_OPTIONS } from "./youcam";
 import { projectTrajectory } from "./predict";
+import { loadWhatIfInputs, describeInputs, previewWhatIfInputs } from "./whatif-inputs";
+import { assessReliability } from "@/lib/whatif/reliability";
+import { IMPACT_KEYS } from "@/lib/whatif/lifestyle";
 import { generatePersonalizedAdvice, analyzeProductIngredients } from "./qwen";
 import { evaluateUserAchievements, MILESTONE_REWARDS } from "./achievements";
 import { advanceStreak, displayStreak, summarizeActivity } from "@/lib/utils/streak";
@@ -1039,9 +1042,21 @@ export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
   }));
 }
 
-export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null) {
+export async function getWhatIfInputs(timezone = "UTC", overrides = {}) {
   timezone = normalizeTimezone(timezone);
-  const { user, latestSelfie, allSelfies, lifestyleLogs, realAge } = await getLatestData();
+  const user = await getDbUser();
+  try {
+    const { built, reliability, scanCount } = await previewWhatIfInputs(user, timezone, overrides && typeof overrides === "object" ? overrides : {});
+    return { success: true, inputs: describeInputs(built), reliability, scanCount };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "whatif-inputs" } });
+    return { success: false };
+  }
+}
+
+export async function runWhatIfSim(interventionsA = [], interventionsB = [], labelA = "", labelB = "", timezone = "UTC", customImageUrl = null, lifestyleOverrides = {}) {
+  timezone = normalizeTimezone(timezone);
+  const { user, latestSelfie, allSelfies, realAge } = await getLatestData();
   await syncUserTimezone(user, timezone);
 
   const rateCheck = await checkRateLimit(user._id.toString(), "simulate", 5, 60000);
@@ -1141,10 +1156,14 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     // today's score. Projections normally decline from today (skin ages), so
     // projected - today was always <= 0 and zeroed every intensity, leaving
     // the simulated photo essentially unchanged.
-    const projNone = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, [], allSelfies);
+    const built = await loadWhatIfInputs(user, timezone, lifestyleOverrides && typeof lifestyleOverrides === "object" ? lifestyleOverrides : {});
+    const lifestyle = { ...built.values, source: IMPACT_KEYS.every((k) => built.sources[k] !== "default") ? "user" : "partial" };
+    const projNone = projectTrajectory(baseline, TARGET_YEARS, lifestyle, [], allSelfies);
+    const reliability = assessReliability({ velocitySource: projNone.meta.velocitySource, sources: built.sources });
+    const inputs = describeInputs(built).map(({ key, value, source, detail }) => ({ key, value, source, detail }));
 
     const buildScenario = async (interventions, label) => {
-      const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyleLogs, interventions, allSelfies);
+      const proj = projectTrajectory(baseline, TARGET_YEARS, lifestyle, interventions, allSelfies);
       // A 1-year projection moves scores by only a point or two, too faint to
       // see on a raw 0-1 scale, so the *illustration* is boosted, within each
       // concern's own ceiling (high values look over-processed). How much the
@@ -1238,6 +1257,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       scenarioA: { ...scenarioA, products: listA },
       scenarioB: { ...scenarioB, products: listB },
       deltas,
+      inputs,
+      reliability,
       targetAge: realAge + TARGET_YEARS
     });
 
@@ -1248,6 +1269,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
       scenarioA, 
       scenarioB, 
       deltas, 
+      inputs,
+      reliability,
       targetAge: realAge + TARGET_YEARS 
     });
   } catch (err) {

@@ -154,7 +154,7 @@ export function projectTrajectory(
   interventions = [],
   selfieHistory = []
 ){
-    const normalizedLifestyle = Array.isArray(lifestyle) ? normalizeLifestyle(lifestyle) : {...DEFAULT_LIFESTYLE, ...lifestyle, source:"partial"}
+    const normalizedLifestyle = Array.isArray(lifestyle) ? normalizeLifestyle(lifestyle) : {...DEFAULT_LIFESTYLE, ...lifestyle, source: lifestyle.source ?? "partial"}
     const mult = getMultiplier(normalizedLifestyle, interventions)
 
     const result = {scores:{}, meta:{}}

@@ -269,6 +269,8 @@ const SimulationSchema = new mongoose.Schema({
     scenarioA: Object,
     scenarioB: Object,
     deltas: Object,
+    inputs: Array,
+    reliability: Object,
     targetAge: Number,
     resultA: Object,
     resultB: Object,

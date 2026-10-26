@@ -9,6 +9,9 @@ import ProductImage from "@/app/dashboard/ProductImage";
 import ConfirmModal from "@/app/components/ConfirmModal";
 import AnimatedModal from "@/app/components/AnimatedModal";
 import ProductScanModal from "./ProductScanModal";
+import LifestyleInputs from "./LifestyleInputs";
+import { presentScore, presentDelta } from "@/lib/whatif/reliability";
+import { reliabilityNote } from "@/lib/whatif/labels";
 import { Check, FlaskConical, Scale, Star, Settings, Calendar, Sparkles, ArrowLeft, ArrowRight, Plus, Lock, X } from "lucide-react";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import * as Sentry from "@sentry/nextjs";
@@ -54,6 +57,11 @@ export default function WhatIfPage() {
   const [customListB, setCustomListB] = useState([]);
 
   const [result, setResult] = useState(null);
+  const [lifestyleOverrides, setLifestyleOverrides] = useState({});
+  const reliability = result?.reliability || null;
+  const scoreLevel = reliability ? reliability.scores : "high";
+  const ageLevel = reliability ? reliability.skinAge : "high";
+  const reliabilityText = result ? reliabilityNote(reliability, { legacy: !reliability }) : "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
@@ -220,7 +228,7 @@ export default function WhatIfPage() {
 
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB, tz, customImageUrl);
+      const res = await runWhatIfSim(interventionsA, interventionsB, labelA, labelB, tz, customImageUrl, lifestyleOverrides);
       setLoading(false);
 
       if (res.success) {
@@ -620,6 +628,8 @@ export default function WhatIfPage() {
           </div>
         </div>
 
+        <LifestyleInputs overrides={lifestyleOverrides} onChange={setLifestyleOverrides} />
+
         {/* Step 3: Run Simulation Summary Bar */}
         <div className="tk-card p-6 sm:p-7 rounded-3xl mb-10 tk-anim-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -764,8 +774,8 @@ export default function WhatIfPage() {
                     Quantitative Impact Analysis
                   </h3>
                 </div>
-                <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-accent/20 text-accent border border-accent/30 self-start sm:self-auto">
-                  Skin Age Difference: {
+                {ageLevel !== "low" && <span className="px-3 py-1 flex items-center gap-1 rounded-full text-xs font-bold bg-accent/20 text-accent border border-accent/30 self-start sm:self-auto">
+                  Skin Age Difference: {ageLevel === "limited" ? "about " : ""}{
                     typeof result.deltas?.skinAge === "number"
                       ? result.deltas.skinAge > 0
                         ? `${result.deltas.skinAge} yrs younger`
@@ -774,16 +784,17 @@ export default function WhatIfPage() {
                           : "No difference"
                       : "N/A"
                   } <Sparkles size={14}/>
-                </span>
+                </span>}
               </div>
               
               <div className="p-4 sm:p-5">
+                {reliabilityText && <p className="mb-3 rounded-xl bg-accent-soft px-3 py-2 text-xs text-accent-deep">{reliabilityText}</p>}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="col-span-2 sm:col-span-4 tk-tile p-4 flex flex-wrap items-center justify-between gap-3">
+                  {ageLevel !== "low" && <div className="col-span-2 sm:col-span-4 tk-tile p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="tk-eyebrow mb-1">Projected Skin Age</p>
                       <p className="text-2xl font-semibold text-primary">
-                        <span className="text-accent">{result.scenarioA.finalSkinAge} yrs</span>
+                        <span className="text-accent">{ageLevel === "limited" ? "about " : ""}{result.scenarioA.finalSkinAge} yrs</span>
                         <span className="text-sm font-medium text-muted"> vs {result.scenarioB.finalSkinAge} yrs</span>
                       </p>
                     </div>
@@ -796,8 +807,8 @@ export default function WhatIfPage() {
                             : "No difference"
                         : "—"}
                     </span>
-                  </div>
-                  {Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey]) => {
+                  </div>}
+                  {scoreLevel !== "low" && Object.entries(result.scenarioA?.projectedScores || {}).map(([metricKey]) => {
                     const scoreA = result.scenarioA?.projectedScores?.[metricKey];
                     const scoreB = result.scenarioB?.projectedScores?.[metricKey];
                     const deltaVal = result.deltas?.[metricKey];
@@ -808,11 +819,11 @@ export default function WhatIfPage() {
                       <div key={metricKey} className="tk-tile p-3.5 flex flex-col gap-1">
                         <p className="tk-text-micro font-medium text-muted leading-tight min-h-[1.75rem]">{humanLabel}</p>
                         <p className="text-2xl font-semibold text-primary leading-none">
-                          {scoreA}<span className="text-xs font-medium text-muted"> /100</span>
+                          {presentScore(scoreA, scoreLevel).text}<span className="text-xs font-medium text-muted"> /100</span>
                         </p>
-                        <p className="tk-text-micro text-muted">vs {scoreB} without</p>
+                        <p className="tk-text-micro text-muted">vs {presentScore(scoreB, scoreLevel).text} without</p>
                         <span className={`tk-chip self-start mt-1 ${deltaVal > 0 ? 'tk-chip-success' : deltaVal < 0 ? 'tk-chip-danger' : ''}`}>
-                          {deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal}
+                          {scoreLevel === "high" ? (deltaVal > 0 ? `+${deltaVal} ↑` : deltaVal < 0 ? `${deltaVal} ↓` : deltaVal) : presentDelta(deltaVal, scoreLevel).text}
                         </span>
                       </div>
                     );
