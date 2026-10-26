@@ -29,6 +29,8 @@
   --color-success-soft: #E3F2E8;
   --color-danger: #B3261E;
   --color-danger-soft: #FBE7E4;
+  --color-warn: #9A6412;        /* amber: middling scores, small gaps */
+  --color-warn-soft: #FBEFD5;
 
   /* legacy aliases (pre-redesign class names) */
   --color-lavender: #F6E2E2;

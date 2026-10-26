@@ -18,6 +18,7 @@ import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
 import StreakChip from "./StreakChip";
 import { kinSay } from "@/app/components/companion/store";
 import { milestoneLine } from "@/app/components/companion/brain";
+import { scoreBand } from "./skin-summary";
 
 // Time-of-day greeting. Read via useSyncExternalStore so the server render
 // (and hydration) use the neutral fallback and the client swaps in the real
@@ -37,74 +38,120 @@ function greetingNow() {
   return "Good evening,";
 }
 
-function Delta({ value }) {
-  if (typeof value !== "number" || value === 0) return null;
-  const up = value > 0;
+// Green / amber / red for a 0-100 metric, and for the skin-age gap. Full class
+// names so Tailwind can see them.
+const TONES = {
+  success: { text: "text-success", bar: "bg-success" },
+  warn: { text: "text-warn", bar: "bg-warn" },
+  danger: { text: "text-danger", bar: "bg-danger" },
+  muted: { text: "text-muted", bar: "bg-line" },
+};
+const metricTone = (v) => (typeof v !== "number" ? "muted" : v >= 80 ? "success" : v >= 60 ? "warn" : "danger");
+const yrs = (n) => `${n} ${n === 1 ? "yr" : "yrs"}`;
+
+function SinceChip({ mode, score, delta, startScore, weekScans }) {
+  const base = "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
+  if (mode === "week") {
+    return weekScans > 0 ? <span className={`${base} bg-line text-muted`}>{weekScans} {weekScans === 1 ? "scan" : "scans"} this week</span> : null;
+  }
+  if (typeof score !== "number") return null;
+  if (typeof startScore === "number") {
+    const d = score - startScore;
+    if (Math.abs(d) < 0.005) return <span className={`${base} bg-line text-muted`}>0 since start</span>;
+    return d > 0
+      ? <span className={`${base} bg-success-soft text-success`}><ArrowUp size={11} strokeWidth={3} />+{d.toFixed(2)} since start</span>
+      : <span className={`${base} bg-danger-soft text-danger`}><ArrowDown size={11} strokeWidth={3} />&minus;{Math.abs(d).toFixed(2)} since start</span>;
+  }
+  // No plan yet, so no starting point: compare with the last scan instead.
+  if (typeof delta === "number" && delta !== 0) {
+    const up = delta > 0;
+    return (
+      <span className={`${base} ${up ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
+        {up ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
+        {Number(Math.abs(delta).toFixed(2))} vs. last scan
+      </span>
+    );
+  }
+  return null;
+}
+
+function SkinAge({ skinAge, realAge }) {
+  const hasActual = typeof realAge === "number";
+  const gap = hasActual ? skinAge - realAge : null;
+  const tone = gap == null ? "muted" : gap <= 0 ? "success" : gap <= 10 ? "warn" : "danger";
+  const gapText = gap == null ? null : gap > 0 ? `+${yrs(gap)}` : gap < 0 ? `\u2212${yrs(-gap)}` : "On par";
   return (
-    <span className={`inline-flex items-center tk-text-micro font-semibold ${up ? "text-success" : "text-danger"}`}>
-      {up ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
-      {Math.abs(value)}
-    </span>
+    <div className="text-right min-w-0" aria-label={`Skin age ${skinAge}${hasActual ? `, actual age ${realAge}` : ""}`}>
+      <p className="tk-eyebrow">Skin age</p>
+      <p className={`mt-1 text-[3.25rem] sm:text-[4rem] font-semibold leading-none tabular-nums ${TONES[tone].text}`}>{skinAge}</p>
+      {hasActual && (
+        <p className="mt-2 text-xs text-muted whitespace-nowrap">
+          Actual {realAge} &middot; <span className={`font-semibold ${TONES[tone].text}`}>{gapText}</span>
+        </p>
+      )}
+    </div>
   );
 }
 
-function ScoreCard({ mode, score, delta, band, skinAgeLine, weekScans, sinceStart }) {
-  const label = mode === "week" ? "WEEKLY SKIN SCORE" : "SKIN SCORE";
-  // The skin age number sits next to the name; here only how it compares.
-  const ageNote = skinAgeLine?.replace(/^Skin age d+s*(·s*)?/, "") || "";
+function MetricTile({ m, value }) {
+  const tone = TONES[metricTone(value)];
+  const has = typeof value === "number";
+  const shown = has ? Math.round(value) : null;
   return (
-    <section data-tour="score" className="tk-card p-5 sm:p-6 lg:p-8" aria-label="Skin score">
-      <div className="flex items-end justify-between gap-4">
+    <Link
+      href="/what-if"
+      role="listitem"
+      aria-label={`${m.fullLabel || m.label}: ${has ? shown : "not scanned yet"}. Open What-If`}
+      className="tk-tile block p-3 hover:border-accent/40 transition-colors"
+    >
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-muted truncate">{m.label}</span>
+        <span className={`text-base font-semibold tabular-nums ${tone.text}`}>{has ? shown : "\u2014"}</span>
+      </span>
+      <span
+        className="mt-2 block h-1.5 rounded-full bg-line overflow-hidden"
+        role="progressbar"
+        aria-label={`${m.label} score`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={has ? shown : undefined}
+      >
+        {has && <span className={`block h-full rounded-full ${tone.bar} transition-all duration-500`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />}
+      </span>
+    </Link>
+  );
+}
+
+/** One card: score and skin age side by side, then the four metrics. */
+function SkinCard({ mode, score, delta, startScore, weekScans, skinAge, realAge, metrics }) {
+  const label = mode === "week" ? "WEEKLY SCORE" : "SKIN SCORE";
+  const has = typeof score === "number";
+  const band = scoreBand(score);
+  return (
+    <section data-tour="score" className="tk-card p-4 sm:p-6 lg:p-8" aria-label="Skin score">
+      <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-3 items-start">
         <div className="min-w-0">
           <p className="tk-eyebrow">{label}</p>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-[3.25rem] sm:text-[4rem] lg:text-[5rem] font-semibold leading-none text-primary tabular-nums">
-              {typeof score === "number" ? score : "—"}
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-[3.25rem] sm:text-[4rem] font-semibold leading-none text-primary tabular-nums">
+              {has ? Math.round(score) : "\u2014"}
             </span>
-            <span className="text-lg lg:text-2xl text-muted">/ 100</span>
+            <span className="text-sm text-muted">/100</span>
+            {band && <span className="ml-1 text-xs font-medium text-muted whitespace-nowrap">{band}</span>}
+          </div>
+          <div className="mt-2 min-h-6">
+            <SinceChip mode={mode} score={score} delta={delta} startScore={startScore} weekScans={weekScans} />
           </div>
         </div>
-        {band && mode !== "week" && <span className="text-sm font-semibold text-success pb-1.5 text-right">{band}</span>}
+        {typeof skinAge === "number" && <SkinAge skinAge={skinAge} realAge={realAge} />}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {mode === "today" && typeof delta === "number" && delta !== 0 && (
-          <span className={`tk-chip ${delta > 0 ? "tk-chip-success" : "tk-chip-danger"}`}>
-            {delta > 0 ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />}
-            {Math.abs(delta)} vs. last scan
-          </span>
-        )}
-        {mode === "today" && sinceStart && (
-          <span className="tk-chip">Started at {sinceStart.from}{sinceStart.delta ? ` · ${sinceStart.delta > 0 ? "+" : "−"}${Math.abs(sinceStart.delta)}` : ""}</span>
-        )}
-        {mode === "week" && weekScans > 0 && (
-          <span className="tk-chip">{weekScans} {weekScans === 1 ? "scan" : "scans"} this week</span>
-        )}
-      </div>
+      <div className="my-4 h-px bg-line" />
 
-      {ageNote && <p className="mt-3 text-sm text-muted leading-snug">{ageNote}</p>}
+      <div data-tour="metrics" className="grid grid-cols-2 gap-2.5 rounded-2xl" role="list" aria-label="Skin metrics">
+        {metrics.map((m) => <MetricTile key={m.key} m={m} value={mode === "week" ? m.week : m.today} />)}
+      </div>
     </section>
-  );
-}
-
-function MetricRow({ metrics, mode }) {
-  return (
-    <div data-tour="metrics" className="grid grid-cols-4 gap-2 sm:gap-3 rounded-2xl" role="list" aria-label="Skin metrics">
-      {metrics.map((m) => {
-        const value = mode === "week" ? m.week : m.today;
-        return (
-          <div key={m.key} role="listitem" className="tk-tile px-2 py-3 sm:p-4 lg:p-5 text-center sm:text-left">
-            <p className="tk-text-micro sm:text-xs text-muted font-medium truncate">{m.label}</p>
-            <p className="mt-1 flex items-center justify-center sm:justify-start gap-1">
-              <span className="text-xl sm:text-2xl lg:text-3xl font-semibold text-primary tabular-nums">
-                {typeof value === "number" ? value : "—"}
-              </span>
-              {mode === "today" && <Delta value={m.delta} />}
-            </p>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -141,8 +188,10 @@ function ExploreGrid({ reportReady, showLeaderboard }) {
 /**
  * The "Today" screen: greeting, Today/This-week toggle (the reference's
  * Skin | Hair toggle — TintKin is skin-only, so it switches the score between
- * the latest scan and the weekly average), score card, four metrics,
- * and shortcuts (the plan card is the one way into today's steps). On desktop it splits into a main column and a side rail.
+ * the latest scan and the weekly average), the skin card (score, skin age and
+ * the four metrics in one), the first-week checklist, and shortcuts. The plan
+ * card is the one way into today's steps. On desktop it splits into a main
+ * column and a side rail.
  */
 export default function TodayView({ data, radar, banners, planCard, afterPlan = null, sinceStart, scanInvite = null, showLeaderboard = true }) {
   const [mode, setMode] = useState("today");
@@ -180,15 +229,7 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={data.photoUrl} alt="Your latest scan" referrerPolicy="no-referrer" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover object-center border-2 border-paper shadow-[0_6px_16px_-6px_rgb(var(--tk-ink-rgb)/0.45)]" />
               )}
-              <div className="flex flex-col items-end gap-1.5">
-                {typeof data.skinAge === "number" && (
-                  <p className="text-right leading-none" aria-label={`Skin age ${data.skinAge}`}>
-                    <span className="tk-eyebrow block">Skin age</span>
-                    <span className="block text-2xl sm:text-3xl font-semibold text-accent-deep tabular-nums mt-1">{data.skinAge}</span>
-                  </p>
-                )}
-                <StreakChip align="right" streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} />
-              </div>
+              <StreakChip align="right" streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} />
             </div>
           </div>
         </header>
@@ -196,7 +237,6 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
         {banners && <div className="order-1 flex flex-col gap-3 empty:hidden">{banners}</div>}
 
         {planCard && <div className="order-2">{planCard}</div>}
-        {afterPlan && <div className="order-2">{afterPlan}</div>}
 
         {noScan ? (
           scanInvite && <div className="order-3">{scanInvite}</div>
@@ -204,7 +244,7 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
           <>
             <SegmentedTabs
               data-tour="toggle"
-              className="order-2 lg:max-w-sm"
+              className="order-3 lg:max-w-sm"
               label="Score view"
               value={mode}
               onChange={setMode}
@@ -214,24 +254,22 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
               ]}
             />
 
-            <div className="order-3">
-              <ScoreCard
+            <div className="order-4">
+              <SkinCard
                 mode={mode}
                 score={score}
                 delta={data.delta}
-                band={mode === "week" ? null : data.band}
-                skinAgeLine={data.skinAgeLine}
+                startScore={sinceStart?.score}
                 weekScans={week.scanCount}
-                sinceStart={sinceStart}
+                skinAge={data.skinAge}
+                realAge={data.realAge}
+                metrics={data.metrics}
               />
-            </div>
-
-            <div className="order-4">
-              <MetricRow metrics={data.metrics} mode={mode} />
             </div>
           </>
         )}
 
+        {afterPlan && <div className="order-5 empty:hidden">{afterPlan}</div>}
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">

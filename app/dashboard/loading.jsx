@@ -26,19 +26,33 @@ export default function DashboardLoading() {
                     <div className={`h-2 w-full rounded-full ${block}`}></div>
                 </div>
 
-                {/* Score card and metrics */}
-                <div className="tk-card p-5 space-y-3">
-                    <div className={`h-3 w-20 rounded-full ${block}`}></div>
-                    <div className={`h-12 w-32 rounded-xl ${block}`}></div>
-                    <div className={`h-5 w-24 rounded-full ${block}`}></div>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="tk-tile p-3 space-y-2">
-                            <div className={`h-2.5 w-full rounded-full ${block}`}></div>
-                            <div className={`h-5 w-8 rounded-lg ${block}`}></div>
+                {/* Toggle, then the skin card with its four metrics */}
+                <div className={`h-11 w-full rounded-full ${block}`}></div>
+                <div className="tk-card p-5">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className={`h-3 w-20 rounded-full ${block}`}></div>
+                            <div className={`h-12 w-28 rounded-xl ${block}`}></div>
+                            <div className={`h-5 w-28 rounded-full ${block}`}></div>
                         </div>
-                    ))}
+                        <div className="space-y-2 flex flex-col items-end">
+                            <div className={`h-3 w-16 rounded-full ${block}`}></div>
+                            <div className={`h-12 w-16 rounded-xl ${block}`}></div>
+                            <div className={`h-4 w-20 rounded-full ${block}`}></div>
+                        </div>
+                    </div>
+                    <div className="my-4 h-px bg-line"></div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="tk-tile p-3 space-y-2">
+                                <div className="flex justify-between">
+                                    <div className={`h-3 w-16 rounded-full ${block}`}></div>
+                                    <div className={`h-3 w-6 rounded-full ${block}`}></div>
+                                </div>
+                                <div className={`h-1.5 w-full rounded-full ${block}`}></div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

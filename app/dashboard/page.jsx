@@ -45,13 +45,13 @@ async function DashboardContent() {
 
     const stepsLeft = Math.max(0, summary.plan.amTotal + summary.plan.pmTotal - summary.plan.amDone - summary.plan.pmDone);
     const sinceStart = plan && typeof plan.baseline?.overallScore === "number"
-        ? { from: Math.round(plan.baseline.overallScore), delta: plan.progress.overallDelta }
+        ? { score: plan.baseline.overallScore }
         : null;
 
     // Accounts from before plans could run for months were never asked how long.
     // A pop-up offers the upgrade; it never shows over the one-time "what's new" note.
     const needsLength = Boolean(user?.skinProfile?.concerns?.length) && !user.skinProfile.planMonths;
-    const firstWeek = plan && plan.day <= 14
+    const firstWeekItems = plan && plan.day <= 14
         ? [
             { label: "Tell us about your skin", done: true },
             { label: "Get your 30-day plan", done: true },
@@ -64,6 +64,8 @@ async function DashboardContent() {
             },
         ]
         : null;
+    // Gone for good once every step is ticked.
+    const firstWeek = firstWeekItems && !firstWeekItems.every((i) => i.done) ? firstWeekItems : null;
 
     return (
         <div className="tk-container pt-1 sm:pt-4 pb-10">
@@ -75,7 +77,7 @@ async function DashboardContent() {
                 // Extras appear once the user has shown up a few times.
                 showLeaderboard={(user?.routineDays || 0) >= 3}
                 planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} /> : <PlanBuilder compact />}
-                // Under the plan card, which stays the first thing you see.
+                // Sits below the skin card, which the Today/This week toggle controls.
                 afterPlan={firstWeek ? <FirstWeekChecklist items={firstWeek} /> : null}
                 banners={
                     <>

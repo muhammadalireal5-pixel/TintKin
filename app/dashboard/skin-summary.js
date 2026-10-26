@@ -20,9 +20,8 @@ const FOCUS_TEXT = {
 
 export function scoreBand(score) {
   if (typeof score !== "number") return null;
-  if (score >= 80) return "Excellent";
-  if (score >= 65) return "Good";
-  if (score >= 50) return "Fair";
+  if (score >= 85) return "Great";
+  if (score >= 70) return "Good";
   return "Needs care";
 }
 
@@ -111,6 +110,7 @@ export function buildSkinSummary({
     band: scoreBand(overallScore),
     skinAgeLine,
     skinAge: hasSkinAge ? skinAge : null,
+    realAge: hasRealAge ? realAge : null,
     photoUrl: sourceData.imageUrl || latestSelfie?.imageUrl || null,
     metrics,
     weekScore: {
