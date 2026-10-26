@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { connectDb, Plan, Selfie, RoutineLog, User } from "./mongoose";
 import { generatePlanAdjustment, generatePlanEdit } from "./qwen";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
+import { isLowConfidence } from "@/lib/utils/image-quality";
 import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS, normalizeMonths, MAX_PLAN_MONTHS } from "@/lib/constants/plan";
 import { buildMonthReview, applyProposals, carryOverSteps } from "@/lib/plan/review";
 import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
@@ -228,6 +229,7 @@ export async function setPlanMonths(user, months) {
  * @returns {Promise<{ completedDay: number|null, day: number }|null>}
  */
 export async function recordScanOnPlan(user, selfie, timezone) {
+  if (isLowConfidence(selfie)) return { completedDay: null, day: null, skipped: "low_confidence" };
   try {
     const now = new Date();
     const scores = scoresOf(selfie);

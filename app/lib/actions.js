@@ -29,6 +29,7 @@ import { toPlanView, getPlanDay } from "@/lib/plan/state";
 import { deriveProductsFromPlan } from "@/lib/plan/products";
 import { sanitizeRecommendedProducts, makeAdviceSafe, makeProductsSafe } from "@/lib/plan/scan-safety";
 import { toPlainUser } from "@/lib/plan/engine";
+import { assessScanConfidence, sanitizeClientQuality, isLowConfidence } from "@/lib/utils/image-quality";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
 
@@ -366,7 +367,7 @@ export async function checkOnboardingStatus() {
   return { complete: user?.onboardingComplete || false };
 }
 
-export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
+export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQuality = null) {
   timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
   await syncUserTimezone(user, timezone);
@@ -500,6 +501,8 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       radiance: readScore("radiance", "radiance"),
     };
 
+    const confidence = assessScanConfidence({ clientQuality: sanitizeClientQuality(imageQuality), scores });
+
     const overallScore = scoreInfo.all?.score ?? scoreInfo.overall_score ?? null;
     const skinAge = scoreInfo.skin_age ?? scoreInfo.age ?? null;
 
@@ -545,7 +548,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
           // UV index is best-effort
         }
       }
-      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex);
+      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex, confidence.level === "low");
     }
 
     const adviceSucceeded = Boolean(advice && advice.status !== STATUS.ERROR && advice.success !== false);
@@ -637,6 +640,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       overallScore,
       skinAge,
       scores,
+      quality: confidence,
       adviceStatus,
       maskUrls: youCamResult.masks ?? {},
       youCamTaskId: youCamResult.task_id,
@@ -692,6 +696,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
         reportReady: report.ready,
         reportJustUnlocked: report.justUnlocked,
         checkInCompleted,
+        quality: { level: confidence.level, issues: confidence.issues },
       });
     }
 
@@ -704,6 +709,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
       reportReady: report.ready,
       reportJustUnlocked: report.justUnlocked,
       checkInCompleted,
+      quality: { level: confidence.level, issues: confidence.issues },
     },  ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
   } catch (err) {
     if (extraScanConsumed) {
@@ -738,7 +744,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 }
 
 
-const SELFIE_LIST_FIELDS = "takenAt isAnalyzed overallScore skinAge scores";
+const SELFIE_LIST_FIELDS = "takenAt isAnalyzed overallScore skinAge scores quality";
 const MAX_SELFIE_PAGE_SIZE = 100;
 // Safety caps for the "full history" fetch (no selfieLimit given): years of
 // daily use would otherwise load an ever-growing, unprojected result set.
@@ -1150,7 +1156,8 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
     simSourceUrl = await prepareSimulationSource(sourceImageUrl, user._id.toString());
 
     const TARGET_YEARS = 1;
-    const baseline = latestSelfie.scores;
+    const confidentScan = [...(allSelfies || [])].reverse().find((x) => x.scores && typeof x.scores.wrinkles === "number" && !isLowConfidence(x));
+    const baseline = confidentScan?.scores ?? latestSelfie.scores;
 
     const listA = sanitizeInterventions(interventionsA);
     const listB = sanitizeInterventions(interventionsB);

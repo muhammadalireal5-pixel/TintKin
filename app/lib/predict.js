@@ -49,7 +49,7 @@ function linearRegression(points){
 }
 
 function computeBlendedVelocity(selfieHistory = [], concern){
-    const valid = selfieHistory.filter( s=> s?.takenAt && typeof s?.scores?.[concern] ==="number").sort((a,b)=> new Date(a.takenAt) - new Date(b.takenAt) )
+    const valid = selfieHistory.filter( s=> s?.takenAt && s?.quality?.level !== "low" && typeof s?.scores?.[concern] ==="number").sort((a,b)=> new Date(a.takenAt) - new Date(b.takenAt) )
 
     if (valid.length < 2) return { value: BASE_VELOCITY[concern] ?? -1, source: "baseline" };
     

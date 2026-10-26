@@ -224,6 +224,12 @@ const SelfieSchema = new mongoose.Schema({
     overallScore: Number,
     skinAge: Number,
     scores: { wrinkles: Number, firmness: Number, spots: Number, radiance: Number },
+    quality: {
+        level: { type: String, enum: ['good', 'low'] },
+        issues: [String],
+        checked: Boolean,
+        metrics: mongoose.Schema.Types.Mixed,
+    },
     maskUrls: { type: mongoose.Schema.Types.Mixed, default: {} },
     youCamTaskId: String,
     adviceStatus: { type: String, enum: ['ok', 'pending', 'error', 'partial', 'empty'], default: 'ok' },

@@ -36,7 +36,7 @@ function getOpenAIClient() {
   return openaiClient;
 }
 
-export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null) {
+export async function generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex = null, lowConfidence = false) {
   try {
     const goalsList = Array.isArray(user.goals)
       ? user.goals.map(g => sanitizeForPrompt(g, 40)).filter(Boolean).join(", ")
@@ -60,6 +60,7 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     const userProfile = `Age: ${userAge}, Sex: ${safeSex}, Skin Type: ${safeSkinType}, Goals: ${goalsList}${customGoal}`;
     const skinData = `Overall Score: ${formatScore(overallScore)}/100, Skin Age: ${formatScore(skinAge)}, Wrinkles: ${formatScore(scores?.wrinkles)}, Firmness: ${formatScore(scores?.firmness)}, Spots: ${formatScore(scores?.spots)}, Radiance: ${formatScore(scores?.radiance)}`;
     const skinProfileData = describeSkinProfile(user);
+    const confidenceNote = lowConfidence ? "Photo quality note: the lighting or sharpness was marginal, so treat these scores as indicative only and do not describe them as a real change in the skin." : "";
     const uvData = uvIndex !== null && !isNaN(uvIndex) ? `Current UV Index: ${Number(uvIndex)}` : 'Current UV Index: Unknown';
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 
@@ -74,6 +75,7 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     ${skinData}
 
     ${skinProfileData}
+    ${confidenceNote}
 
     Environmental Data:
     ${uvData}

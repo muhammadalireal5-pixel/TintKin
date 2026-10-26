@@ -13,6 +13,8 @@ import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback"
 import { refreshReportStatus } from "@/app/components/reportStatus";
 import Link from "next/link";
 import PageHeader from "@/app/components/ui/PageHeader";
+import { measureImageQuality } from "./measure-image";
+import { describeIssues } from "@/lib/utils/image-quality";
 
 export default function CaptureClient({ precheckPromise, quotasPromise }) {
     const router = useRouter();
@@ -198,6 +200,11 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
 
     const confirmUpload = async () => {
         if (!selectedFile) return;
+        const quality = await measureImageQuality(selectedFile);
+        if (quality?.verdict === "retake") {
+            setStatus({ type: "error", msg: `${describeIssues(quality.issues)} Please retake it facing a window or soft, even light, with your whole face in focus.` });
+            return;
+        }
         setLoading(true);
         setScanStage("upload");
         setStatus({ type: "info", msg: "Uploading photo…" });
@@ -208,7 +215,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
             setStatus({ type: "info", msg: "Analysing your skin… (3–5s)" });
 
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const res = await analyzeAndSaveSelfie(imgUrl, tz);
+            const res = await analyzeAndSaveSelfie(imgUrl, tz, quality && { verdict: quality.verdict, issues: quality.issues, metrics: quality.metrics });
 
             if (res.success) {
                 setScanStage("done");
@@ -233,6 +240,15 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     });
                 }
                 refreshReportStatus();
+
+                if (res.quality?.level === "low") {
+                    showToast({
+                        type: "error",
+                        title: "Scan saved, but it won't count yet",
+                        message: `${describeIssues(res.quality.issues)} It won't count toward your check-in. Retake it in even light if you want it to.`,
+                        duration: 7000,
+                    });
+                }
 
                 // A completed check-in lands on the plan, where the coach reviews it.
                 setStatus({ type: "success", msg: res.checkInCompleted ? "Check-in done! Opening your plan…" : "Done! Opening your journal…" });
