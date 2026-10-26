@@ -10,7 +10,7 @@ import { setPlanLength } from "@/app/lib/plan-actions";
  * Change how many months the plan runs. Opens inline under the plan header; it
  * can lengthen the plan or shorten it, but never below the month already in.
  */
-export default function PlanLengthEditor({ monthIndex, totalMonths }) {
+export default function PlanLengthEditor({ monthIndex, totalMonths, description = null }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(totalMonths);
@@ -30,11 +30,25 @@ export default function PlanLengthEditor({ monthIndex, totalMonths }) {
     setBusy(false);
   };
 
+  const trigger = (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label={`Edit plan, currently ${totalMonths} ${totalMonths === 1 ? "month" : "months"}`}
+      className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-accent-deep hover:text-accent"
+    >
+      <Pencil size={12} /> Edit plan
+    </button>
+  );
   if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent-deep hover:text-accent">
-        <Pencil size={12} /> Change plan length ({totalMonths} {totalMonths === 1 ? "month" : "months"})
-      </button>
+    // With a description it is the header's third row: the phase on the left, the edit link on the right.
+    return description ? (
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <p className="text-sm text-muted min-w-0">{description}</p>
+        {trigger}
+      </div>
+    ) : (
+      <div className="mt-3">{trigger}</div>
     );
   }
   return (

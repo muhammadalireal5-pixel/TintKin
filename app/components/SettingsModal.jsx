@@ -24,6 +24,7 @@ import {
   Bell,
   MonitorSmartphone,
   ClipboardList,
+  Cat,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings, changeSubscriptionTier } from "@/app/lib/actions";
@@ -32,6 +33,7 @@ import { subscribeToPush, unsubscribeFromPush, sendTestNotification } from "@/ap
 import { exportUserData, emailUserDataExport } from "@/app/lib/export-data";
 import { deleteUserAccount } from "@/app/lib/delete-account";
 import { useAuthContext } from "../context/AuthContext";
+import { useCompanionPrefs, updateCompanionPrefs } from "./companion/store";
 import { usePwaInstall } from "../context/PwaContext";
 import { useToast } from "@/app/components/ToastProvider";
 import { SKIN_TYPES } from "@/lib/constants/profile";
@@ -53,6 +55,7 @@ export default function SettingsModal({ isOpen, onClose }) {
   const { user, signOutUser } = useAuthContext();
   const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
   const { showToast } = useToast();
+  const kin = useCompanionPrefs();
   const [installing, setInstalling] = useState(false);
   const [profile, setProfile] = useState(null);
   const [locationMode, setLocationMode] = useState("idle"); // idle | editing | loading | saved
@@ -703,6 +706,35 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <span
                   className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-paper shadow ring-0 transition duration-200 ease-in-out ${
                     optIn ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Kin */}
+          <div className="tk-card px-5 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Cat size={14} className="text-accent shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-primary">Show Kin</p>
+                  <p className="tk-text-micro text-muted">Your skin companion. Hidden only when you hide it.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={kin.enabled}
+                aria-label="Show Kin"
+                onClick={() => updateCompanionPrefs({ enabled: !kin.enabled })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  kin.enabled ? "bg-accent" : "bg-line"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-paper shadow ring-0 transition duration-200 ease-in-out ${
+                    kin.enabled ? "translate-x-4" : "translate-x-0"
                   }`}
                 />
               </button>

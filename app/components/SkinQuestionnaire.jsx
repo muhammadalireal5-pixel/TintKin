@@ -424,12 +424,12 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
                               type="button"
                               onClick={() => pick({ ratings: { ...form.ratings, [key]: n } }, KIN_RATING[n])}
                               aria-pressed={on}
-                              className={`rounded-xl border px-0.5 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                              className={`rounded-xl border px-0.5 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                                 on ? `${RATING_TONES[n]} ring-1 font-semibold` : "bg-paper border-line text-muted hover:border-accent/50"
                               }`}
                             >
-                              <span className="block text-base tabular-nums leading-none">{n}</span>
-                              <span className="block text-[10px] leading-tight mt-1">{RATING_LABELS[n]}</span>
+                              <span className={`block text-lg font-semibold tabular-nums leading-none ${on ? "" : "text-primary"}`}>{n}</span>
+                              <span className="block text-[10px] leading-tight mt-1 truncate">{RATING_LABELS[n]}</span>
                             </button>
                           );
                         })}

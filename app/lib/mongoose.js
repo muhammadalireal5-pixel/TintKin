@@ -282,6 +282,8 @@ const RoutineLogSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now, index: true },
     amCompleted: [String],
     pmCompleted: [String],
+    // The day's facial workout is one tick of its own, outside the AM/PM step lists.
+    workoutDone: { type: Boolean, default: false },
 }, { strict: true });
 RoutineLogSchema.index({ userId: 1, date: -1 });
 

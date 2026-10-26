@@ -41,9 +41,60 @@ function RatingScale({ f }) {
   );
 }
 
+const valueLabel = (f, n) => (f.scale === "rating" ? RATING_LABELS[n] : n ?? "—");
+
+/**
+ * The Today card's version: one bar per area showing how far you have moved from
+ * where you started toward this month's aim, with the three points spelled out.
+ */
+function CompactProgress({ progress }) {
+  return (
+    <section aria-label="Progress toward this month's aim">
+      <div className="flex items-baseline justify-between gap-2 mb-2.5">
+        <p className="text-xs font-semibold text-primary">Progress to this month&apos;s aim</p>
+        <p className="tk-text-micro text-muted">Start &rarr; now &rarr; aim</p>
+      </div>
+      <ul className="space-y-3">
+        {progress.focus.map((f) => {
+          const pct = f.percentToTarget;
+          const reached = pct >= 100;
+          return (
+            <li key={f.metric}>
+              <div className="flex items-baseline justify-between gap-2 mb-1">
+                <span className="text-sm font-semibold text-primary truncate">{f.label}</span>
+                <span className="text-xs text-muted whitespace-nowrap">
+                  {valueLabel(f, f.baseline)} <span aria-hidden="true">&rarr;</span> <strong className="text-primary">{valueLabel(f, f.current)}</strong> <span aria-hidden="true">&rarr;</span> {valueLabel(f, f.target)}
+                </span>
+              </div>
+              <div
+                className="h-2 rounded-full bg-line overflow-hidden"
+                role="progressbar"
+                aria-label={`${f.label}: ${pct}% of the way to your aim`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={pct}
+              >
+                {pct > 0 && <div className={`h-full rounded-full transition-all duration-500 ${reached ? "bg-success" : "bg-accent"}`} style={{ width: `${Math.max(pct, 4)}%` }} />}
+              </div>
+              <p className="tk-text-micro text-muted mt-1">
+                {reached
+                  ? "Aim reached"
+                  : f.rated
+                    ? pct > 0 ? `${pct}% of the way to your aim` : "Not moved yet"
+                    : f.scale === "rating" ? "Rate it at your next check-in to track the move" : "Your next scan will show it"}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /** Start -> now -> aim for each focus area. Movement, not a verdict. */
 export default function PlanProgress({ progress, compact = false, dense = false }) {
   if (!progress?.focus?.length) return null;
+  if (compact) return <CompactProgress progress={progress} />;
   return (
     <section className={compact ? "" : "tk-card p-5 sm:p-6"} aria-label="Your aim this month">
       {!compact && (

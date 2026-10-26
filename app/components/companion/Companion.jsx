@@ -155,10 +155,18 @@ export default function Companion() {
   }, []);
   const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
-  // No timers: Kin simply shows once its own data has arrived (see `loaded`).
+  // Kin waits for the first page's data so it appears together with the rest of
+  // the screen, but after that it stays put: a later route's loading skeleton must
+  // not make it vanish and re-appear. Only "Hide Kin" (or the Settings switch) hides it.
   const pageLoading = usePageLoading();
+  const [revealed, setRevealed] = useState(false);
+  const ready = !pageLoading || revealed;
   const visible =
-    !pageLoading && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+    ready && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (visible && !revealed) setRevealed(true);
+  }, [visible, revealed]);
 
   // Walkthroughs finished on this device before the account remembered them: record them there too.
   const syncedTours = useRef(false);
@@ -678,7 +686,7 @@ export default function Companion() {
                     updateCompanionPrefs({ enabled: false });
                   }}
                   className="tk-text-micro text-muted underline hover:text-primary"
-                  title="You can turn Kin back on in Profile"
+                  title="You can turn Kin back on in Settings"
                 >
                   Hide Kin
                 </button>

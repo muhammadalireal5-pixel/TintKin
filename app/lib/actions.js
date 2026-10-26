@@ -680,6 +680,10 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
 
     const report = await notifyReportReadyIfDue(user, checkInCompleted);
 
+    // Every screen that shows scores, the plan or the streak must re-read, or the
+    // client router cache keeps serving the pre-scan page after the redirect.
+    for (const path of ["/dashboard", "/routine", "/progress", "/history", "/reports", "/leaderboard"]) revalidatePath(path);
+
     if (adviceSucceeded) {
       return okResult({
         selfieId: selfie._id.toString(),
@@ -2362,8 +2366,31 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
 
     if (isCompleted) await recordCareDay(user, timezone).catch(() => {});
 
+    // Today shows these steps and the streak; drop its cached copy so it is fresh on arrival.
+    revalidatePath("/dashboard");
+
     return { success: true };
   } catch (err) {
+    return { success: false };
+  }
+}
+
+/** Ticks (or un-ticks) today's facial workout. It is not a routine step, so it has its own flag. */
+export async function saveWorkoutCompletion(isCompleted, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
+  try {
+    const user = await getDbUser();
+    if (!user) return { success: false };
+    await syncUserTimezone(user, timezone);
+    await RoutineLog.findOneAndUpdate(
+      { userId: user._id, date: { $gte: getLocalDayStart(timezone) } },
+      { $setOnInsert: { userId: user._id, date: new Date() }, $set: { workoutDone: Boolean(isCompleted) } },
+      { upsert: true }
+    );
+    if (isCompleted) await recordCareDay(user, timezone).catch(() => {});
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch {
     return { success: false };
   }
 }

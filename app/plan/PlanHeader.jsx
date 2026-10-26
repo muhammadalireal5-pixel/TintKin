@@ -1,25 +1,38 @@
-import { CalendarCheck } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import PlanLengthEditor from "./PlanLengthEditor";
 
-/** Where the user is in their plan: month, day, phase, and the plan's one-line summary. */
+function checkInLabel(plan) {
+  const next = plan.nextCheckIn;
+  if (!next) return plan.expired ? "Month complete" : "All check-ins done";
+  const away = Math.max(0, next.day - plan.day);
+  if (next.isDue) return "Check-in due";
+  return away === 0 ? "Check-in today" : away === 1 ? "Check-in tomorrow" : `Check-in in ${away} days`;
+}
+
+/** Where the user is: month, day, phase and the next check-in, in one card. */
 export default function PlanHeader({ plan }) {
   const pct = Math.min(100, Math.round((plan.day / plan.durationDays) * 100));
+  const intent = (plan.phase.intent || "").replace(/\.$/, "");
   return (
-    <section className="tk-card p-5 sm:p-6" aria-label="Your plan">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="tk-eyebrow">
-            {plan.totalMonths > 1 ? `Month ${plan.monthIndex} of ${plan.totalMonths}` : `Your ${plan.durationDays}-day plan`}
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-primary leading-tight mt-1">
-            Day {plan.day} <span className="text-muted font-normal">of {plan.durationDays}</span>
-          </h2>
-        </div>
-        <span className="tk-chip shrink-0"><CalendarCheck size={12} /> {plan.phase.name}</span>
+    <section className="tk-card p-4 sm:p-5" aria-label="Your plan">
+      <div className="flex items-center justify-between gap-3">
+        <p className="tk-eyebrow">
+          {plan.totalMonths > 1 ? `Month ${plan.monthIndex} of ${plan.totalMonths}` : `${plan.durationDays}-day plan`}
+        </p>
+        <span className="tk-chip shrink-0">{plan.phase.name}</span>
+      </div>
+
+      <div className="mt-1.5 flex items-end justify-between gap-3">
+        <h2 className="text-[1.75rem] sm:text-3xl font-semibold text-primary leading-none tabular-nums">
+          Day {plan.day} <span className="text-base font-normal text-muted">of {plan.durationDays}</span>
+        </h2>
+        <p className="inline-flex items-center gap-1.5 text-xs font-medium text-muted whitespace-nowrap">
+          <CalendarClock size={14} aria-hidden="true" /> {checkInLabel(plan)}
+        </p>
       </div>
 
       <div
-        className="mt-4 h-2 rounded-full bg-line overflow-hidden"
+        className="mt-3 h-1.5 rounded-full bg-line overflow-hidden"
         role="progressbar"
         aria-label="Plan progress"
         aria-valuemin={0}
@@ -29,12 +42,7 @@ export default function PlanHeader({ plan }) {
         <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
 
-      <p className="text-sm text-primary/90 mt-4 leading-relaxed">{plan.summary}</p>
-      <p className="text-xs text-muted mt-2">
-        This phase: {plan.phase.intent.charAt(0).toLowerCase() + plan.phase.intent.slice(1)}.
-        {plan.daysLeft > 0 ? ` ${plan.daysLeft} ${plan.daysLeft === 1 ? "day" : "days"} to go this month.` : ""}
-      </p>
-      <PlanLengthEditor monthIndex={plan.monthIndex} totalMonths={plan.totalMonths} />
+      <PlanLengthEditor monthIndex={plan.monthIndex} totalMonths={plan.totalMonths} description={intent} />
     </section>
   );
 }

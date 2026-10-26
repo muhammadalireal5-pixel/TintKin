@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Check, Sun, Moon, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { saveRoutineCompletion } from "@/app/lib/actions";
+import { saveRoutineCompletion, saveWorkoutCompletion } from "@/app/lib/actions";
 import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
 import { refreshCompanion, kinSay } from "@/app/components/companion/store";
 import { ROUTINE_PRAISE } from "@/app/components/companion/brain";
+import { getProductGuidance } from "@/lib/constants/productGuidance";
+import ProductImage from "./ProductImage";
+import { productForStep, whyLine } from "@/app/plan/plan-products";
 
 function RoutineCheckbox({ checked }) {
   return (
     <motion.div
       whileTap={{ scale: 0.82 }}
-      className={`mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+      className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
         checked ? "bg-accent border-accent text-white" : "border-[var(--tk-border-strong)] bg-paper"
       }`}
     >
@@ -32,126 +35,148 @@ function RoutineCheckbox({ checked }) {
   );
 }
 
-function ProgressRing({ done, total }) {
-  const r = 30;
-  const c = 2 * Math.PI * r;
-  const pct = total > 0 ? Math.min(1, done / total) : 0;
-  return (
-    <div className="relative w-[4.5rem] h-[4.5rem] shrink-0" role="img" aria-label={`${done} of ${total} steps done`}>
-      <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="var(--tk-accent-soft)" strokeWidth="7" />
-        <circle
-          cx="36"
-          cy="36"
-          r={r}
-          fill="none"
-          stroke="var(--tk-accent)"
-          strokeWidth="7"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-          style={{ transition: "stroke-dashoffset 0.5s ease" }}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-primary tabular-nums">
-        {done}/{total}
-      </span>
-    </div>
-  );
-}
-
 // A step is either plain text (an older, scan-based routine) or a plan step
 // ({ id, text, why }). `key` is what gets saved when it is ticked.
 const asItem = (step) => (typeof step === "string" ? { key: step, text: step, why: "" } : { key: step.id, text: step.text, why: step.why || "" });
 
-function StepRow({ item, checked, isNew, onToggle }) {
+/** One compact product row under an expanded step: picture, name, why it fits, and how to use it. */
+function StepProduct({ product }) {
+  const [guideOpen, setGuideOpen] = useState(false);
+  const guide = getProductGuidance(product.type);
+  const why = whyLine(product);
+  return (
+    <div className="mt-2.5 rounded-xl border border-line bg-paper p-2.5">
+      <div className="flex items-center gap-3">
+        <span className="relative w-11 h-11 shrink-0 rounded-lg overflow-hidden border border-line bg-accent-soft">
+          <ProductImage type={product.type} alt={product.formula || product.type} className="object-cover" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-primary truncate">{product.formula || product.type}</span>
+          {why && <span className="block text-xs text-muted truncate">{why}</span>}
+        </span>
+        <button
+          type="button"
+          onClick={() => setGuideOpen((o) => !o)}
+          aria-expanded={guideOpen}
+          className="shrink-0 tk-pill-btn tk-btn-ghost px-3 py-1.5 text-xs"
+        >
+          How to use
+        </button>
+      </div>
+      {guideOpen && (
+        <div className="mt-2.5 pt-2.5 border-t border-line text-xs text-muted leading-relaxed">
+          <p><span className="font-medium text-primary/80">When: </span>{guide.when}</p>
+          <ul className="mt-1 list-disc pl-4 space-y-0.5">
+            {guide.how.map((h) => <li key={h}>{h}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepRow({ item, checked, isNew, onToggle, chip = null, children = null }) {
   const [open, setOpen] = useState(false);
   return (
     <li>
-      <div className="flex items-start rounded-xl hover:bg-blush/60 transition-colors">
+      <div className="flex items-center min-h-11">
         <button
           type="button"
           data-kin="routine"
           onClick={() => onToggle(item.key)}
           aria-pressed={checked}
-          className="flex-1 min-w-0 flex items-start gap-3 text-left px-2 py-2.5"
+          className="flex-1 min-w-0 min-h-11 flex items-center gap-3 text-left px-1 py-2"
         >
           <RoutineCheckbox checked={checked} />
-          <span className="min-w-0">
-            <span className={`block text-[15px] leading-snug ${checked ? "text-muted line-through" : "text-primary"}`}>
-              {item.text}
-              {isNew && <span className="tk-chip tk-chip-success ml-2 align-middle">New this week</span>}
-            </span>
+          <span className={`min-w-0 text-[15px] leading-snug ${checked ? "text-muted line-through" : "text-primary"}`}>
+            {item.text}
+            {isNew && <span className="tk-chip tk-chip-success ml-2 align-middle">New this week</span>}
+            {chip && <span className="tk-chip ml-2 align-middle">{chip}</span>}
           </span>
         </button>
-        {item.why && (
+        {children && (
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            aria-label={open ? "Hide why this step" : "Why this step?"}
-            className="shrink-0 p-2.5 text-muted hover:text-primary transition-colors"
+            aria-label={open ? `Hide details for ${item.text}` : `Show details for ${item.text}`}
+            className="shrink-0 w-11 h-11 flex items-center justify-center text-muted hover:text-primary transition-colors"
           >
-            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+            <ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
           </button>
         )}
       </div>
-      {open && item.why && (
-        <p className="ml-10 mr-3 mb-2 text-sm text-muted leading-relaxed">
-          <span className="font-medium text-primary/80">Why this is for you: </span>{item.why}
-        </p>
-      )}
+      {open && children && <div className="pl-10 pr-1 pb-3">{children}</div>}
     </li>
   );
 }
 
-function StepList({ title, icon: Icon, steps, checks, onToggle, emptyText, id, newStepIds = [] }) {
-  const total = steps?.length || 0;
-  const done = checks.length;
-  const complete = total > 0 && done >= total;
+function StepList({ id, steps, checks, onToggle, newStepIds, products, workout, emptyText }) {
+  const items = (steps || []).map(asItem);
+  if (items.length === 0 && !workout) return <p className="text-sm text-muted py-3">{emptyText}</p>;
   return (
-    <section id={id} className="tk-card p-5 sm:p-6 scroll-mt-20" aria-label={title}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="flex items-center gap-2 text-[15px] font-semibold text-primary">
-          <span className="tk-icon-circle w-8 h-8"><Icon size={16} /></span>
-          {title}
-        </h3>
-        {total > 0 && (
-          <span className={`tk-chip tabular-nums ${complete ? "tk-chip-success" : ""}`}>
-            {complete ? "All done" : `${done}/${total}`}
-          </span>
-        )}
-      </div>
-
-      {total > 0 ? (
-        <ul className="space-y-1">
-          {steps.map(asItem).map((item) => (
-            <StepRow key={item.key} item={item} checked={checks.includes(item.key)} isNew={newStepIds.includes(item.key)} onToggle={onToggle} />
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted">{emptyText}</p>
+    <ul id={id} className="divide-y divide-line">
+      {items.map((item) => {
+        const product = productForStep(item.text, products);
+        return (
+          <StepRow key={item.key} item={item} checked={checks.includes(item.key)} isNew={newStepIds.includes(item.key)} onToggle={onToggle}>
+            {item.why || product ? (
+              <>
+                {item.why && (
+                  <p className="text-sm text-muted leading-relaxed">
+                    <span className="font-medium text-primary/80">Why this is for you: </span>{item.why}
+                  </p>
+                )}
+                {product && <StepProduct product={product} />}
+              </>
+            ) : null}
+          </StepRow>
+        );
+      })}
+      {workout && (
+        <StepRow item={{ key: "workout", text: workout.title }} checked={workout.done} onToggle={workout.onToggle} chip="Workout">
+          <p className="text-sm text-muted leading-relaxed">{workout.detail}</p>
+        </StepRow>
       )}
-    </section>
+    </ul>
   );
 }
 
-export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [], completedPm = [], initialTab = "am", newStepIds = [] }) {
+// Morning before 4pm local time, evening after. Read through useSyncExternalStore so the
+// server render and hydration use "am" and the client then swaps in the real one.
+const noopSubscribe = () => () => {};
+const autoTabNow = () => (new Date().getHours() < 16 ? "am" : "pm");
+
+export default function RoutineChecklist({
+  amRoutine,
+  pmRoutine,
+  completedAm = [],
+  completedPm = [],
+  initialTab = null,
+  newStepIds = [],
+  products = [],
+  facialWorkout = "",
+  workoutDone = false,
+}) {
   const [amChecks, setAmChecks] = useState(completedAm);
   const [pmChecks, setPmChecks] = useState(completedPm);
-  const [tab, setTab] = useState(initialTab === "pm" ? "pm" : "am");
+  const [workoutChecked, setWorkoutChecked] = useState(workoutDone);
+  const [picked, setPicked] = useState(initialTab === "pm" || initialTab === "am" ? initialTab : null);
+  const autoTab = useSyncExternalStore(noopSubscribe, autoTabNow, () => "am");
+  const tab = picked ?? autoTab;
+
+  const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const toggleCheck = async (time, step) => {
     let newChecks;
     if (time === "am") {
-      newChecks = amChecks.includes(step) ? amChecks.filter(s => s !== step) : [...amChecks, step];
+      newChecks = amChecks.includes(step) ? amChecks.filter((s) => s !== step) : [...amChecks, step];
       setAmChecks(newChecks);
     } else {
-      newChecks = pmChecks.includes(step) ? pmChecks.filter(s => s !== step) : [...pmChecks, step];
+      newChecks = pmChecks.includes(step) ? pmChecks.filter((s) => s !== step) : [...pmChecks, step];
       setPmChecks(newChecks);
     }
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    await saveRoutineCompletion(time, step, newChecks.includes(step), tz);
+    await saveRoutineCompletion(time, step, newChecks.includes(step), tz());
     refreshCompanion();
     if (newChecks.includes(step)) {
       const amN = time === "am" ? newChecks.length : amChecks.length;
@@ -163,73 +188,58 @@ export default function RoutineChecklist({ amRoutine, pmRoutine, completedAm = [
     }
   };
 
-  const amTotal = amRoutine?.length || 0;
-  const pmTotal = pmRoutine?.length || 0;
-  const total = amTotal + pmTotal;
-  const done = amChecks.length + pmChecks.length;
+  const toggleWorkout = async () => {
+    const next = !workoutChecked;
+    setWorkoutChecked(next);
+    await saveWorkoutCompletion(next, tz());
+    refreshCompanion();
+  };
 
-  const message = total === 0
-    ? "Take a scan to get your personalised routine."
-    : done >= total
-      ? "Everything done today. Lovely work."
-      : done === 0
-        ? "Tick steps off as you go."
-        : "Nice progress, keep going.";
+  const [workoutTitle, ...workoutRest] = (facialWorkout || "").split(":");
+  const hasDetail = Boolean(facialWorkout) && facialWorkout.includes(":");
+  const workout = facialWorkout
+    ? {
+        title: hasDetail ? workoutTitle.trim() : "Targeted facial workout",
+        detail: hasDetail ? workoutRest.join(":").trim() : facialWorkout,
+        done: workoutChecked,
+        onToggle: toggleWorkout,
+      }
+    : null;
+
+  const total = (tab === "am" ? amRoutine : pmRoutine)?.length || 0;
+  const done = tab === "am" ? amChecks.length : pmChecks.length;
+  const complete = total > 0 && done >= total;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="tk-card p-5 flex items-center gap-4">
-        <ProgressRing done={done} total={total} />
-        <div className="min-w-0">
-          <p className="text-[15px] font-semibold text-primary">Today&apos;s Plan</p>
-          <p className="text-sm text-muted mt-0.5">
-            {total > 0 ? `${done} of ${total} steps completed` : "No routine yet"}
-          </p>
-          <p className="text-xs text-muted mt-1">{message}</p>
-        </div>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <SegmentedTabs
+          className="flex-1"
+          label="Routine time"
+          value={tab}
+          onChange={setPicked}
+          items={[
+            { id: "am", label: "Morning", icon: <Sun size={15} /> },
+            { id: "pm", label: "Evening", icon: <Moon size={15} /> },
+          ]}
+        />
+        {total > 0 && (
+          <span className={`tk-chip tabular-nums shrink-0 ${complete ? "tk-chip-success" : ""}`} aria-label={`${done} of ${total} steps done`}>
+            {done}/{total}
+          </span>
+        )}
       </div>
 
-      {/* Phone: one routine at a time. Desktop: both side by side. */}
-      <SegmentedTabs
-        className="md:hidden"
-        label="Routine time"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { id: "am", label: "Morning", icon: <Sun size={15} /> },
-          { id: "pm", label: "Evening", icon: <Moon size={15} /> },
-        ]}
-      />
-
-      {/* On a phone both lists share one grid cell and the hidden one keeps its
-          space, so the card is as tall as the longer list and switching tabs
-          never changes the page height. */}
-      <div className="grid md:grid-cols-2 gap-4 items-start">
-        <div className={`col-start-1 row-start-1 md:row-start-auto ${tab === "am" ? "" : "max-md:invisible max-md:pointer-events-none"}`}>
-          <StepList
-            id="morning"
-            title="Morning Routine"
-            icon={Sun}
-            steps={amRoutine}
-            checks={amChecks}
-            onToggle={(s) => toggleCheck("am", s)}
-            newStepIds={newStepIds}
-            emptyText="Take a selfie to get your personalised AM routine."
-          />
+      {/* Both lists share one grid cell and the hidden one keeps its space, so the
+          card is as tall as the longer list and switching never changes the page height. */}
+      <section className="tk-card px-4 sm:px-5 py-1 grid" aria-label="Routine">
+        <div className={`col-start-1 row-start-1 ${tab === "am" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "am"} inert={tab !== "am"}>
+          <StepList id="morning" steps={amRoutine} checks={amChecks} onToggle={(s) => toggleCheck("am", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised morning routine." />
         </div>
-        <div className={`col-start-1 row-start-1 md:col-start-2 md:row-start-auto ${tab === "pm" ? "" : "max-md:invisible max-md:pointer-events-none"}`}>
-          <StepList
-            id="evening"
-            title="Evening Routine"
-            icon={Moon}
-            steps={pmRoutine}
-            checks={pmChecks}
-            onToggle={(s) => toggleCheck("pm", s)}
-            newStepIds={newStepIds}
-            emptyText="Take a selfie to get your personalised PM routine."
-          />
+        <div className={`col-start-1 row-start-1 ${tab === "pm" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "pm"} inert={tab !== "pm"}>
+          <StepList id="evening" steps={pmRoutine} checks={pmChecks} onToggle={(s) => toggleCheck("pm", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised evening routine." />
         </div>
-      </div>
+      </section>
     </div>
   );
 }
