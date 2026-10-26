@@ -29,6 +29,32 @@ test("profile answers replace the defaults and are tagged as profile", () => {
   assert.equal(sources.exerciseMinutes, "default");
 });
 
+test("stress comes from the profile and can be overridden", () => {
+  const fromProfile = buildLifestyleInputs({ skinProfile: profile() });
+  assert.equal(fromProfile.values.stressLevel, "high");
+  assert.equal(fromProfile.sources.stressLevel, "profile");
+  const changed = buildLifestyleInputs({ skinProfile: profile(), overrides: { stressLevel: "low", sleepHours: 7.5 } });
+  assert.equal(changed.values.stressLevel, "low");
+  assert.equal(changed.sources.stressLevel, "override");
+  const junk = buildLifestyleInputs({ skinProfile: profile(), overrides: { stressLevel: "extreme" } });
+  assert.equal(junk.values.stressLevel, "high");
+  assert.equal(buildLifestyleInputs({ skinProfile: profile({ stress: "unknown" }) }).sources.stressLevel, "default");
+});
+
+test("high stress adds a small, documented penalty; medium and low do not", () => {
+  const base = { wrinkles: 70, firmness: 70, spots: 70, radiance: 70 };
+  const mult = (stressLevel) => projectTrajectory(base, 1, { ...DEFAULT_LIFESTYLE, stressLevel }, [], []).lifestyleMultiplier;
+  assert.equal(mult("medium"), 1);
+  assert.equal(mult("low"), 1);
+  assert.equal(mult("high"), 1.1);
+  assert.ok(mult("high") < projectTrajectory(base, 1, { ...DEFAULT_LIFESTYLE, sleepHours: 5 }, [], []).lifestyleMultiplier);
+});
+
+test("an assumed stress level alone does not make a projection unreliable", () => {
+  const sources = { sleepHours: "profile", spfUsed: "profile", uvMinutes: "profile", smokeCigarettes: "profile", stressLevel: "default" };
+  assert.equal(assessReliability({ velocitySource: "user", sources }).scores, "high");
+});
+
 test("a profile that lists sunscreen counts as using it until ticks say otherwise", () => {
   const { values, sources } = buildLifestyleInputs({ skinProfile: profile({ currentProducts: ["sunscreen"] }) });
   assert.equal(values.spfUsed, true);

@@ -15,6 +15,13 @@ const MULTIPLIERS = {
   highSugar: 1.25,   // >5 added sugar servings = +25% glycation
   smoker: 1.4,       // 10+ cigs/day = +40%
   exercise: 0.85,    // 150min/week exercise = -15%
+  // High stress = +10%. A judgement value, deliberately small and below low sleep (1.35):
+  // the evidence is that stress slows skin-barrier recovery in healthy people
+  // (Altemus et al., "Stress-induced changes in skin barrier function in healthy women", 2001)
+  // and that acne severity tracks perceived stress (Chiu, Chon & Kimball, "The response of skin disease
+  // to stress: changes in the severity of acne vulgaris as affected by examination stress", Arch Dermatol 2003, n=22).
+  // Neither measured photoaging, so this carries it over to the decline rate as an estimate, not a finding.
+  highStress: 1.1,
 };
 
 const DEFAULT_LIFESTYLE = {
@@ -24,6 +31,7 @@ const DEFAULT_LIFESTYLE = {
   sugarServings: 3,
   smokeCigarettes: 0,
   exerciseMinutes: 80,
+  stressLevel: "medium",
 };
 
 function linearRegression(points){
@@ -112,6 +120,7 @@ function getMultiplier(lifestyle = {}, interventions = []) {
     if (l.sugarServings > 5) m *= MULTIPLIERS.highSugar;
     if (l.smokeCigarettes >= 10) m *= MULTIPLIERS.smoker;
     if (l.exerciseMinutes >= 150) m *= MULTIPLIERS.exercise;
+    if (l.stressLevel === "high") m *= MULTIPLIERS.highStress;
     if (l.spfUsed) m *= MULTIPLIERS.spfDaily;
 
     // Override with what-if interventions (HIGHEST priority)
