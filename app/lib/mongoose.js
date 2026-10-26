@@ -134,6 +134,7 @@ const UserSchema = new mongoose.Schema({
             routineTime: String,
             // Months the person wants to work on their skin (1-12); unset on accounts that were never asked.
             planMonths: Number,
+            refreshedAt: Date,
         }, { _id: false }),
         default: undefined,
     },
@@ -261,6 +262,7 @@ const LifestyleSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     date: { type: Date, default: Date.now, index: true },
     sleepHours: Number,
+    stressLevel: { type: String, enum: ['low', 'medium', 'high'] },
     spfUsed: Boolean,
     uvMinutes: Number,
     sugarServings: Number,

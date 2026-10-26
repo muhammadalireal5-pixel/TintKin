@@ -8,6 +8,7 @@ import { SOURCE_LABELS } from "@/lib/whatif/labels";
 const SOURCE_STYLE = {
   profile: "bg-accent-soft text-accent-deep",
   ticks: "bg-success-soft text-success",
+  checkins: "bg-success-soft text-success",
   override: "bg-primary/10 text-primary",
   default: "bg-line text-muted",
 };

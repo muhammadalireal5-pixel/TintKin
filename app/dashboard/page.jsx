@@ -15,6 +15,8 @@ import StreakPhotoBanner from "./StreakPhotoBanner";
 import TodayView from "./TodayView";
 import ScanInvite from "./ScanInvite";
 import ProfileUpdateBanner from "./ProfileUpdateBanner";
+import FreshnessPrompt from "./FreshnessPrompt";
+import { getFreshnessPrompt, answersFromLog } from "@/lib/checkin/freshness";
 import { buildSkinSummary } from "./skin-summary";
 import { EMAIL_VERIFICATION_ENABLED } from "@/app/lib/feature-flags";
 
@@ -23,7 +25,7 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles, lifestyleLogs } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     const [reportStatus, planRes] = await Promise.all([getReportStatus(), getActivePlan()]);
     const plan = planRes?.success ? planRes.plan : null;
 
@@ -42,6 +44,23 @@ async function DashboardContent() {
         newlyUnlockedTitles,
         reportReady: Boolean(reportStatus?.ready),
     });
+
+    const hasProfile = Boolean(user?.skinProfile?.concerns?.length);
+    const freshness = getFreshnessPrompt({
+        accountCreatedAt: user?.createdAt,
+        profileRefreshedAt: user?.skinProfile?.refreshedAt,
+        lastCheckInAt: lifestyleLogs?.[0]?.date,
+        hasProfile,
+    });
+    const freshnessInitial = freshness
+        ? {
+              sleep: user.skinProfile.sleep,
+              stress: user.skinProfile.stress,
+              outdoor: user.skinProfile.outdoor,
+              smoker: typeof user.skinProfile.smoker === "boolean" ? user.skinProfile.smoker : undefined,
+              ...answersFromLog(lifestyleLogs?.[0]),
+          }
+        : {};
 
     const stepsLeft = Math.max(0, summary.plan.amTotal + summary.plan.pmTotal - summary.plan.amDone - summary.plan.pmDone);
     const sinceStart = plan && typeof plan.baseline?.overallScore === "number"
@@ -82,6 +101,7 @@ async function DashboardContent() {
                 banners={
                     <>
                         {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
+                        {freshness && <FreshnessPrompt kind={freshness.kind} fields={freshness.fields} initial={freshnessInitial} />}
                         {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />

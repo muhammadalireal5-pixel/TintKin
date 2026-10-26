@@ -1,11 +1,12 @@
 import "server-only";
-import { connectDb, RoutineLog, Selfie } from "./mongoose";
+import { connectDb, RoutineLog, Selfie, Lifestyle } from "./mongoose";
 import { findActivePlan } from "./plan";
 import { projectTrajectory } from "./predict";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
 import { toPlainUser } from "@/lib/plan/engine";
 import { buildLifestyleInputs, countSunscreenDays, INPUT_KEYS, INPUT_META } from "@/lib/whatif/lifestyle";
 import { assessReliability } from "@/lib/whatif/reliability";
+import { summarizeCheckIns, RECENT_WINDOW_DAYS } from "@/lib/checkin/freshness";
 
 const WINDOW_DAYS = 30;
 const DAY_MS = 86400000;
@@ -33,8 +34,14 @@ export async function loadWhatIfInputs(user, timezone, overrides = {}) {
     });
   }
 
+  const recentLogs = await Lifestyle.find({ userId: user._id, date: { $gte: new Date(now.getTime() - RECENT_WINDOW_DAYS * DAY_MS) } })
+    .sort({ date: -1 })
+    .limit(10)
+    .select("date sleepHours uvMinutes stressLevel")
+    .lean();
+
   const plain = toPlainUser(user);
-  return buildLifestyleInputs({ skinProfile: plain.skinProfile ?? null, sunscreen, overrides });
+  return buildLifestyleInputs({ skinProfile: plain.skinProfile ?? null, sunscreen, checkIns: summarizeCheckIns(recentLogs, now), overrides });
 }
 
 export function describeInputs(built) {

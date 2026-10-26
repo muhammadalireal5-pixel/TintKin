@@ -29,6 +29,7 @@ import { toPlanView, getPlanDay } from "@/lib/plan/state";
 import { deriveProductsFromPlan } from "@/lib/plan/products";
 import { sanitizeRecommendedProducts, makeAdviceSafe, makeProductsSafe } from "@/lib/plan/scan-safety";
 import { toPlainUser } from "@/lib/plan/engine";
+import { validateCheckIn, lifestyleFromCheckIn, DUPLICATE_WITHIN_DAYS } from "@/lib/checkin/freshness";
 import { assessScanConfidence, sanitizeClientQuality, isLowConfidence } from "@/lib/utils/image-quality";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
@@ -1053,6 +1054,40 @@ export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
   }));
 }
 
+export async function submitFreshnessCheckIn(kind, answers, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
+  const user = await getDbUser();
+  const clean = validateCheckIn(answers, kind);
+  if (!clean) return { success: false, error: "Please answer each question." };
+  if (kind === "quarterly" && !user.skinProfile?.concerns?.length) return { success: false, error: "Please complete your skin profile first." };
+
+  const rateCheck = await checkRateLimit(user._id.toString(), "checkin", 10, 60000);
+  if (!rateCheck.allowed) return { success: false, error: "Too many requests. Please wait a moment." };
+
+  try {
+    const now = new Date();
+    const entry = lifestyleFromCheckIn(clean, now);
+    const latest = await Lifestyle.findOne({ userId: user._id }).sort({ date: -1 }).select("date").lean();
+    if (latest && now.getTime() - new Date(latest.date).getTime() < DUPLICATE_WITHIN_DAYS * 86400000) {
+      await Lifestyle.updateOne({ _id: latest._id }, { $set: entry });
+    } else {
+      await Lifestyle.create({ userId: user._id, ...entry });
+    }
+    if (kind === "quarterly") {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { "skinProfile.sleep": clean.sleep, "skinProfile.stress": clean.stress, "skinProfile.outdoor": clean.outdoor, "skinProfile.smoker": clean.smoker, "skinProfile.refreshedAt": now } }
+      );
+    }
+    revalidatePath("/dashboard");
+    revalidatePath("/what-if");
+    return { success: true };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "freshness-check-in" } });
+    return { success: false, error: "We couldn't save that. Please try again." };
+  }
+}
+
 export async function getWhatIfInputs(timezone = "UTC", overrides = {}) {
   timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
@@ -1400,7 +1435,7 @@ export async function completeOnboarding(data) {
       goals: validGoals, 
       customGoal: cleanCustomGoal,
       onboardingComplete: true,
-      ...(skinProfile ? { skinProfile: sealSkinProfile(skinProfile) } : {}),
+      ...(skinProfile ? { skinProfile: sealSkinProfile({ ...skinProfile, refreshedAt: new Date() }) } : {}),
     };
 
     if (!targetUser) {
@@ -2141,7 +2176,7 @@ export async function updateSkinProfile(data) {
     const { birthDate, sex, skinType, goals, customGoal, skinProfile } = validation.sanitized;
     // Keep an earlier length choice if this form did not send one.
     const planMonths = skinProfile.planMonths ?? user.skinProfile?.planMonths;
-    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile({ ...skinProfile, planMonths }), recommendationsLockedUntil: null }, { new: true });
+    const updated = await User.findByIdAndUpdate(user._id, { birthDate, sex, skinType, goals, customGoal, skinProfile: sealSkinProfile({ ...skinProfile, planMonths, refreshedAt: new Date() }), recommendationsLockedUntil: null }, { new: true });
     // Safety first: a step the new answers rule out stops now, whatever they
     // choose to do with the rest of the plan.
     // A new length applies to the running plan too (never below the month they are in).
