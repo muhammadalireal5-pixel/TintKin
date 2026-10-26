@@ -18,9 +18,7 @@ import {
   Lock,
   Download,
   X,
-  Share2,
   Check,
-  Trophy,
 } from "lucide-react";
 import { ACHIEVEMENTS } from "@/app/lib/achievements";
 import { useToast } from "@/app/components/ToastProvider";
@@ -123,43 +121,18 @@ export default function TrophyCase({
   };
 
   return (
-    <div className="tk-card p-5 sm:p-7 relative overflow-hidden flex flex-col justify-between">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-line">
-        <div className="flex items-start gap-3.5">
-          <div className="tk-icon-circle w-11 h-11 shrink-0">
-            <Trophy size={22} strokeWidth={2.2} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="tk-text-micro font-bold tracking-[0.2em] uppercase text-muted">
-                Milestones
-              </span>
-              <span className="tk-text-micro px-2 py-0.5 rounded-full bg-blush text-muted font-semibold">
-                {totalCount} to reach
-              </span>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-semibold text-primary">
-              Time you&apos;ve spent <span className="text-accent">caring for your skin</span>
-            </h3>
-            <p className="text-xs text-muted mt-0.5 hidden sm:block">
-              Each milestone marks showing up, not a score. Tap one to see what it means.
-            </p>
-          </div>
+    <div className="tk-card p-4 sm:p-6 relative overflow-hidden flex flex-col justify-between">
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span className="text-sm font-semibold text-primary">
+            {unlockedCount} of {totalCount} reached
+          </span>
         </div>
-
-        <div className="flex items-center sm:flex-col sm:items-end gap-3 sm:gap-1.5 shrink-0 bg-blush/60 sm:bg-transparent p-3 sm:p-0 rounded-2xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent-soft text-xs font-bold text-accent-deep">
-            <Award size={14} />
-            <span>
-              {unlockedCount} of {totalCount} reached
-            </span>
-          </div>
-          <div className="w-28 sm:w-36 h-2 bg-line rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
+        <div className="h-1.5 bg-line rounded-full overflow-hidden" role="progressbar" aria-label="Milestones reached" aria-valuemin={0} aria-valuemax={totalCount} aria-valuenow={unlockedCount}>
+          <div
+            className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${completionPercent}%` }}
+          />
         </div>
       </div>
 
@@ -229,15 +202,7 @@ export default function TrophyCase({
         })}
       </div>
 
-      <div className="mt-5 pt-3.5 border-t border-line flex flex-col sm:flex-row items-center justify-between tk-text-micro text-muted gap-2">
-        <span className="flex items-center gap-1.5">
-          <Share2 size={13} className="text-accent" />
-          <span>Tap a milestone to see what it means and save it as an image.</span>
-        </span>
-        <span className="tk-text-micro uppercase font-semibold tracking-wider text-accent">
-          Showing up counts
-        </span>
-      </div>
+      <p className="mt-3 tk-text-micro text-muted">Tap a milestone to see what it means or save it as an image.</p>
 
       {selectedBadge && mounted &&
         createPortal(

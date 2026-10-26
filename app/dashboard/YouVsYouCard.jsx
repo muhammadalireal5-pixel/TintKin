@@ -1,5 +1,5 @@
 import { TrendingUp } from "lucide-react";
-import WeeklyGoalRing from "./WeeklyGoalRing";
+import WeekDots from "@/app/plan/WeekDots";
 
 function Row({ label, now, before, unit = "" }) {
   const has = typeof now === "number";
@@ -19,9 +19,10 @@ function Row({ label, now, before, unit = "" }) {
 }
 
 // The personal counterpart to the community board: only ever you against you.
-export default function YouVsYouCard({ activity, longestStreak = 0 }) {
+export default function YouVsYouCard({ activity, longestStreak = 0, stepsTotal = 0 }) {
   if (!activity) return null;
-  const { weekDays, weeklyGoal, monthDays, prevMonthDays, monthScore, prevMonthScore, bestWeekDays } = activity;
+  const { monthDays, prevMonthDays, monthScore, prevMonthScore } = activity;
+  const week = { steps: activity.weekSteps, todayIndex: activity.weekTodayIndex };
 
   return (
     <section className="tk-card p-5 sm:p-6">
@@ -31,13 +32,11 @@ export default function YouVsYouCard({ activity, longestStreak = 0 }) {
       </div>
       <p className="text-xs text-muted mb-3">This month against last month. No one else is in this comparison.</p>
 
-      <div className="flex items-center gap-3 rounded-xl bg-blush/70 px-3 py-2.5 mb-2">
-        <WeeklyGoalRing days={weekDays} target={weeklyGoal} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-primary">{weekDays >= weeklyGoal ? "Weekly goal reached" : "This week"}</p>
-          <p className="text-xs text-muted">{weekDays} of {weeklyGoal} days of care. Best recent week: {bestWeekDays}.</p>
+      {week && (
+        <div className="mb-2">
+          <WeekDots week={week} stepsTotal={stepsTotal} />
         </div>
-      </div>
+      )}
 
       <Row label="Days of care" now={monthDays} before={prevMonthDays} />
       <Row label="Average skin score" now={monthScore} before={prevMonthScore} />

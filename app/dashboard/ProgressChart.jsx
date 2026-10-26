@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { SKIN_METRICS } from "@/lib/constants/metrics";
 import { getOlderSelfies } from "@/app/lib/actions";
@@ -43,18 +44,21 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
     };
   });
 
-  if (data.length === 0) {
+  if (data.length < 3) {
     return (
-      <div className="w-full min-h-[300px] flex items-center justify-center text-center px-6">
-        <p className="text-sm text-muted">
-          Not enough analyzed scans yet. Your first scan sets your starting point.
-        </p>
+      <div className="w-full min-h-[220px] flex flex-col items-center justify-center text-center gap-3 px-6">
+        <p className="text-sm text-muted">Scan a few more times to see your trend.</p>
+        <Link href="/capture" className="tk-pill-btn tk-btn-primary px-5 py-2.5 text-sm">Scan now</Link>
       </div>
     );
   }
 
+  const values = data.flatMap((d) => [d.scan, d.trend]).filter((v) => typeof v === "number");
+  const domain = [Math.max(0, Math.floor(Math.min(...values) - 5)), Math.min(100, Math.ceil(Math.max(...values) + 5))];
+
   return (
     <div className="w-full min-h-[300px] flex flex-col">
+      <p className="text-xs text-muted mb-3">The line is your 7-day average. Single scans vary with light, so the dots are not a verdict.</p>
       {canLoadMore && (
         <button
           type="button"
@@ -82,7 +86,7 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
             dy={10}
           />
           <YAxis 
-            domain={[0, 100]} 
+            domain={domain} 
             axisLine={false} 
             tickLine={false} 
             tick={{ fontSize: 12, fill: 'var(--tk-text-muted)' }}

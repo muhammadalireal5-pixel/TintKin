@@ -1,12 +1,12 @@
 import Link from "next/link";
+import WeekDots from "./WeekDots";
 import { CalendarCheck, ChevronRight, HeartHandshake } from "lucide-react";
-import PlanProgress from "./PlanProgress";
 
 /**
  * The Today screen's lead card: where the user is in the plan and how their two
  * focus areas are moving. The score is a starting point; this is the story.
  */
-export default function PlanTodayCard({ plan, stepsLeft }) {
+export default function PlanTodayCard({ plan, stepsLeft, stepsTotal = 0, week = null }) {
   const due = plan.nextCheckIn?.isDue && !plan.expired;
   const headline = plan.expired
     ? `Month ${plan.monthIndex} is complete`
@@ -34,9 +34,27 @@ export default function PlanTodayCard({ plan, stepsLeft }) {
         )}
       </Link>
 
-      <div className="mt-3.5">
-        <PlanProgress progress={plan.progress} compact dense />
-      </div>
+      {week && (
+        <div className="mt-4">
+          <WeekDots week={week} stepsTotal={stepsTotal} />
+        </div>
+      )}
+
+      {plan.progress?.focus?.length > 0 && (
+        <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted">Focus:</span>
+          {plan.progress.focus.map((f) => <span key={f.metric} className="tk-chip">{f.label}</span>)}
+        </div>
+      )}
+
+      {plan.nextCheckIn && !plan.expired && (() => {
+        const away = Math.max(0, plan.nextCheckIn.day - plan.day);
+        return (
+          <Link href="/routine" className="mt-3 block text-xs text-muted hover:text-primary transition-colors">
+            {due ? "Check-in due" : away === 0 ? "Next check-in today" : `Next check-in in ${away} ${away === 1 ? "day" : "days"}`}
+          </Link>
+        );
+      })()}
     </section>
   );
 }

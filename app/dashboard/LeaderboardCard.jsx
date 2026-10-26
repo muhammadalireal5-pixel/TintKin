@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getLeaderboard } from "@/app/lib/actions";
-import Link from "next/link";
+import { useSettings } from "@/app/context/SettingsContext";
 import {
   MapPin,
   Flag,
@@ -14,7 +14,6 @@ import {
   Sparkles,
   Loader2,
   AlertCircle,
-  ChevronRight
 } from "lucide-react";
 
 const SCOPES = [
@@ -23,8 +22,9 @@ const SCOPES = [
   { id: "international", label: "Global", icon: Globe },
 ];
 
-export default function LeaderboardCard() {
-  const [activeScope, setActiveScope] = useState("city");
+export default function LeaderboardCard({ hasCity = true }) {
+  const { openSettings } = useSettings();
+  const [activeScope, setActiveScope] = useState(hasCity ? "city" : "international");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -69,20 +69,6 @@ export default function LeaderboardCard() {
     <div className="tk-card p-4 sm:p-5 h-full flex flex-col justify-between overflow-hidden min-h-[250px]">
       {/* Header & Category Tabs */}
       <div className="shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <Trophy size={13} className="text-accent" />
-            <p className="tk-text-micro font-semibold tracking-widest uppercase text-muted">
-              Community Board
-            </p>
-          </div>
-          {data?.userCount > 0 && !data.needsLocation && (
-            <span className="tk-text-micro font-medium text-accent-deep bg-accent-soft px-2 py-0.5 rounded-full">
-              {data.userCount} {data.userCount === 1 ? "member" : "members"}
-            </span>
-          )}
-        </div>
-
         {/* 3 Scope Tabs: City, Country, Global */}
         <div className="tk-segmented mb-2">
           {SCOPES.map(({ id, label, icon: Icon }) => {
@@ -102,12 +88,23 @@ export default function LeaderboardCard() {
           })}
         </div>
 
-        {/* Scope Context Label */}
         {data?.activeScopeLabel && !data.needsLocation && (
-          <p className="tk-text-micro text-muted mb-1 text-left truncate">
-            Days of care this month in{" "}
-            <span className="font-semibold text-primary">{data.activeScopeLabel}</span>
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="tk-text-micro text-muted text-left truncate">
+              Days of care this month in{" "}
+              <span className="font-semibold text-primary">{data.activeScopeLabel}</span>
+            </p>
+            {data.userCount > 0 && (
+              <span className="tk-text-micro font-medium text-accent-deep bg-accent-soft px-2 py-0.5 rounded-full shrink-0">
+                {data.userCount} {data.userCount === 1 ? "member" : "members"}
+              </span>
+            )}
+          </div>
+        )}
+        {!hasCity && (
+          <button type="button" onClick={openSettings} className="tk-text-micro font-semibold text-accent-deep hover:text-accent underline mb-1">
+            Set your city to see local rankings
+          </button>
         )}
       </div>
 
@@ -132,14 +129,11 @@ export default function LeaderboardCard() {
           </div>
         ) : data?.needsLocation ? (
           <div className="text-center py-4 px-3">
-            <div className="w-9 h-9 rounded-full bg-accent-soft text-accent mx-auto flex items-center justify-center mb-2">
-              <MapPin size={16} />
-            </div>
-            <p className="text-xs font-medium text-primary mb-1">
-              Location Required
-            </p>
             <p className="text-xs text-muted leading-relaxed">
-              Set your city in Settings to unlock your local {activeScope} leaderboard.
+              Local rankings need your city.{" "}
+              <button type="button" onClick={openSettings} className="font-semibold text-accent-deep underline">
+                Set your city
+              </button>
             </p>
           </div>
         ) : !data?.entries || data.entries.length === 0 ? (
@@ -238,23 +232,6 @@ export default function LeaderboardCard() {
             })}
           </div>
         )}
-      </div>
-
-      {/* Pinned Footer */}
-      <div className="shrink-0 mt-2 pt-2 border-t border-line flex items-center justify-between tk-text-micro text-muted">
-        {data?.myRank ? (
-          <span>
-            You: <span className="font-semibold text-primary">{data.entries?.find((e) => e.isMe)?.daysActive ?? 0} days this month</span>
-          </span>
-        ) : (
-          <span>Community Board</span>
-        )}
-        <Link
-          href="/leaderboard"
-          className="text-accent hover:text-accent-deep font-medium flex items-center gap-0.5 transition-colors"
-        >
-          Full Board <ChevronRight size={12} />
-        </Link>
       </div>
     </div>
   );

@@ -3,7 +3,6 @@ import { getActivePlan } from "@/app/lib/plan-actions";
 import PageHeader from "@/app/components/ui/PageHeader";
 import RoutineChecklist from "@/app/dashboard/RoutineChecklist";
 import PlanHeader from "@/app/plan/PlanHeader";
-import PlanTimeline from "@/app/plan/PlanTimeline";
 import PlanAim from "@/app/plan/PlanAim";
 import PickedForYou from "@/app/plan/PickedForYou";
 import CheckInCard from "@/app/plan/CheckInCard";
@@ -57,7 +56,6 @@ export default async function RoutinePage({ searchParams }) {
                     <PlanHeader plan={plan} />
                     {!plan.expired && plan.nextCheckIn?.isDue && <CheckInCard plan={plan} />}
                     <RoutineChecklist amRoutine={plan.steps.am} pmRoutine={plan.steps.pm} newStepIds={plan.newStepIds} {...routineProps} />
-                    <PlanTimeline plan={plan} />
                     <PlanAim progress={plan.progress} />
                     <PickedForYou products={products} />
                 </div>

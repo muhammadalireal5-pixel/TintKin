@@ -19,7 +19,7 @@ const MARGIN = 8;
 const TAP_SLOP = 6;
 // Kin follows signed-in users everywhere except the admin portal. Onboarding has
 // its own inline Kin (it would otherwise sit on top of the questionnaire).
-const HIDDEN_PREFIXES = ["/admin", "/onboarding"];
+const HIDDEN_PREFIXES = ["/admin", "/onboarding", "/progress"];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 

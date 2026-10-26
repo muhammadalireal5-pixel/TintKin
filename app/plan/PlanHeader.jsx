@@ -11,7 +11,6 @@ function checkInLabel(plan) {
 
 /** Where the user is: month, day, phase and the next check-in, in one card. */
 export default function PlanHeader({ plan }) {
-  const pct = Math.min(100, Math.round((plan.day / plan.durationDays) * 100));
   const intent = (plan.phase.intent || "").replace(/\.$/, "");
   return (
     <section className="tk-card p-4 sm:p-5" aria-label="Your plan">
@@ -32,14 +31,23 @@ export default function PlanHeader({ plan }) {
       </div>
 
       <div
-        className="mt-3 h-1.5 rounded-full bg-line overflow-hidden"
+        className="mt-3 grid gap-1"
+        style={{ gridTemplateColumns: plan.phases.map((p) => `${p.endDay - p.startDay + 1}fr`).join(" ") }}
         role="progressbar"
-        aria-label="Plan progress"
+        aria-label={`Plan progress, ${plan.phase.name} phase`}
         aria-valuemin={0}
         aria-valuemax={plan.durationDays}
         aria-valuenow={plan.day}
       >
-        <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
+        {plan.phases.map((p) => {
+          const span = p.endDay - p.startDay + 1;
+          const fill = Math.max(0, Math.min(100, ((plan.day - p.startDay + 1) / span) * 100));
+          return (
+            <span key={p.key} title={`${p.name}: days ${p.startDay}-${p.endDay}`} className="block h-1.5 rounded-full bg-line overflow-hidden">
+              <span className="block h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${fill}%` }} />
+            </span>
+          );
+        })}
       </div>
 
       <PlanLengthEditor monthIndex={plan.monthIndex} totalMonths={plan.totalMonths} description={intent} />

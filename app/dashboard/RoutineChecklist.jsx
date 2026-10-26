@@ -45,7 +45,7 @@ function StepProduct({ product }) {
   const guide = getProductGuidance(product.type);
   const why = whyLine(product);
   return (
-    <div className="mt-2.5 rounded-xl border border-line bg-paper p-2.5">
+    <div className="mt-2.5 rounded-xl border border-line bg-paper p-2.5 min-w-0">
       <div className="flex items-center gap-3">
         <span className="relative w-11 h-11 shrink-0 rounded-lg overflow-hidden border border-line bg-accent-soft">
           <ProductImage type={product.type} alt={product.formula || product.type} className="object-cover" />
@@ -106,7 +106,7 @@ function StepRow({ item, checked, isNew, onToggle, chip = null, children = null 
           </button>
         )}
       </div>
-      {open && children && <div className="pl-10 pr-1 pb-3">{children}</div>}
+      {open && children && <div className="pl-10 pr-1 pb-3 min-w-0 break-words">{children}</div>}
     </li>
   );
 }
@@ -232,11 +232,11 @@ export default function RoutineChecklist({
 
       {/* Both lists share one grid cell and the hidden one keeps its space, so the
           card is as tall as the longer list and switching never changes the page height. */}
-      <section className="tk-card px-4 sm:px-5 py-1 grid" aria-label="Routine">
-        <div className={`col-start-1 row-start-1 ${tab === "am" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "am"} inert={tab !== "am"}>
+      <section className="tk-card px-4 sm:px-5 py-1 grid grid-cols-[minmax(0,1fr)] overflow-hidden" aria-label="Routine">
+        <div className={`col-start-1 row-start-1 min-w-0 ${tab === "am" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "am"} inert={tab !== "am"}>
           <StepList id="morning" steps={amRoutine} checks={amChecks} onToggle={(s) => toggleCheck("am", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised morning routine." />
         </div>
-        <div className={`col-start-1 row-start-1 ${tab === "pm" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "pm"} inert={tab !== "pm"}>
+        <div className={`col-start-1 row-start-1 min-w-0 ${tab === "pm" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "pm"} inert={tab !== "pm"}>
           <StepList id="evening" steps={pmRoutine} checks={pmChecks} onToggle={(s) => toggleCheck("pm", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised evening routine." />
         </div>
       </section>

@@ -76,7 +76,7 @@ async function DashboardContent() {
                 sinceStart={sinceStart}
                 // Extras appear once the user has shown up a few times.
                 showLeaderboard={(user?.routineDays || 0) >= 3}
-                planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} /> : <PlanBuilder compact />}
+                planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} stepsTotal={summary.plan.amTotal + summary.plan.pmTotal} week={activity ? { steps: activity.weekSteps, todayIndex: activity.weekTodayIndex } : null} /> : <PlanBuilder compact />}
                 // Sits below the skin card, which the Today/This week toggle controls.
                 afterPlan={firstWeek ? <FirstWeekChecklist items={firstWeek} /> : null}
                 banners={
