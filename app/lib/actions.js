@@ -23,6 +23,8 @@ import { denoiseSelfie } from "@/lib/utils/denoise";
 import { checkRateLimit } from "./rate-limit";
 import { recordScanOnPlan, getTodayRoutineKeys, sweepPlanSafety, setPlanMonths } from "./plan";
 import { toPlanView } from "@/lib/plan/state";
+import { sanitizeRecommendedProducts, makeAdviceSafe, makeProductsSafe } from "@/lib/plan/scan-safety";
+import { toPlainUser } from "@/lib/plan/engine";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
 
@@ -42,7 +44,6 @@ import { listOrders, getOrders } from "@polar-sh/sdk/2026-10/services/orders";
 import { createRefunds } from "@polar-sh/sdk/2026-10/services/refunds";
 import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult, partialResult } from "@/lib/utils/result";
-import { DEFAULT_RECOMMENDED_PRODUCTS, PRODUCT_TYPES } from "@/lib/constants/products";
 import { DENIAL_REASONS, getTierScanLimits, getTierSimLimit } from "@/lib/constants/quotas";
 import { findPendingReport, buildCheckInReport } from "@/lib/plan/report";
 import { loadReportInputs, getUserReportStatus, notifyReportReadyIfDue } from "./report-notify";
@@ -232,23 +233,6 @@ async function prepareSimulationSource(imageUrl, userId) {
 // ValidationError and silently discarded the entire scan. Sanitize to the
 // schema's contract, falling back to the curated defaults when the AI output
 // doesn't qualify.
-function sanitizeRecommendedProducts(products) {
-  if (!Array.isArray(products)) return DEFAULT_RECOMMENDED_PRODUCTS;
-
-  const valid = products.filter(
-    (p) =>
-      p &&
-      typeof p === "object" &&
-      PRODUCT_TYPES.includes(p.type) &&
-      typeof p.formula === "string" &&
-      p.formula.trim().length > 0 &&
-      typeof p.description === "string" &&
-      p.description.trim().length > 0
-  );
-
-  return valid.length === 3 ? valid : DEFAULT_RECOMMENDED_PRODUCTS;
-}
-
 export async function uploadSelfieServerAction(formData) {
   let decoded;
   try {
@@ -613,6 +597,16 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC") {
           }
         }
       }
+    }
+
+    if (adviceSucceeded) {
+      const safeAdvice = makeAdviceSafe({ critique, habits, amRoutine, pmRoutine, facialWorkout, products: recommendedProducts }, user);
+      critique = safeAdvice.critique;
+      habits = safeAdvice.habits;
+      amRoutine = safeAdvice.amRoutine;
+      pmRoutine = safeAdvice.pmRoutine;
+      facialWorkout = safeAdvice.facialWorkout;
+      recommendedProducts = safeAdvice.products;
     }
 
     if (skinAge != null && user.birthDate) {
@@ -986,6 +980,13 @@ export async function getLatestData(timezone = null, options = {}) {
     newlyUnlockedIds.forEach(id => {
       if (!user.badges.includes(id)) user.badges.push(id);
     });
+  }
+
+  const plainUser = toPlainUser(user);
+  for (const row of [latestSelfie, latestAnalyzedSelfie]) {
+    if (row && Array.isArray(row.recommendedProducts) && row.recommendedProducts.length) {
+      row.recommendedProducts = makeProductsSafe(row.recommendedProducts, plainUser);
+    }
   }
 
   if (latestSelfie?.imageUrl) {

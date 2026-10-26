@@ -8,6 +8,7 @@ import { STATUS, ERROR_CODES } from "@/lib/constants/status";
 import { okResult, errorResult } from "@/lib/utils/result";
 import { PLAN_LIMITS } from "@/lib/constants/plan";
 import { isLive } from "@/lib/plan/state";
+import { describeSkinProfile } from "@/lib/plan/scan-safety";
 
 // Lazy singleton: the OpenAI SDK's constructor throws immediately if no
 // apiKey is resolvable. Built eagerly at module scope, that throw happened
@@ -58,6 +59,7 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
     const formatScore = (val) => (typeof val === "number" && !isNaN(val) ? Math.round(val) : "Unknown");
     const userProfile = `Age: ${userAge}, Sex: ${safeSex}, Skin Type: ${safeSkinType}, Goals: ${goalsList}${customGoal}`;
     const skinData = `Overall Score: ${formatScore(overallScore)}/100, Skin Age: ${formatScore(skinAge)}, Wrinkles: ${formatScore(scores?.wrinkles)}, Firmness: ${formatScore(scores?.firmness)}, Spots: ${formatScore(scores?.spots)}, Radiance: ${formatScore(scores?.radiance)}`;
+    const skinProfileData = describeSkinProfile(user);
     const uvData = uvIndex !== null && !isNaN(uvIndex) ? `Current UV Index: ${Number(uvIndex)}` : 'Current UV Index: Unknown';
 
     const prompt = `You are a professional dermatologist and skincare expert AI. 
@@ -70,6 +72,8 @@ export async function generatePersonalizedAdvice(user, scores, overallScore, ski
 
     Skin Analysis Scores (0-100, higher is better):
     ${skinData}
+
+    ${skinProfileData}
 
     Environmental Data:
     ${uvData}
