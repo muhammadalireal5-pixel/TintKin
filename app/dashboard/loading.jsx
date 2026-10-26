@@ -1,7 +1,11 @@
+import { PageLoadingMarker } from "@/app/components/page-loading";
+
 export default function DashboardLoading() {
     const block = "bg-blush animate-pulse";
     return (
-        <div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your dashboard">
+        <>
+<PageLoadingMarker />
+<div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your dashboard">
             <div className="flex flex-col gap-4 lg:max-w-2xl">
                 {/* Greeting, photo and streak chip */}
                 <div className="flex items-center justify-between gap-4">
@@ -38,5 +42,6 @@ export default function DashboardLoading() {
                 </div>
             </div>
         </div>
+        </>
     );
 }

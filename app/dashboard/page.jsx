@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
 import { getLatestData, getReportStatus } from "@/app/lib/actions";
 import { getActivePlan } from "@/app/lib/plan-actions";
 import PlanTodayCard from "@/app/plan/PlanTodayCard";
 import PlanBuilder from "@/app/plan/PlanBuilder";
 import FirstWeekChecklist from "./FirstWeekChecklist";
 import AnnouncementModal from "./AnnouncementModal";
+import PlanLengthModal from "./PlanLengthModal";
 import { CURRENT_ANNOUNCEMENT, shouldShowAnnouncement } from "@/lib/constants/announcements";
 import { RadarChartClient } from "./LazyCharts";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
@@ -48,9 +48,9 @@ async function DashboardContent() {
         ? { from: Math.round(plan.baseline.overallScore), delta: plan.progress.overallDelta }
         : null;
 
-    // Accounts from before plans could run for months were never asked how long:
-    // send them to the same questionnaire, opened at that one question.
-    if (user?.skinProfile?.concerns?.length && !user.skinProfile.planMonths) redirect("/profile/skin?step=length");
+    // Accounts from before plans could run for months were never asked how long.
+    // A pop-up offers the upgrade; it never shows over the one-time "what's new" note.
+    const needsLength = Boolean(user?.skinProfile?.concerns?.length) && !user.skinProfile.planMonths;
     const firstWeek = plan && plan.day <= 14
         ? [
             { label: "Tell us about your skin", done: true },
@@ -68,6 +68,7 @@ async function DashboardContent() {
     return (
         <div className="tk-container pt-1 sm:pt-4 pb-10">
             {shouldShowAnnouncement(user) && <AnnouncementModal id={CURRENT_ANNOUNCEMENT.id} />}
+            {needsLength && !shouldShowAnnouncement(user) && <PlanLengthModal />}
             <TodayView
                 data={summary}
                 sinceStart={sinceStart}

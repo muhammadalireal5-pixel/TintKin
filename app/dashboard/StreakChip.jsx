@@ -10,7 +10,7 @@ import WeeklyGoalRing from "./WeeklyGoalRing";
  * panel with the rest (this week's goal, milestones, share), so the Today
  * screen only spends a line on it.
  */
-export default function StreakChip({ streak, longestStreak, weeklyGoal, trophies }) {
+export default function StreakChip({ align = "left", streak, longestStreak, weeklyGoal, trophies }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
 
@@ -46,14 +46,14 @@ export default function StreakChip({ streak, longestStreak, weeklyGoal, trophies
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1.5 rounded-full bg-paper border border-line pl-2.5 pr-3 py-1.5 text-sm font-semibold text-primary shadow-sm hover:border-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="inline-flex items-center gap-1.5 rounded-full bg-paper border border-line pl-2 pr-2.5 py-1 text-xs font-semibold text-primary shadow-sm hover:border-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <Flame size={15} className={`text-accent ${streak > 0 ? "tk-anim-flame" : ""}`} />
+        <Flame size={13} className={`text-accent ${streak > 0 ? "tk-anim-flame" : ""}`} />
         {label}
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Streak" className="absolute left-0 top-full mt-2 z-30 w-[min(20rem,calc(100vw-2.5rem))] tk-card p-4 shadow-[0_14px_34px_-12px_rgb(var(--tk-ink-rgb)/0.35)]">
+        <div role="dialog" aria-label="Streak" className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full mt-2 z-30 w-[min(20rem,calc(100vw-2.5rem))] tk-card p-4 shadow-[0_14px_34px_-12px_rgb(var(--tk-ink-rgb)/0.35)]`}>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-primary/70 hover:bg-blush">
             <X size={16} />
           </button>

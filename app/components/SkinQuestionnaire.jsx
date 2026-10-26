@@ -305,7 +305,7 @@ export default function SkinQuestionnaire({ initial = EMPTY_SKIN_FORM, onSubmit,
       <div className="w-full max-w-md">
         <div
           className={`tk-card overflow-hidden tk-anim-1 flex flex-col ${
-            fit ? "h-[calc(100dvh-5rem)] max-h-[42rem] min-h-[29rem]" : "h-[40rem] max-h-[calc(100dvh-9rem)] min-h-[29rem]"
+            fit ? "h-[calc(100dvh-5rem)] max-h-[42rem] min-h-[29rem]" : "h-[calc(100dvh-12rem)] max-h-[42rem] min-h-[28rem]"
           }`}
         >
           <div className="shrink-0 bg-gradient-to-br from-accent-soft via-blush to-surface px-5 sm:px-6 pt-4 pb-3">

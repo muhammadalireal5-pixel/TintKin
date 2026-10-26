@@ -1,6 +1,10 @@
+import { PageLoadingMarker } from "@/app/components/page-loading";
+
 export default function ReportsLoading() {
     return (
-        <div className="tk-container py-6 sm:py-10">
+        <>
+<PageLoadingMarker />
+<div className="tk-container py-6 sm:py-10">
             <div className="mb-5 sm:mb-7 space-y-2 animate-pulse">
                 <div className="h-3 w-40 bg-blush rounded-full" />
                 <div className="h-9 w-56 bg-blush rounded-xl" />
@@ -24,5 +28,6 @@ export default function ReportsLoading() {
                 ))}
             </div>
         </div>
+        </>
     );
 }

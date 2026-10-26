@@ -1,7 +1,11 @@
+import { PageLoadingMarker } from "@/app/components/page-loading";
+
 export default function ProgressLoading() {
     const block = "bg-blush animate-pulse";
     return (
-        <div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your progress">
+        <>
+<PageLoadingMarker />
+<div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your progress">
             <div className="mb-5 space-y-2">
                 <div className={`h-3 w-24 rounded-full ${block}`}></div>
                 <div className={`h-9 w-36 rounded-xl ${block}`}></div>
@@ -16,5 +20,6 @@ export default function ProgressLoading() {
                 </div>
             </div>
         </div>
+        </>
     );
 }

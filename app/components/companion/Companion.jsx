@@ -12,6 +12,7 @@ import { getPushAskStatus, enablePush } from "./push-client";
 import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
 import { markTourSeen } from "@/app/lib/tour-actions";
+import { usePageLoading } from "../page-loading";
 
 const SIZE = 104;
 const MARGIN = 8;
@@ -155,8 +156,9 @@ export default function Companion() {
   const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
   // No timers: Kin simply shows once its own data has arrived (see `loaded`).
+  const pageLoading = usePageLoading();
   const visible =
-    Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+    !pageLoading && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   // Walkthroughs finished on this device before the account remembered them: record them there too.
   const syncedTours = useRef(false);

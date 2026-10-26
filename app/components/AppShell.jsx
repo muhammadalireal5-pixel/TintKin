@@ -17,6 +17,20 @@ import PageTransition from "./PageTransition";
 import Companion from "./companion/Companion";
 import FeedbackModal from "./companion/FeedbackModal";
 import { TAB_ITEMS, SIDEBAR_GROUPS, isActivePath } from "./nav-items";
+import { usePageLoading } from "./page-loading";
+
+/** True once the account and the current page's data have both arrived (see page-loading.js). */
+function useChromeReady() {
+  const { loading } = useAuthContext();
+  const pageLoading = usePageLoading();
+  return !loading && !pageLoading;
+}
+
+/** The logo, or a placeholder of the same size until the page has loaded. */
+function ChromeWordmark({ ready, className, href }) {
+  if (!ready) return <span className={`block rounded-full bg-blush animate-pulse ${className} aspect-[3/1]`} aria-hidden="true" />;
+  return <Wordmark href={href} className={className} />;
+}
 
 function Avatar({ user, size = "w-9 h-9", loading = false }) {
   // A skeleton until the account has loaded, so the avatar never flashes a placeholder initial.
@@ -92,7 +106,7 @@ function PublicShell({ children }) {
 }
 
 function Sidebar({ user, reportReady, onOpenSettings }) {
-  const { loading: authLoading } = useAuthContext();
+  const ready = useChromeReady();
   const pathname = usePathname();
   return (
     <aside
@@ -102,7 +116,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
       aria-label="Primary"
     >
       <div className="px-2">
-        <Wordmark href="/dashboard" className="h-12" />
+        <ChromeWordmark ready={ready} href="/dashboard" className="h-12" />
       </div>
 
       <Link href="/capture" className="tk-pill-btn tk-btn-primary mt-7 w-full py-3.5 text-[15px]">
@@ -148,7 +162,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
         className="mt-4 flex items-center gap-3 rounded-2xl border border-line bg-base/60 p-3 text-left hover:bg-blush/60 transition-colors"
         aria-label="Open settings"
       >
-        <Avatar user={user} size="w-10 h-10" loading={authLoading} />
+        <Avatar user={user} size="w-10 h-10" loading={!ready} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-primary truncate">{user?.displayName || "Your account"}</span>
           <span className="block text-xs text-muted truncate">{user?.email}</span>
@@ -165,19 +179,28 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
 }
 
 function TopBar({ user, reportReady, focus }) {
-  const { loading } = useAuthContext();
+  const ready = useChromeReady();
   return (
     <header className="sticky top-0 z-30 bg-base/85 backdrop-blur-md md:bg-transparent md:backdrop-blur-none">
       <div className="h-16 px-5 md:px-8 flex items-center justify-between gap-3">
         <div className={focus ? "" : "md:hidden"}>
-          <Wordmark href="/dashboard" className="h-10" />
+          <ChromeWordmark ready={ready} href="/dashboard" className="h-10" />
         </div>
         {!focus && (
           <div className="flex items-center gap-2.5 ml-auto">
-            <ReportBell ready={reportReady} />
-            <Link href="/profile" aria-label="Profile" className="rounded-full hover:opacity-85 transition-opacity">
-              <Avatar user={user} size="w-10 h-10" loading={loading} />
-            </Link>
+            {ready ? (
+              <>
+                <ReportBell ready={reportReady} />
+                <Link href="/profile" aria-label="Profile" className="rounded-full hover:opacity-85 transition-opacity">
+                  <Avatar user={user} size="w-10 h-10" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <span className="w-10 h-10 rounded-full bg-blush animate-pulse" aria-hidden="true" />
+                <span className="w-10 h-10 rounded-full bg-blush animate-pulse" aria-hidden="true" />
+              </>
+            )}
           </div>
         )}
       </div>

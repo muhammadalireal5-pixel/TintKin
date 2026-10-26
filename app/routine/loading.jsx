@@ -1,7 +1,11 @@
+import { PageLoadingMarker } from "@/app/components/page-loading";
+
 export default function PlanLoading() {
     const block = "bg-blush animate-pulse";
     return (
-        <div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your plan">
+        <>
+<PageLoadingMarker />
+<div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true" aria-label="Loading your plan">
             <div className="mb-5 space-y-2">
                 <div className={`h-3 w-24 rounded-full ${block}`}></div>
                 <div className={`h-9 w-24 rounded-xl ${block}`}></div>
@@ -32,5 +36,6 @@ export default function PlanLoading() {
                 </div>
             </div>
         </div>
+        </>
     );
 }

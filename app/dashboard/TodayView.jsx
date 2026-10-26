@@ -175,20 +175,21 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
                 {data.firstName || "Welcome back"}
               </h1>
             </div>
-            {!noScan && data.photoUrl && (
-              <div className="relative shrink-0 pb-2" aria-label={typeof data.skinAge === "number" ? `Your latest scan. Skin age ${data.skinAge}` : "Your latest scan"}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.photoUrl} alt="" referrerPolicy="no-referrer" className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover object-center border-2 border-white shadow-[0_6px_16px_-6px_rgb(var(--tk-ink-rgb)/0.45)]" />
+            <div className="shrink-0 flex items-center gap-3">
+              {!noScan && data.photoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={data.photoUrl} alt="Your latest scan" referrerPolicy="no-referrer" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover object-center border-2 border-paper shadow-[0_6px_16px_-6px_rgb(var(--tk-ink-rgb)/0.45)]" />
+              )}
+              <div className="flex flex-col items-end gap-1.5">
                 {typeof data.skinAge === "number" && (
-                  <span className="absolute left-1/2 -translate-x-1/2 bottom-0 whitespace-nowrap rounded-full bg-cocoa px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
-                    Skin age {data.skinAge}
-                  </span>
+                  <p className="text-right leading-none" aria-label={`Skin age ${data.skinAge}`}>
+                    <span className="tk-eyebrow block">Skin age</span>
+                    <span className="block text-2xl sm:text-3xl font-semibold text-accent-deep tabular-nums mt-1">{data.skinAge}</span>
+                  </p>
                 )}
+                <StreakChip align="right" streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} />
               </div>
-            )}
-          </div>
-          <div className="mt-2.5">
-            <StreakChip streak={data.streak} longestStreak={data.longestStreak} weeklyGoal={data.weeklyGoal} trophies={data.trophies} />
+            </div>
           </div>
         </header>
 

@@ -23,6 +23,7 @@ import {
   Mail,
   Bell,
   MonitorSmartphone,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { saveLocation, getUserProfile, updateUserSettings, updatePrivacySettings, changeSubscriptionTier } from "@/app/lib/actions";
@@ -903,6 +904,18 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <div className="flex items-center gap-3">
                   <Trophy size={16} className="text-accent" />
                   <span className="text-sm font-medium text-primary">Community Board</span>
+                </div>
+                <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
+              </Link>
+
+              <Link
+                href="/profile/answers"
+                onClick={onClose}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-blush/60 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <ClipboardList size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-primary">My plan &amp; answers</span>
                 </div>
                 <ChevronRight size={14} className="text-muted group-hover:text-muted transition-colors" />
               </Link>
