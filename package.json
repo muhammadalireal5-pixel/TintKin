@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc -p jsconfig.json --noEmit",
@@ -58,6 +58,6 @@
     "jose": "4.15.5"
   },
   "engines": {
-    "node": ">=22.14.0"
+    "node": ">=22.14.0 <25.0.0"
   }
 }
