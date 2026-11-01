@@ -8,6 +8,6 @@ export default function robots() {
         "/capture", "/routine", "/progress", "/profile", "/share", "/leaderboard",
       ],
     },
-    sitemap: "https://tintkin.com/sitemap.xml",
+    sitemap: "https://tint-kin.vercel.app/sitemap.xml",
   };
 }

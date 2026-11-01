@@ -29,7 +29,7 @@ export const viewport = {
 };
 
 export const metadata = {
-  metadataBase: new URL("https://tintkin.com"),
+  metadataBase: new URL("https://tint-kin.vercel.app"),
   title: {
     template: "%s | TintKin",
     default: "TintKin — Your Daily Skin Coach",
@@ -42,7 +42,7 @@ export const metadata = {
   openGraph: {
     title: "TintKin — Your Daily Skin Coach",
     description: "A skin coach that adapts to you: a plan built for your skin, guided daily sessions, a routine that backs off when your skin reacts, and progress you can trust. Start free.",
-    url: "https://tintkin.com",
+    url: "https://tint-kin.vercel.app",
     siteName: "TintKin",
     images: [
       {
@@ -73,19 +73,19 @@ const rootStructuredData = {
     {
       "@type": "Organization",
       "name": "TintKin",
-      "url": "https://tintkin.com",
-      "logo": "https://tintkin.com/favicon.png",
+      "url": "https://tint-kin.vercel.app",
+      "logo": "https://tint-kin.vercel.app/favicon.png",
       "description": "A daily skin coach: an adaptive plan, guided sessions, product checks and progress tracking."
     },
     {
       "@type": "WebSite",
       "name": "TintKin",
-      "url": "https://tintkin.com"
+      "url": "https://tint-kin.vercel.app"
     },
     {
       "@type": "WebApplication",
       "name": "TintKin",
-      "url": "https://tintkin.com",
+      "url": "https://tint-kin.vercel.app",
       "description": "A daily skin coach that adapts to your skin: guided sessions, reaction-aware routines, plan-aware product checks and measured progress.",
       "applicationCategory": "HealthAndFitnessApplication",
       "operatingSystem": "Web",

@@ -49,7 +49,7 @@ export default async function RoutinePage({ searchParams }) {
             <PageHeader title="Plan" subtitle="Morning and evening steps, adjusted at every check-in." />
 
             {plan ? (
-                <div className="flex flex-col gap-4">
+                <div className="tk-plan-layout flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] xl:gap-6 xl:items-start">
                     {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
                     {plan.needsRatings && <RatingsForm plan={plan} title="Your scan is in. How does your skin feel?" cta="Save my ratings" />}
                     {plan.pendingReview && !plan.needsRatings && <CheckInReview />}
@@ -57,6 +57,7 @@ export default async function RoutinePage({ searchParams }) {
                     <PlanHeader plan={plan} />
                     {!plan.expired && plan.nextCheckIn?.isDue && <CheckInCard plan={plan} />}
                     {!plan.expired && <ReadinessCard coach={plan.coach} />}
+                    <div className="tk-plan-session min-w-0">
                     <RoutineChecklist
                         amRoutine={plan.steps.am}
                         pmRoutine={plan.steps.pm}
@@ -66,7 +67,8 @@ export default async function RoutinePage({ searchParams }) {
                         coached={Boolean(plan.coach) && !plan.expired}
                         {...routineProps}
                     />
-                    <PlanAim progress={plan.progress} />
+                    </div>
+                    <div className="tk-plan-context min-w-0"><PlanAim progress={plan.progress} /></div>
                     <PickedForYou products={products} />
                 </div>
             ) : (

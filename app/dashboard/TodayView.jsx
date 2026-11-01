@@ -214,13 +214,13 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
   }, [newMilestone]);
 
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_26rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:gap-x-6 lg:gap-y-6 lg:items-start">
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0">
         <header className="order-1">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-sm font-medium text-muted">{greeting}</p>
-              <h1 className="text-[2rem] sm:text-4xl lg:text-5xl font-semibold text-primary leading-tight truncate">
+              <h1 className="text-[2rem] sm:text-4xl lg:text-4xl xl:text-5xl font-semibold text-primary leading-tight truncate">
                 {data.firstName || "Welcome back"}
               </h1>
             </div>
@@ -269,10 +269,10 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
           </>
         )}
 
-        {afterPlan && <div className="order-5 empty:hidden flex flex-col gap-4">{afterPlan}</div>}
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">
+        {afterPlan && <div className="order-5 empty:hidden flex flex-col gap-4">{afterPlan}</div>}
         {radar && isLarge && (
           <section className="tk-card p-4 sm:p-5 order-8" aria-label="Skin profile">
             <h2 className="text-base font-semibold text-primary mb-1">Skin profile</h2>

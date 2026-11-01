@@ -154,7 +154,7 @@ export default function LeaderboardClient({ initialScope, initialDataPromise }) 
                   key={id}
                   type="button"
                   onClick={() => handleScopeClick(id)}
-                  aria-selected={isActive}
+                  aria-pressed={isActive}
                   className="tk-segmented-item flex-1 sm:flex-initial flex items-center justify-center gap-2"
                 >
                   <Icon size={15} />

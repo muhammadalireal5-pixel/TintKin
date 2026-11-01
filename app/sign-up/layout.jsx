@@ -7,7 +7,7 @@ export const metadata = {
   openGraph: {
     title: "Sign Up | TintKin",
     description: "Create your free TintKin account. Start logging skin wellness, tracking streaks, and simulating lifestyle improvements.",
-    url: "https://tintkin.com/sign-up",
+    url: "https://tint-kin.vercel.app/sign-up",
   },
 };
 

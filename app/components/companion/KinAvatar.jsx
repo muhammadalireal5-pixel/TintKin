@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 export default function KinAvatar({ size = 56, nudge = 0, className = "" }) {
   const box = useRef(null);
   const anim = useRef(null);
-  const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,8 +29,9 @@ export default function KinAvatar({ size = 56, nudge = 0, className = "" }) {
           animationData: data,
           rendererSettings: { viewBoxSize: "40 85 250 225", preserveAspectRatio: "xMidYMid meet" },
         });
+        anim.current.addEventListener("DOMLoaded", () => { if (!cancelled) setReady(true); });
       } catch {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) setReady(false);
       }
     })();
     return () => {
@@ -46,7 +47,10 @@ export default function KinAvatar({ size = 56, nudge = 0, className = "" }) {
 
   return (
     <div className={`shrink-0 ${className}`} style={{ width: size, height: size }} aria-hidden="true">
-      {failed ? <span className="text-3xl leading-none">🐱</span> : <div ref={box} className="w-full h-full" />}
+      <div className="relative w-full h-full">
+      <div ref={box} className="w-full h-full" />
+      {!ready && <span className="absolute inset-0 flex items-center justify-center text-3xl leading-none">{"\u{1F431}"}</span>}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Wordmark from "@/app/components/ui/Wordmark";
 
 const BENEFITS = [
-  "A personal 30-day plan built from one selfie",
+  "A personal plan built from your skin and goals",
   "A daily routine that adapts as your skin changes",
   "What-If simulator to preview real results",
 ];

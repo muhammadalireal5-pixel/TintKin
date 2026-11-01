@@ -2,7 +2,7 @@
   <h1>TintKin</h1>
   <p><strong>Your daily skin coach: a plan built for your skin, guided sessions, and a routine that adapts to how your skin reacts.</strong></p>
   <p>
-    <a href="https://tint-kin.vercel.app/">TintKin</a> | <a href="[Insert Video Demo Link Here]">Project Demonstration</a>
+    <a href="https://tint-kin.vercel.app/">TintKin</a>
   </p>
 </div>
 
@@ -53,33 +53,33 @@ TintKin is a **daily skin coach**. It works like a workout programme for your sk
 ## 💻 How we built it
 TintKin is built on a modern, highly performant full-stack architecture:
 
-* **Frontend:** Next.js (App Router), React, Tailwind CSS, TypeScript.
+* **Frontend:** Next.js (App Router), React, Tailwind CSS, JavaScript with JSDoc checks.
 * **Backend & Storage:** Vercel for serverless execution, Cloudinary for secure and dynamic image processing, and MongoDB Atlas for structured user and historical data storage.
 * **Authentication:** Auth.js (NextAuth v5) with email/password and Google sign-in, JWT sessions, and server-side session checks on every action. (The original hackathon build used Firebase Auth.)
 * **AI & LLMs:** Qwen API for generating personalized, context-aware skincare advice and routines based on the metrics.
 
 ## 🌟 YouCam API Integration (The Core Engine)
-The **YouCam AI Skin Analysis API** is the foundational engine of TintKin. We integrated it deeply into our capture and simulation workflows to provide clinical-grade accuracy directly to the consumer.
+The **YouCam AI Skin Analysis API** is the foundational engine of TintKin. We integrated it deeply into our capture and simulation workflows to provide skin measurements for a consumer wellness experience.
 
 1. **The measuring instrument for the coach:** Baseline, scheduled check-in and *earned* scans all come from YouCam Skin Analysis. The coach decides when measuring is worth it, which keeps both cost and noise down. Each scan runs under a fixed time budget and backs off on `429` responses, so a busy moment queues briefly instead of failing.
 2. **Precision Scanning:** When a user uploads a daily selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
-3. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image showing the user exactly how their skin will look if they stick to their new routine.
+3. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image illustrating a possible outcome, not predicting or guaranteeing how their skin will look.
 
 > ![What-If Simulation](/public/whatif.png)
 
 ## 🚧 Challenges we ran into
 Building a complex, image-heavy AI app came with its hurdles. One of our primary technical challenges was handling the variability of the **YouCam API responses**. Depending on the scan results, the API returned either flat JSON objects or zipped files containing `score_info.json`. We had to build a robust, unified parsing utility capable of downloading, unzipping (using `fflate`), and standardizing the data on the fly.
 
-Another challenge was adhering to the strict facial positioning requirements of the YouCam Simulation API. We had to implement dynamic, server-side face-cropping logic via Cloudinary transformations before sending images to YouCam to prevent simulation failures. Finally, securely bridging **Firebase Authentication** client sessions with Next.js Server Actions and our MongoDB database required careful cookie management and token verification.
+Another challenge was adhering to the strict facial positioning requirements of the YouCam Simulation API. We had to implement dynamic, server-side face-cropping logic via Cloudinary transformations before sending images to YouCam to prevent simulation failures. Securely connecting Auth.js sessions to Next.js Server Actions and MongoDB required server-side authentication and ownership checks.
 
 ## 🏆 Accomplishments we're proud of
-* **Seamless Full-Stack Architecture:** We successfully bridged Firebase Auth, MongoDB, Next.js, and multiple AI APIs into a single, cohesive user experience on Vercel.
+* **Seamless Full-Stack Architecture:** We successfully bridged Auth.js, MongoDB, Next.js, and multiple AI APIs into a single, cohesive user experience on Vercel.
 * **Robust Data Pipelines:** Engineering a resilient, multi-step image processing pipeline that seamlessly uploads to Cloudinary, dynamically crops, queries YouCam, and securely caches the results.
-* **Clinical Accuracy Meets UI/UX:** Taking highly clinical JSON data from the YouCam API and transforming it into an empathetic, gorgeously designed, and easy-to-understand wellness journal.
+* **Measurements Meet UI/UX:** Taking structured skin-analysis data from the YouCam API and transforming it into an empathetic, gorgeously designed, and easy-to-understand wellness journal.
 
 ## 🛠️ Development
 
-**Prerequisites:** Node.js 22+, [Bun](https://bun.sh) 1.3 (the lockfile is `bun.lock`), a MongoDB Atlas cluster (a replica set — quota reservation uses transactions), and Cloudinary, YouCam, Qwen (DashScope) and Resend accounts.
+**Prerequisites:** Node.js 22.14+, [Bun](https://bun.sh) 1.3 (the lockfile is `bun.lock`), a MongoDB Atlas cluster (a replica set — quota reservation uses transactions), and Cloudinary, YouCam, Qwen (DashScope) and Resend accounts.
 
 ```bash
 bun install
@@ -94,7 +94,7 @@ bun run dev                  # http://localhost:3000
 | `bun run start` | Serve the production build |
 | `bun run lint` | ESLint |
 | `bun run test` | Unit/regression tests (Node's built-in test runner, no extra dependencies) |
-| `bun run type-check` | `tsc` over `lib/` (needs `@types/node`, not currently installed) |
+| `bun run type-check` | `tsc` over `lib/` |
 
 Tests live in `tests/`. `tests/setup/register.mjs` maps the `@/` import alias so tests load the real source files; external services (YouCam, Cloudinary) are mocked with a stubbed `fetch`.
 
@@ -109,3 +109,9 @@ See `docs/skin-coach-design.md` for the full design and `docs/hackathon-pitch.md
 * A dermatologist review of the knowledge base, and a native app.
 
 ---
+
+## Submission checks
+
+See [the submission checklist](docs/submission-checklist.md) for the remaining release checks and demo recording outline. A public 1-3 minute demo video still needs to be recorded and linked in the Devpost submission.
+
+Browser checks: `bun run test:e2e` (install Chromium once with `bunx playwright install chromium`). To test an already-running server, set `E2E_BASE_URL`; otherwise the suite starts a local production server and requires `bun run build` first.

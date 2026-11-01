@@ -31,8 +31,6 @@ export default function LeaderboardCard({ hasCity = true }) {
 
   useEffect(() => {
     let isCurrent = true;
-    setLoading(true);
-    setError(false);
 
     getLeaderboard(activeScope)
       .then((res) => {
@@ -77,8 +75,13 @@ export default function LeaderboardCard({ hasCity = true }) {
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveScope(id)}
-                aria-selected={isActive}
+                onClick={() => {
+                  if (id === activeScope) return;
+                  setLoading(true);
+                  setError(false);
+                  setActiveScope(id);
+                }}
+                aria-pressed={isActive}
                 className="tk-segmented-item flex-1 flex items-center justify-center gap-1 !tk-text-micro"
               >
                 <Icon size={12} />

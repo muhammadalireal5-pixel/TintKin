@@ -464,6 +464,7 @@ h1, h2, h3, h4, h5, h6 {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 .tk-segmented-item[aria-selected="true"],
+.tk-segmented-item[aria-pressed="true"],
 .tk-segmented-item.is-active {
   background: var(--tk-cocoa);
   color: #FFFFFF;
@@ -639,4 +640,26 @@ h1, h2, h3, h4, h5, h6 {
 }
 @media (prefers-reduced-motion: reduce) {
   [data-tour-active="true"] { animation: none; }
+}
+
+/* Desktop workspace: consistent gutters and restrained reading widths. */
+@media (min-width: 768px) {
+  :root { --tk-sidebar-w: 224px; }
+  .tk-sidebar { padding-inline: 1rem; }
+  .tk-app-topbar { max-width: 88rem; margin-inline: auto; width: 100%; border-bottom: 1px solid var(--tk-border-solid); }
+  .tk-shell-main > main > div > .tk-container { padding-top: 2rem; }
+}
+@media (min-width: 1280px) {
+  :root { --tk-sidebar-w: 244px; }
+  .tk-shell-main .tk-container { max-width: 88rem; padding-inline: clamp(2rem, 3vw, 3.5rem); }
+  .tk-app-topbar { padding-inline: clamp(2rem, 3vw, 3.5rem); }
+  .tk-plan-layout > * { grid-column: 1 / -1; }
+  .tk-plan-layout > .tk-plan-session { grid-column: 1; }
+  .tk-plan-layout > .tk-plan-context { grid-column: 2; }
+}
+
+@media (min-width: 768px) {
+  .tk-session > header, .tk-session > main, .tk-session > footer { width: 100%; max-width: 52rem; margin-inline: auto; }
+  .tk-session > header { padding-top: 2rem; padding-bottom: 1rem; }
+  .tk-session > footer { padding-bottom: 2rem; }
 }

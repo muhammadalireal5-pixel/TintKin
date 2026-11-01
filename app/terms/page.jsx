@@ -11,7 +11,7 @@ export const metadata = {
   openGraph: {
     title: "Terms of Service | TintKin",
     description: "Terms of Service and user agreement for TintKin's personal skin plan and wellness journal.",
-    url: "https://tintkin.com/terms",
+    url: "https://tint-kin.vercel.app/terms",
   },
 };
 

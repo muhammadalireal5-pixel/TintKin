@@ -164,7 +164,7 @@ function SignInForm() {
         )}
 
         {isResetMode ? (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form method="post" onSubmit={handleResetPassword} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-primary mb-1">Email address</label>
               <input
@@ -204,7 +204,7 @@ function SignInForm() {
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
+              disabled={googleLoading || loading || authLoading}
               className="tk-pill-btn tk-btn-ghost w-full gap-3 bg-paper disabled:opacity-50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@ function SignInForm() {
               </div>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
+            <form method="post" onSubmit={onSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-primary mb-1">Email address</label>
                 <input
@@ -292,7 +292,7 @@ function SignInForm() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || authLoading}
                 className="tk-pill-btn tk-btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Signing in..." : "Sign In with Email"}

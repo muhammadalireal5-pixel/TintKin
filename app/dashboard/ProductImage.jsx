@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 
 const KNOWN_PRODUCT_TYPES = {
@@ -13,13 +13,13 @@ const KNOWN_PRODUCT_TYPES = {
 };
 
 export default function ProductImage({ type, alt, className, ...props }) {
+  return <ProductImageContent key={type} type={type} alt={alt} className={className} {...props} />;
+}
+
+function ProductImageContent({ type, alt, className, ...props }) {
   const normalizedKey = (type || '').trim().toLowerCase();
   const matchedType = KNOWN_PRODUCT_TYPES[normalizedKey];
   const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    setHasError(false);
-  }, [type]);
 
   if (!matchedType || hasError) {
     return (

@@ -12,7 +12,6 @@ import { getPushAskStatus, enablePush } from "./push-client";
 import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
 import { markTourSeen } from "@/app/lib/tour-actions";
-import { usePageLoading } from "../page-loading";
 
 const COMPANION_REFRESH_MS = 60000;
 
@@ -129,7 +128,6 @@ export default function Companion() {
   const prefs = useCompanionPrefs();
 
   const [state, setState] = useState(null);
-  const [loaded, setLoaded] = useState(false); // the account snapshot has come back (even if it failed)
   const [pushCanAsk, setPushCanAsk] = useState(false);
   const [bubble, setBubble] = useState(null); // { id, text, cta?, tour? }
   const [tour, setTour] = useState(null); // { key, step }
@@ -143,7 +141,8 @@ export default function Companion() {
   const [wheel, setWheel] = useState(null); // { R, cx, cy } while the quick-jump wheel is open
   const live = useRef({ tour: null, wheel: null, bubble: null, name: "", prefs });
 
-  const [artFailed, setArtFailed] = useState(false);
+  const [artReady, setArtReady] = useState(false);
+  const positioned = Boolean(pos);
 
   // On phones the scan screen is crowded (camera frame, shutter, nav), so Kin
   // steps aside there once the first-scan walkthrough is out of the way.
@@ -157,18 +156,9 @@ export default function Companion() {
   }, []);
   const stepAside = narrow && pathname === "/capture" && !tour && (!state || state.hasPlan);
 
-  // Kin waits for the first page's data so it appears together with the rest of
-  // the screen, but after that it stays put: a later route's loading skeleton must
-  // not make it vanish and re-appear. Only "Hide Kin" (or the Settings switch) hides it.
-  const pageLoading = usePageLoading();
-  const [revealed, setRevealed] = useState(false);
-  const ready = !pageLoading || revealed;
-  const visible =
-    ready && Boolean(user) && prefs.enabled && !stepAside && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (visible && !revealed) setRevealed(true);
-  }, [visible, revealed]);
+  // Art and account data load independently; saved visibility preferences still apply.
+  const visible = Boolean(user) && prefs.enabled && !stepAside &&
+    !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   // Walkthroughs finished on this device before the account remembered them: record them there too.
   const syncedTours = useRef(false);
@@ -193,7 +183,6 @@ export default function Companion() {
       .catch(() => {})
       .finally(() => {
         loading.current = false;
-        setLoaded(true);
       });
   }, []);
 
@@ -240,7 +229,7 @@ export default function Companion() {
   }, []);
 
   useEffect(() => {
-    if (!visible) return undefined;
+    if (!visible || !positioned) return undefined;
     let cancelled = false;
     let anim = null;
     (async () => {
@@ -259,12 +248,13 @@ export default function Companion() {
           // The cat only fills ~60% of the 356x364 canvas; crop the view to it so it reads bigger.
           rendererSettings: { viewBoxSize: "40 85 250 225", preserveAspectRatio: "xMidYMid meet" },
         });
+        anim.addEventListener("DOMLoaded", () => { if (!cancelled) setArtReady(true); });
         anim.addEventListener("complete", () => anim.goToAndStop(0, true));
         animRef.current = anim;
         anim.goToAndStop(0, true);
       } catch {
         // Fall back to an emoji so the companion never vanishes.
-        if (!cancelled) setArtFailed(true);
+        if (!cancelled) setArtReady(false);
       }
     })();
     return () => {
@@ -272,7 +262,7 @@ export default function Companion() {
       animRef.current = null;
       anim?.destroy();
     };
-  }, [visible]);
+  }, [visible, positioned]);
 
   // Occasional idle animation (skipped for reduced motion).
   useEffect(() => {
@@ -527,7 +517,7 @@ export default function Companion() {
     }
   };
 
-  if (!visible || !pos || !loaded) {
+  if (!visible || !pos) {
     // Keep the element out of the DOM until placed so it never flashes at 0,0.
     return null;
   }
@@ -732,7 +722,7 @@ export default function Companion() {
         className={`w-full h-full outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-2xl ${dragging ? "cursor-grabbing scale-105" : "cursor-grab"} transition-transform drop-shadow-[0_8px_10px_rgb(var(--tk-ink-rgb)/0.25)]`}
       >
         <div ref={lottieBox} className="w-full h-full pointer-events-none" />
-        {artFailed && (
+        {!artReady && (
           <span className="absolute inset-0 flex items-center justify-center text-6xl pointer-events-none" aria-hidden="true">🐈‍⬛</span>
         )}
       </div>

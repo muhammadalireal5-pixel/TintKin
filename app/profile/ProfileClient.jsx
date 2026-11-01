@@ -88,7 +88,7 @@ export default function ProfileClient({ profile }) {
   const credits = profile?.creditBalance || 0;
 
   return (
-    <div className="grid lg:grid-cols-[22rem_minmax(0,1fr)] gap-6 items-start">
+    <div className="grid xl:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.5fr)] gap-6 items-start">
       <div className="flex flex-col gap-4 lg:sticky lg:top-20">
         <section className="tk-card p-6 flex flex-col items-center text-center">
           <span className="w-24 h-24 rounded-full overflow-hidden bg-accent-soft border-4 border-white shadow-[0_8px_24px_-10px_rgb(var(--tk-ink-rgb)/0.4)] flex items-center justify-center">

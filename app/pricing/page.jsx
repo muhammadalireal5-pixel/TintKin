@@ -13,7 +13,7 @@ export const metadata = {
     openGraph: {
         title: "Pricing & Plans | TintKin",
         description: "A daily skin coach that adapts to you. Start free with an adaptive plan, guided sessions, 2 scans and 3 product checks a month, or upgrade from $8/mo.",
-        url: "https://tintkin.com/pricing",
+        url: "https://tint-kin.vercel.app/pricing",
     },
 };
 
@@ -27,13 +27,13 @@ const pricingStructuredData = {
                     "@type": "ListItem",
                     "position": 1,
                     "name": "Home",
-                    "item": "https://tintkin.com"
+                    "item": "https://tint-kin.vercel.app"
                 },
                 {
                     "@type": "ListItem",
                     "position": 2,
                     "name": "Pricing",
-                    "item": "https://tintkin.com/pricing"
+                    "item": "https://tint-kin.vercel.app/pricing"
                 }
             ]
         },

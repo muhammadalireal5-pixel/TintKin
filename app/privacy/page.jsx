@@ -11,7 +11,7 @@ export const metadata = {
   openGraph: {
     title: "Privacy Policy | TintKin",
     description: "TintKin privacy policy: how we process your photos, who we share data with, and your data rights.",
-    url: "https://tintkin.com/privacy",
+    url: "https://tint-kin.vercel.app/privacy",
   },
 };
 

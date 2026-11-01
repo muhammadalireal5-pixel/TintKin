@@ -75,11 +75,12 @@ export default async function ProgressPage() {
                 </div>
             )}
 
-            <section className="mt-8 max-w-xl">
+            <div className="mt-8 grid xl:grid-cols-2 gap-6 items-start">
+            <section className="min-w-0">
                 <YouVsYouCard activity={activity} longestStreak={user?.longestStreak || 0} stepsTotal={stepsTotal} />
             </section>
 
-            <section className="mt-8">
+            <section className="min-w-0 xl:col-span-2 xl:order-3">
                 <h2 className="text-xl font-semibold text-primary mb-3">Milestones</h2>
                 <TrophyCase
                     badges={user?.badges}
@@ -89,17 +90,18 @@ export default async function ProgressPage() {
                 />
             </section>
 
-            <section className="mt-8">
+            <section className="min-w-0">
                 <div className="flex items-end justify-between mb-3">
                     <h2 className="text-xl font-semibold text-primary">Community</h2>
                     <Link href="/leaderboard" className="inline-flex items-center gap-0.5 text-sm font-semibold text-accent hover:text-accent-deep">
                         Full board
                     </Link>
                 </div>
-                <div className="max-w-xl">
+                <div>
                     <LeaderboardCard hasCity={Boolean(user?.location?.city)} />
                 </div>
             </section>
+            </div>
         </div>
     );
 }

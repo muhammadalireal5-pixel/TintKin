@@ -1,5 +1,5 @@
 export default function sitemap() {
-  const baseUrl = "https://tintkin.com";
+  const baseUrl = "https://tint-kin.vercel.app";
   const staticDate = new Date("2025-05-01T00:00:00.000Z");
 
   return [

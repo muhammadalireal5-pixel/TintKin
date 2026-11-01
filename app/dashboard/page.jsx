@@ -129,33 +129,6 @@ async function DashboardContent() {
     );
 }
 
-function DashboardFallback() {
-    return (
-        <div className="tk-container pt-1 sm:pt-4 pb-10" aria-busy="true">
-            <div className="max-w-xl space-y-4 animate-pulse">
-                <div className="h-4 w-28 rounded-full bg-blush" />
-                <div className="h-9 w-48 rounded-full bg-blush" />
-                <div className="h-12 rounded-full bg-blush" />
-                <div className="h-44 rounded-[1.25rem] bg-blush" />
-                <div className="grid grid-cols-4 gap-2">
-                    {[0, 1, 2, 3].map((i) => <div key={i} className="h-20 rounded-2xl bg-blush" />)}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export default async function DashboardPage() {
-    try {
-        return await DashboardContent();
-    } catch (error) {
-        // Next.js implements redirect() by throwing; let it propagate instead of
-        // treating it as a data-load failure (which would trap the user on this
-        // skeleton screen forever instead of sending them to /capture).
-        if (error?.digest?.startsWith("NEXT_REDIRECT")) {
-            throw error;
-        }
-        // If data fails to load, show skeleton loaders
-        return <DashboardFallback />;
-    }
+    return DashboardContent();
 }

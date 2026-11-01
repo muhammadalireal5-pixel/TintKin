@@ -59,6 +59,9 @@ export default function SessionPlayer({ slot, steps, checks, onDone, onClose }) 
   const [reaction, setReaction] = useState(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
+  const [stepSaving, setStepSaving] = useState(false);
+  const [stepError, setStepError] = useState("");
+  const stepPending = useRef(false);
   const left = useRef(items[firstOpen]?.template.seconds ?? 0);
   const voiceOn = useRef(voice);
   useEffect(() => {
@@ -103,8 +106,22 @@ export default function SessionPlayer({ slot, steps, checks, onDone, onClose }) 
   const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const done = async () => {
-    if (!checks.includes(step.id)) await onDone(step.id);
-    goTo(index + 1);
+    if (stepPending.current) return;
+    stepPending.current = true;
+    setStepSaving(true);
+    setStepError("");
+    try {
+      if (!checks.includes(step.id) && await onDone(step.id) === false) {
+        setStepError("Couldn't save this step. Please try again.");
+        return;
+      }
+      goTo(index + 1);
+    } catch {
+      setStepError("Couldn't save this step. Please try again.");
+    } finally {
+      stepPending.current = false;
+      setStepSaving(false);
+    }
   };
 
   const skip = async () => {
@@ -137,7 +154,7 @@ export default function SessionPlayer({ slot, steps, checks, onDone, onClose }) 
   const seconds = String(remaining % 60).padStart(2, "0");
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-base" role="dialog" aria-modal="true" aria-label={`${slot === "am" ? "Morning" : "Evening"} session`} style={{ height: "100dvh" }}>
+    <div className="tk-session fixed inset-0 z-[70] flex flex-col bg-base" role="dialog" aria-modal="true" aria-label={`${slot === "am" ? "Morning" : "Evening"} session`} style={{ height: "100dvh" }}>
       <header className="flex items-center gap-3 px-4 pt-4 pb-2">
         <button type="button" onClick={onClose} className="w-11 h-11 -ml-2 flex items-center justify-center text-muted hover:text-primary" aria-label="Close session">
           <X size={22} />
@@ -160,6 +177,7 @@ export default function SessionPlayer({ slot, steps, checks, onDone, onClose }) 
               {step.schedule && <span className="tk-chip shrink-0">{step.schedule}</span>}
             </div>
             <h2 className="mt-2 text-xl sm:text-2xl font-semibold text-primary leading-snug">{step.text}</h2>
+            {stepError && <p role="alert" className="mt-2 text-sm text-danger">{stepError}</p>}
             <p className="mt-2 text-sm text-muted leading-relaxed">{step.template.tip}</p>
             {step.why && (
               <p className="mt-3 text-sm text-muted leading-relaxed overflow-y-auto min-h-0">
@@ -216,10 +234,10 @@ export default function SessionPlayer({ slot, steps, checks, onDone, onClose }) 
       <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 flex gap-2.5">
         {step ? (
           <>
-            <button type="button" onClick={skip} className="tk-pill-btn tk-btn-ghost flex-1 py-3 text-sm">
+            <button type="button" onClick={skip} disabled={stepSaving} className="tk-pill-btn tk-btn-ghost flex-1 py-3 text-sm disabled:opacity-50">
               <SkipForward size={16} /> Skip
             </button>
-            <button type="button" onClick={done} className="tk-pill-btn tk-btn-primary flex-[2] py-3 text-sm">
+            <button type="button" onClick={done} disabled={stepSaving} aria-busy={stepSaving} className="tk-pill-btn tk-btn-primary flex-[2] py-3 text-sm disabled:opacity-50">
               <Check size={16} /> Done
             </button>
           </>

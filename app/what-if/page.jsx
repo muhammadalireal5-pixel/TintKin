@@ -316,7 +316,7 @@ export default function WhatIfPage() {
           subtitle="Choose from your personalized recommended products to visualize future skin improvements."
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-6 items-start">
         <div className="min-w-0">
 
         {(!hasSelfie || customImageUrl) ? (
@@ -678,7 +678,16 @@ export default function WhatIfPage() {
         </div>
 
         </div>
-        <div className="min-w-0 flex flex-col gap-6">
+        <div className="min-w-0 flex flex-col gap-6 xl:sticky xl:top-20">
+        {!result && !loading && (
+          <section className="hidden xl:flex tk-card p-8 min-h-80 flex-col justify-center" aria-label="Simulation preview">
+            <span className="tk-icon-circle w-14 h-14 mb-5"><Sparkles size={26} /></span>
+            <p className="tk-eyebrow">Your comparison</p>
+            <h2 className="mt-2 text-2xl font-semibold text-primary">See the possibilities.</h2>
+            <p className="mt-3 text-sm text-muted leading-relaxed">Choose the products you want to compare, add a clear photo, and generate your side-by-side illustration here.</p>
+            <div className="mt-6 border-t border-line pt-5 text-sm text-muted leading-relaxed">YouCam creates the visual comparison. It illustrates a possible outcome; it does not predict or guarantee how your skin will change.</div>
+          </section>
+        )}
         {error && (
           <div className="tk-anim-3 bg-danger-soft border border-danger/20 text-danger px-6 py-4 rounded-2xl text-sm font-medium mb-8 text-center shadow-xs">
             {error}

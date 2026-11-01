@@ -137,7 +137,7 @@ export default function TrophyCase({
       </div>
 
       {/* Ribbon on mobile, grid on desktop */}
-      <div className="flex sm:grid overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-none gap-3 sm:gap-3.5 pb-2 sm:pb-0 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 -mx-1 px-1 sm:mx-0 sm:px-0">
+      <div className="flex sm:grid overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-none gap-3 sm:gap-3.5 pb-2 sm:pb-0 sm:grid-cols-3 xl:grid-cols-6 -mx-1 px-1 sm:mx-0 sm:px-0">
         {badgeList.map((badge) => {
           const Icon = ICON_MAP[badge.iconName] || Award;
           const isUnlocked = badge.isUnlocked;

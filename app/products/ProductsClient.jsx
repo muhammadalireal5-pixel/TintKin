@@ -164,7 +164,7 @@ export default function ProductsClient({ initialChecks = [], initialQuota = null
   };
 
   return (
-    <div className="grid lg:grid-cols-2 gap-4 items-start">
+    <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6 items-start">
       <section className="tk-card p-4 sm:p-5 flex flex-col gap-3" aria-label="Check a product">
         <SegmentedTabs
           label="How to add the product"

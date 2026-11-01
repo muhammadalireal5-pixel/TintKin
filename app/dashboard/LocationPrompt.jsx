@@ -1,36 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { saveLocation, updateUserSettings } from "@/app/lib/actions";
 import { useToast } from "@/app/components/ToastProvider";
 import { Sun, X } from "lucide-react";
 
+const subscribe = (notify) => {
+  window.addEventListener("storage", notify);
+  return () => window.removeEventListener("storage", notify);
+};
+const readDismissed = () => {
+  try { return localStorage.getItem("tintkin_dismissed_location") === "true"; }
+  catch { return false; }
+};
+
 export default function LocationPrompt({ user }) {
   const { showToast } = useToast();
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
+  const dismissed = useSyncExternalStore(subscribe, readDismissed, () => true);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    try {
-      const isDismissedLocal = typeof window !== "undefined" && localStorage.getItem("tintkin_dismissed_location") === "true";
-      // Show only if not previously dismissed (in DB or localStorage), user is onboarded, has at least one scan, but hasn't set location
-      if (
-        !isDismissedLocal &&
-        !user?.locationPromptDismissed &&
-        user?.onboardingComplete &&
-        user?.lastUploadDate &&
-        !user?.location?.city &&
-        !user?.location?.lat
-      ) {
-        setShow(true);
-      }
-    } catch {
-      if (!user?.locationPromptDismissed && user?.onboardingComplete && user?.lastUploadDate && !user?.location?.city && !user?.location?.lat) {
-        setShow(true);
-      }
-    }
-  }, [user]);
+
 
   const handleDismiss = () => {
     setShow(false);
@@ -93,7 +84,8 @@ export default function LocationPrompt({ user }) {
     }
   };
 
-  if (!show) return null;
+  if (!show || dismissed || user?.locationPromptDismissed || !user?.onboardingComplete ||
+      !user?.lastUploadDate || user?.location?.city || user?.location?.lat != null) return null;
 
   return (
     <div className="mb-6 p-4 sm:p-5 bg-accent-soft border border-accent/20 rounded-[1.25rem] relative tk-anim-1">
@@ -104,7 +96,7 @@ export default function LocationPrompt({ user }) {
       >
         <X size={15} />
       </button>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pr-6 sm:pr-8">
+      <div className="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4 pr-6 sm:pr-8">
         <div className="flex items-start gap-3">
           <div className="tk-icon-circle bg-surface text-accent w-10 h-10 shrink-0 mt-0.5">
             <Sun size={19} />

@@ -17,13 +17,11 @@ import PageTransition from "./PageTransition";
 import Companion from "./companion/Companion";
 import FeedbackModal from "./companion/FeedbackModal";
 import { TAB_ITEMS, SIDEBAR_GROUPS, isActivePath } from "./nav-items";
-import { usePageLoading } from "./page-loading";
 
-/** True once the account and the current page's data have both arrived (see page-loading.js). */
+/** Navigation stays usable while the current page loads. */
 function useChromeReady() {
   const { loading } = useAuthContext();
-  const pageLoading = usePageLoading();
-  return !loading && !pageLoading;
+  return !loading;
 }
 
 /** The logo, or a placeholder of the same size until the page has loaded. */
@@ -111,7 +109,7 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
   return (
     <aside
       data-tour="nav"
-      className="hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-surface border-r border-line px-5 pt-7 pb-5 overflow-y-auto"
+      className="tk-sidebar hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-surface border-r border-line px-5 pt-7 pb-5 overflow-y-auto"
       style={{ width: "var(--tk-sidebar-w)" }}
       aria-label="Primary"
     >
@@ -180,12 +178,15 @@ function Sidebar({ user, reportReady, onOpenSettings }) {
 
 function TopBar({ user, reportReady, focus }) {
   const ready = useChromeReady();
+  const pathname = usePathname();
+  const currentPage = SIDEBAR_GROUPS.flatMap((group) => group.items).find((item) => isActivePath(pathname, item.href));
   return (
     <header className="sticky top-0 z-30 bg-base/85 backdrop-blur-md md:bg-transparent md:backdrop-blur-none">
-      <div className="h-16 px-5 md:px-8 flex items-center justify-between gap-3">
+      <div className="tk-app-topbar h-16 px-5 md:px-8 flex items-center justify-between gap-3">
         <div className={focus ? "" : "md:hidden"}>
           <ChromeWordmark ready={ready} href="/dashboard" className="h-10" />
         </div>
+        {!focus && <div className="hidden md:flex items-center gap-3 text-sm text-muted"><span className="text-accent font-semibold">Your skin journal</span><span aria-hidden="true">/</span><span>{currentPage?.label || "TintKin"}</span></div>}
         {!focus && (
           <div className="flex items-center gap-2.5 ml-auto">
             {ready ? (

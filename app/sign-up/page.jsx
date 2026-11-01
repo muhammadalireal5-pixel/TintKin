@@ -99,7 +99,7 @@ export default function SignUpPage() {
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            disabled={googleLoading || loading}
+            disabled={googleLoading || loading || authLoading}
             className="tk-pill-btn tk-btn-ghost w-full gap-3 bg-paper disabled:opacity-50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -133,7 +133,7 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-5">
+          <form method="post" onSubmit={onSubmit} className="space-y-5">
             {error && (
               <div className="p-3 text-sm text-danger bg-danger-soft rounded-xl">
                 {error}
@@ -194,7 +194,7 @@ export default function SignUpPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || authLoading}
               className="tk-pill-btn tk-btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Creating account..." : "Create Account"}

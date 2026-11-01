@@ -188,6 +188,7 @@ export default function RoutineChecklist({
   coached = false,
 }) {
   const [session, setSession] = useState(null);
+  const [saveError, setSaveError] = useState("");
   const [amChecks, setAmChecks] = useState(completedAm);
   const [pmChecks, setPmChecks] = useState(completedPm);
   const [workoutChecked, setWorkoutChecked] = useState(workoutDone);
@@ -199,7 +200,7 @@ export default function RoutineChecklist({
 
   const markDone = async (time, step) => {
     if ((time === "am" ? amChecks : pmChecks).includes(step)) return;
-    await toggleCheck(time, step);
+    return toggleCheck(time, step);
   };
 
   const toggleCheck = async (time, step) => {
@@ -211,7 +212,14 @@ export default function RoutineChecklist({
       newChecks = pmChecks.includes(step) ? pmChecks.filter((s) => s !== step) : [...pmChecks, step];
       setPmChecks(newChecks);
     }
-    await saveRoutineCompletion(time, step, newChecks.includes(step), tz());
+    setSaveError("");
+    const saved = await saveRoutineCompletion(time, step, newChecks.includes(step), tz()).catch(() => null);
+    if (!saved?.success) {
+      const restore = time === "am" ? setAmChecks : setPmChecks;
+      restore((current) => newChecks.includes(step) ? current.filter((id) => id !== step) : [...new Set([...current, step])]);
+      setSaveError("Couldn't save your step. Please try again.");
+      return false;
+    }
     refreshCompanion();
     if (newChecks.includes(step)) {
       const amN = time === "am" ? newChecks.length : amChecks.length;
@@ -249,6 +257,7 @@ export default function RoutineChecklist({
 
   return (
     <div className="flex flex-col gap-3">
+      {saveError && <p role="alert" className="text-sm text-danger">{saveError}</p>}
       <div className="flex items-center gap-3">
         <SegmentedTabs
           className="flex-1"

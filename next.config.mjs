@@ -31,6 +31,8 @@ const nextConfig = {
   // they only matter for production builds.
   reactCompiler: isProd,
   serverExternalPackages: ["@node-rs/argon2"],
+  // Auth actions contain passwords; never print their arguments in dev logs.
+  logging: { serverFunctions: false },
   images: {
     remotePatterns: [
       {
