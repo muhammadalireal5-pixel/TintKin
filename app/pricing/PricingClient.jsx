@@ -14,10 +14,11 @@ const PLANS = [
         tier: TIERS.FREE,
         name: "Free",
         price: "$0",
-        tagline: "Start improving your skin, free.",
+        tagline: "Your daily skin coach, free.",
         features: [
+            { text: "Adaptive plan", rest: " with guided daily sessions" },
             { text: "2 Scans", rest: " per month (baseline + a check-in)" },
-            { text: "Personalised daily routine" },
+            { text: "3 Product checks", rest: " per month" },
             { text: "1 AI Simulation", rest: " per month" },
         ],
         cta: "Select Free",
@@ -26,12 +27,13 @@ const PLANS = [
         tier: TIERS.STANDARD,
         name: "Standard",
         price: "$8",
-        tagline: "Follow your plan and watch your skin improve.",
+        tagline: "Measure every step of your progress.",
         popular: true,
         features: [
-            { text: "6 Scans", rest: " per month for weekly check-ins" },
+            { text: "Everything in Free" },
+            { text: "6 Scans", rest: " per month for check-ins" },
+            { text: "Unlimited product checks" },
             { text: "3 AI Simulations", rest: " per month" },
-            { text: "Advanced routine tracking" },
         ],
         cta: "Select Standard",
     },
@@ -42,6 +44,7 @@ const PLANS = [
         tagline: "For the dedicated skincare enthusiast.",
         features: [
             { text: "12 Scans", rest: " per month for extra check-ins" },
+            { text: "Unlimited product checks" },
             { text: "4 AI Simulations", rest: " per month" },
             { text: "Custom Product Uploads", rest: " in Simulator", sparkle: true },
         ],
@@ -50,7 +53,9 @@ const PLANS = [
 ];
 
 const COMPARE_ROWS = [
+    { label: "Adaptive plan and guided sessions", values: [true, true, true] },
     { label: "Scans per month", values: ["2", "6", "12"] },
+    { label: "Product checks per month", values: ["3", "Unlimited", "Unlimited"] },
     { label: "AI simulations per month", values: ["1", "3", "4"] },
     { label: "Custom product uploads in Simulator", values: [false, false, true] },
 ];

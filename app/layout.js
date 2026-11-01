@@ -32,16 +32,16 @@ export const metadata = {
   metadataBase: new URL("https://tintkin.com"),
   title: {
     template: "%s | TintKin",
-    default: "TintKin — Improve Your Skin in 30 Days",
+    default: "TintKin — Your Daily Skin Coach",
   },
   icons: {
     icon: "/favicon.png",
     apple: "/apple-icon.png",
   },
-  description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
+  description: "A skin coach that adapts to you: a plan built for your skin, guided daily sessions, a routine that backs off when your skin reacts, and progress you can trust. Start free.",
   openGraph: {
-    title: "TintKin — Improve Your Skin in 30 Days",
-    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
+    title: "TintKin — Your Daily Skin Coach",
+    description: "A skin coach that adapts to you: a plan built for your skin, guided daily sessions, a routine that backs off when your skin reacts, and progress you can trust. Start free.",
     url: "https://tintkin.com",
     siteName: "TintKin",
     images: [
@@ -57,8 +57,8 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TintKin — Improve Your Skin in 30 Days",
-    description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
+    title: "TintKin — Your Daily Skin Coach",
+    description: "A skin coach that adapts to you: a plan built for your skin, guided daily sessions, a routine that backs off when your skin reacts, and progress you can trust. Start free.",
     images: ["/og-image.jpg"],
   },
   robots: {
@@ -75,7 +75,7 @@ const rootStructuredData = {
       "name": "TintKin",
       "url": "https://tintkin.com",
       "logo": "https://tintkin.com/favicon.png",
-      "description": "A personal 30-day skin plan with a daily routine, weekly check-ins and progress tracking."
+      "description": "A daily skin coach: an adaptive plan, guided sessions, product checks and progress tracking."
     },
     {
       "@type": "WebSite",
@@ -86,7 +86,7 @@ const rootStructuredData = {
       "@type": "WebApplication",
       "name": "TintKin",
       "url": "https://tintkin.com",
-      "description": "A personal 30-day skin plan built from one selfie, with a daily routine, weekly check-ins and visible progress.",
+      "description": "A daily skin coach that adapts to your skin: guided sessions, reaction-aware routines, plan-aware product checks and measured progress.",
       "applicationCategory": "HealthAndFitnessApplication",
       "operatingSystem": "Web",
       "offers": [

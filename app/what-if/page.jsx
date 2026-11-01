@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage, uploadSelfieServerAction, updateSimulationPrivacy } from "@/app/lib/actions";
+import { runWhatIfSim, getLatestData, getSavedSimulations, deleteSavedSimulation, getUsageQuotas, analyzeProductImage, updateSimulationPrivacy } from "@/app/lib/actions";
+import { uploadSelfie } from "@/app/lib/direct-upload";
 import { ReactCompareSlider, ReactCompareSliderImage, ReactCompareSliderHandle } from "react-compare-slider";
 import Link from "next/link";
 import PageHeader from "@/app/components/ui/PageHeader";
@@ -112,9 +113,7 @@ export default function WhatIfPage() {
     setError("");
     
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await uploadSelfieServerAction(form);
+      const res = await uploadSelfie(file);
       if (res.success && res.url) {
         setCustomImageUrl(res.url);
       } else {
@@ -146,7 +145,7 @@ export default function WhatIfPage() {
   useEffect(() => {
     getLatestData()
       .then((d) => {
-        setUserTier(d.user?.tier || 'free');
+        setUserTier(d.user?.effectiveTier || d.user?.tier || 'free');
         if (!d.latestSelfie || !d.latestSelfie.imageUrl || !d.latestSelfie.scores || typeof d.latestSelfie.scores.wrinkles !== "number") {
           setHasSelfie(false);
         }

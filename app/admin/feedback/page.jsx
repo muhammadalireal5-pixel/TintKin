@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { verifyAdminSession } from "@/app/lib/admin-auth";
 import { adminListFeedback } from "@/app/lib/feedback-actions";
 import FeedbackManager from "./FeedbackManager";
-import AdminHeader from "../AdminHeader";
+import AdminShell from "../AdminShell";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +18,8 @@ export default async function AdminFeedbackPage() {
   const data = await adminListFeedback({});
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <AdminHeader current="feedback" />
-
-      <main className="mx-auto max-w-[1100px] px-4 sm:px-6 py-5 sm:py-6">
-        <FeedbackManager initial={data.success ? data : null} loadError={data.success ? null : data.error} />
-      </main>
-    </div>
+    <AdminShell current="feedback" session={session} wide={false}>
+        <FeedbackManager initial={data.success ? data : null} loadError={data.success ? null : data.error} readOnly={session.role !== "owner"} />
+    </AdminShell>
   );
 }

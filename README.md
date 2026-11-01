@@ -1,6 +1,6 @@
 <div align="center">
   <h1>TintKin</h1>
-  <p><strong>A daily AI-powered wellness journal unlocking the true potential of your skin.</strong></p>
+  <p><strong>Your daily skin coach: a plan built for your skin, guided sessions, and a routine that adapts to how your skin reacts.</strong></p>
   <p>
     <a href="https://tint-kin.vercel.app/">TintKin</a> | <a href="[Insert Video Demo Link Here]">Project Demonstration</a>
   </p>
@@ -12,21 +12,41 @@
 
 ---
 
-## 💡 Inspiration
-Skincare is universally overwhelming. Consumers are bombarded with countless products, conflicting advice, and clinical metrics that are hard to interpret. We realized there was a critical missing piece: a **personalized, mindful companion** that helps you understand, nurture, and visualize your skin’s health over time. 
+## 🔑 For the YouCam judges
 
-TintKin was built to solve the confusion around daily skincare routines. Instead of guessing what works, TintKin empowers users to log their skin's mood, track real progress, and visually simulate how different lifestyle or product choices will impact their skin in the future.
+**Try the app:** sign up at [tint-kin.vercel.app](https://tint-kin.vercel.app/). During the hackathon **every account gets Pro for free**: 12 scans, unlimited product checks, 4 simulations, custom-product simulations. No card needed.
+
+**Admin portal (read-only):** [tint-kin.vercel.app/admin](https://tint-kin.vercel.app/admin)
+
+| | |
+|---|---|
+| Email | `youcam@tintkin.demo` |
+| Password | `YouCam-Judge-68otUeTl` |
+
+This login is a separate **read-only viewer**. It shows aggregate metrics and a user list, but on the server:
+- emails are masked (`a•••@g•••.com`)
+- names are cut to an initial
+- scores, skin age, birth dates, goals, health answers and photos are never sent
+- refunds, tier changes, shop edits and feedback triage are blocked
+
+The owner's admin login is separate and is not in this repo.
+
+## 💡 Inspiration
+Skin apps give you a score, and then nothing happens. Testers kept asking "what am I getting from just my face result?" Routines found online ignore your skin, your safety (pregnancy, sensitivity), and how your skin reacts in the first weeks. That is exactly when most people quit or irritate their skin.
 
 ## 🚀 What it does
-TintKin is a comprehensive web application acting as your personal skin wellness journal. Core features include:
+TintKin is a **daily skin coach**. It works like a workout programme for your skin.
 
-* **Dashboard Score Cards:** Instant, beautifully visualized metrics tracking hydration, wrinkles, firmness, spots, and radiance over time.
-* **Face Aging Projections:** Utilizing AI to project your skin's trajectory based on your current routine and lifestyle logs.
-* **"What-If" Simulations:** An interactive simulator allowing users to test out a new serum or sunscreen habit side-by-side to visually see the projected impact on their skin before they buy a product.
-* **Personalized AI Regimens:** Context-aware product and habit recommendations tailored to your daily scan scores.
-* **Admin Ops Console:** A secure, dedicated portal built to oversee platform operations, manage users, and monitor application activity. We added this to give our team full visibility into user engagement, subscription metrics, and overall database health without needing to directly query the production database.
-
-> ![Admin Ops Console](/public/admin.png)
+* **A plan built for your skin.** A deterministic rules engine turns goals, skin type, phototype and safety answers into a staged plan: barrier care first, then one new active at a time. Pregnancy, "unsure" and sensitive skin are hard safety gates.
+* **Guided daily sessions.** Morning and evening sessions come with step cards, timers, voice guidance and a reason for every step.
+* **Actives on a ladder.** Retinoids run 1 → 2 → 3 → 4 nights a week, and acids 1 → 2 → 3. A step goes up a rung only after 14 calm days with 70% of its sessions done.
+* **Adapts when your skin reacts.** After each session you tap Fine, Tingled, Irritated or Breakout. Irritation means three barrier-only days, then a restart one rung lower. A second reaction to the same ingredient swaps that step for a gentler one.
+* **Progress you can trust.**
+  * A one-tap mirror check each day. Feeling better on 5 of the last 7 days *earns* a YouCam scan to measure it.
+  * Photo quality is checked before scoring, and low-confidence scans are marked.
+* **Plan-aware product check.** Paste an ingredient list or snap the label. TintKin tells you what the product does, which of your goals it serves, whether it clashes with your plan, and anything to avoid for your profile.
+* **What-If simulator.** See your own photo after a year of the routine.
+* **Kin.** A companion who talks you through it and celebrates small wins.
 
 > ![Dashboard](/public/dashboard.png)
 
@@ -41,8 +61,9 @@ TintKin is built on a modern, highly performant full-stack architecture:
 ## 🌟 YouCam API Integration (The Core Engine)
 The **YouCam AI Skin Analysis API** is the foundational engine of TintKin. We integrated it deeply into our capture and simulation workflows to provide clinical-grade accuracy directly to the consumer.
 
-1. **Precision Scanning:** When a user uploads a daily selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
-2. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image showing the user exactly how their skin will look if they stick to their new routine.
+1. **The measuring instrument for the coach:** Baseline, scheduled check-in and *earned* scans all come from YouCam Skin Analysis. The coach decides when measuring is worth it, which keeps both cost and noise down. Each scan runs under a fixed time budget and backs off on `429` responses, so a busy moment queues briefly instead of failing.
+2. **Precision Scanning:** When a user uploads a daily selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
+3. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image showing the user exactly how their skin will look if they stick to their new routine.
 
 > ![What-If Simulation](/public/whatif.png)
 
@@ -80,8 +101,11 @@ Tests live in `tests/`. `tests/setup/register.mjs` maps the `@/` import alias so
 **Deployment (Vercel):** set every variable from `.env.example` in the project settings. `NEXTAUTH_URL` must be the public URL (it builds password-reset links), and Google OAuth needs `<url>/api/auth/callback/google` as an authorized redirect URI. See `AUDIT.md` for open production risks and required manual actions.
 
 ## 🔮 What's next for TintKin
-* **Community Challenges:** Allowing users to opt into anonymous, 30-day "Hydration" or "SPF" challenges, comparing their YouCam AI improvements against a global cohort.
-* **Dermatologist Portal:** Building a clinician-facing dashboard where dermatologists can securely review a patient's historical YouCam scans to monitor treatment efficacy remotely.
-* **Mobile App:** Porting the Next.js web application to React Native for native push notifications and daily check-in reminders.
+See `docs/skin-coach-design.md` for the full design and `docs/hackathon-pitch.md` for the business case.
+* Queued scans with a shared YouCam request budget and "you're number 4" progress.
+* A face workout library, plus water and sleep modules.
+* Programmes in 2-week blocks, from 2 to 24 weeks.
+* Learning across consenting users: shared starting points, then safe A/B choices between equally safe options.
+* A dermatologist review of the knowledge base, and a native app.
 
 ---

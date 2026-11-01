@@ -36,7 +36,11 @@ Thumbs.db
 !readme.md
 !AUDIT.md
 !CHANGES.md
+!docs/*.md
 !**/README.md
 !**/readme.md
 .vercel
 .env*
+
+# Sentry Config File
+.env.sentry-build-plugin

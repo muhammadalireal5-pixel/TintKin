@@ -1,11 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import * as Sentry from "@sentry/nextjs";
-import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
+import { getAuthenticatedUser, findSessionUser, findSessionUserCached, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Plan } from "./mongoose";
 import { checkRateLimit } from "./rate-limit";
-import { ensureActivePlan, findActivePlan, startNextPlan, getMonthReview, setPlanMonths, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
+import { syncCoach, recentLifestyle, recordReaction, ensureActivePlan, findActivePlan, findActivePlanCached, startNextPlan, getMonthReview, setPlanMonths, adjustPlanAfterCheckIn, recordSelfCheckIn, editPlanFromMessage, mergePlanFromProfile } from "./plan";
 import { getLocalDayKey, normalizeTimezone } from "@/lib/utils/date";
 import { toPlanView } from "@/lib/plan/state";
 import { notifyReportReadyIfDue } from "./report-notify";
@@ -14,7 +15,7 @@ import { CONCERNS } from "@/lib/constants/profile";
 import { PLAN_STATUS } from "@/lib/constants/plan";
 
 // Same checks as getDbUser() in actions.js.
-async function getPlanUser() {
+async function getPlanUser({ cached = false } = {}) {
   const [, auth] = await Promise.all([
     connectDb(),
     getAuthenticatedUser().then(
@@ -23,7 +24,8 @@ async function getPlanUser() {
     ),
   ]);
   if (!auth.decoded) redirect("/sign-in");
-  const user = await findSessionUser(auth.decoded);
+  const { uid, email, sv } = auth.decoded;
+  const user = cached ? await findSessionUserCached(uid, email, sv) : await findSessionUser(auth.decoded);
   if (!user) redirect(SESSION_EXPIRED_PATH);
   if (!user.onboardingComplete) redirect("/onboarding");
   return user;
@@ -31,17 +33,21 @@ async function getPlanUser() {
 
 const FAILED = { success: false, error: "We couldn't load your plan. Please try again." };
 
-function viewOf(plan, timezone) {
-  return toPlanView(plan, getLocalDayKey(timezone));
+function viewOf(plan, timezone, lifestyle = null) {
+  return toPlanView(plan, getLocalDayKey(timezone), { lifestyle });
 }
 
 /** The current plan for display, or `plan: null` if the user has none yet. Never generates. */
 export async function getActivePlan(timezone) {
   try {
-    const user = await getPlanUser();
+    const user = await getPlanUser({ cached: true });
     const tz = normalizeTimezone(timezone ?? user.timezone);
-    const plan = await findActivePlan(user._id);
-    return { success: true, plan: plan ? viewOf(plan, tz) : null };
+    const lifestyle = await recentLifestyle(user._id).catch(() => null);
+    const plan = await syncCoach(user, tz, new Date(), { lifestyle }).catch((err) => {
+      Sentry.captureException(err, { tags: { scope: "plan-coach-sync" } });
+      return findActivePlanCached(user._id);
+    });
+    return { success: true, plan: plan ? viewOf(plan, tz, lifestyle) : null };
   } catch (err) {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
     Sentry.captureException(err, { tags: { scope: "plan-get" } });
@@ -276,5 +282,27 @@ export async function getWelcomeState() {
     if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
     Sentry.captureException(err, { tags: { scope: "plan-welcome-state" } });
     return { success: false, error: "We couldn't load this page. Please try again." };
+  }
+}
+
+const REACTIONS = new Set(["fine", "tingle", "irritated", "breakout"]);
+
+export async function logReaction(level, slot, timezone) {
+  if (!REACTIONS.has(level) || !["am", "pm", null].includes(slot ?? null)) return { success: false, error: "Unknown reaction." };
+  try {
+    const user = await getPlanUser();
+    const rate = await checkRateLimit(user._id.toString(), "reaction", 10, 60 * 60 * 1000);
+    if (!rate.allowed) return { success: false, error: `Please try again in ${rate.retryAfter}s.` };
+    const tz = normalizeTimezone(timezone ?? user.timezone);
+    const out = await recordReaction(user, { level, slot: slot ?? null }, tz);
+    if (!out) return { success: false, error: "You need an active plan to log how your skin feels." };
+    revalidatePath("/routine");
+    revalidatePath("/dashboard");
+    const lifestyle = await recentLifestyle(user._id).catch(() => null);
+    return { success: true, serious: out.serious, swapped: out.swapped, plan: viewOf(out.plan, tz, lifestyle) };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "plan-reaction" } });
+    return FAILED;
   }
 }

@@ -1,7 +1,7 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword, needsRehash } from "@/lib/utils/password";
 import crypto from "crypto";
 import { connectDb, User } from "@/app/lib/mongoose";
 import { checkOriginAwareRateLimit, RATE_LIMIT_CONFIGS } from "@/app/lib/rate-limit";
@@ -29,7 +29,7 @@ const PROGRESSIVE_DELAYS = [0, 0, 0, 1000, 2000, 4000, 8000]; // ms delays for a
 
 let dummyHashPromise = null;
 function getDummyHash() {
-  dummyHashPromise ??= bcrypt.hash(crypto.randomUUID(), 12);
+  dummyHashPromise ??= hashPassword(crypto.randomUUID());
   return dummyHashPromise;
 }
 
@@ -80,11 +80,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!user?.passwordHash) {
           // Spend the same bcrypt time as a real check so response timing
           // doesn't reveal which emails have accounts.
-          await bcrypt.compare(credentials.password.toString(), await getDummyHash());
+          await verifyPassword(credentials.password.toString(), await getDummyHash());
           throw new InvalidCredentialsSignin();
         }
 
-        const isMatch = await bcrypt.compare(credentials.password.toString(), user.passwordHash);
+        const isMatch = await verifyPassword(credentials.password.toString(), user.passwordHash);
+        if (isMatch && needsRehash(user.passwordHash)) {
+          await hashPassword(credentials.password.toString())
+            .then((passwordHash) => User.updateOne({ _id: user._id }, { $set: { passwordHash } }))
+            .catch(() => {});
+        }
         if (!isMatch) {
           // Progressive delay based on attempt count. The hard lockout itself
           // is enforced by checkRateLimit above (5/hour), which already threw

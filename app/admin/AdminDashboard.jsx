@@ -49,7 +49,7 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
-        className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+        className={`inline-block h-[18px] w-[18px] transform rounded-full bg-paper shadow transition duration-200 ease-in-out ${
           checked ? 'translate-x-[24px]' : 'translate-x-[2px]'
         }`}
       />
@@ -90,7 +90,7 @@ const ImageMigrationPanel = () => {
   };
 
   return (
-    <div className="mb-8 bg-white p-5 rounded-2xl border border-[var(--tk-border-solid)]">
+    <div className="mb-8 bg-paper p-5 rounded-2xl border border-[var(--tk-border-solid)]">
       <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: 'var(--font-display)' }}>
         Image privacy migration
       </h2>
@@ -127,7 +127,7 @@ const ImageMigrationPanel = () => {
 };
 
 const StatCard = ({ title, value, icon: Icon, accentColor }) => (
-  <div className="flex items-center p-5 rounded-2xl bg-white border border-[var(--tk-border-solid)] transition-all duration-300 hover:bg-black/5">
+  <div className="flex items-center p-5 rounded-2xl bg-paper border border-[var(--tk-border-solid)] transition-all duration-300 hover:bg-black/5">
     <div className="p-3 rounded-xl mr-4" style={{ backgroundColor: `${accentColor}1A`, color: accentColor }}>
       <Icon size={24} strokeWidth={2} />
     </div>
@@ -169,7 +169,7 @@ const ScoreCircle = ({ score }) => {
   );
 };
 
-export default function AdminDashboard({ initialUsers = [], initialStats = {} }) {
+export default function AdminDashboard({ initialUsers = [], initialStats = {}, readOnly = false }) {
   const { showToast } = useToast();
   const [users, setUsers] = useState(initialUsers);
   const [searchTerm, setSearchTerm] = useState('');
@@ -343,7 +343,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
             <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
               <Sparkles size={14} /> Analytics
             </h4>
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6 bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)]">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 bg-paper/40 p-4 rounded-xl border border-[var(--tk-border-solid)]">
               <div className="flex flex-col items-center">
                 <ScoreCircle score={user.latestScore} />
                 <span className="text-xs text-[var(--tk-text-muted)] mt-2">Latest Score</span>
@@ -361,6 +361,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                 <span className="text-xs text-[var(--tk-text-muted)]">Simulations</span>
               </div>
             </div>
+            {!readOnly && (<>
             <div className="pt-2">
               <button
                 onClick={() => handleAddExtraScans(user._id, 1)}
@@ -373,7 +374,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
             {user.isSubscribed && (
               <div className="pt-2">
                 {refundPreview[user._id] ? (
-                  <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                  <div className="bg-paper/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
                     <p className="text-xs text-[var(--tk-text-muted)]">
                       Suggested refund (order total minus {refundPreview[user._id].scansUsed} scans + {refundPreview[user._id].simsUsed} sims used this period, at our YouCam cost):
                     </p>
@@ -419,7 +420,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
               ) : creditOrders[user._id].length === 0 ? (
                 <p className="text-xs text-[var(--tk-text-muted)] text-center">No refundable credit purchases.</p>
               ) : (
-                <div className="bg-white/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
+                <div className="bg-paper/40 p-3 rounded-xl border border-[var(--tk-border-solid)] space-y-2">
                   <p className="text-xs text-[var(--tk-text-muted)]">Refundable credit purchases:</p>
                   {creditOrders[user._id].map((order) => (
                     <div key={order.orderId} className="flex items-center justify-between gap-2 py-1">
@@ -439,13 +440,19 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                 </div>
               )}
             </div>
+            </>)}
           </div>
 
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
               <Target size={14} /> Profile & Goals
             </h4>
-            <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
+            {readOnly ? (
+              <p className="bg-paper/60 p-4 rounded-xl border border-[var(--tk-border-solid)] text-sm text-[var(--tk-text-muted)]">
+                Scores, skin age, goals and health answers are hidden in the read-only view.
+              </p>
+            ) : (
+            <div className="bg-paper/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
               <div>
                 <span className="text-xs text-[var(--tk-text-muted)] block mb-1">Skin Goals</span>
                 {user.goals && user.goals.length > 0 ? (
@@ -469,17 +476,20 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-[var(--tk-text-faint)] uppercase tracking-wider flex items-center gap-2">
               <Calendar size={14} /> Timeline
             </h4>
-            <div className="bg-white/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-[var(--tk-text-muted)]">Birth Date</span>
-                <span className="text-[var(--tk-text-primary)]">{formatDate(user.birthDate)}</span>
-              </div>
+            <div className="bg-paper/40 p-4 rounded-xl border border-[var(--tk-border-solid)] space-y-3">
+              {!readOnly && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[var(--tk-text-muted)]">Birth Date</span>
+                  <span className="text-[var(--tk-text-primary)]">{formatDate(user.birthDate)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-sm">
                 <span className="text-[var(--tk-text-muted)]">Last Scan</span>
                 <span className="text-[var(--tk-text-primary)]">{formatDate(user.lastScan)}</span>
@@ -502,13 +512,15 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
   const userName = (user) => (user.firstName || user.lastName ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Unnamed User");
 
   return (
-    <div className="min-h-screen bg-base text-[var(--tk-text-primary)] p-4 sm:p-6 md:p-8 font-sans selection:bg-accent/30 animate-in fade-in duration-500" style={{ fontFamily: 'var(--font-body)' }}>
+    <div className="text-[var(--tk-text-primary)] selection:bg-accent/30" style={{ fontFamily: 'var(--font-body)' }}>
       
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-          Ops Console
-        </h1>
-        <p className="text-[var(--tk-text-muted)]">Manage users, monitor activity, and oversee TintKin operations.</p>
+      <div className="mb-6 flex items-end justify-between gap-3 pb-3 border-b border-[var(--tk-border-solid)]">
+        <div>
+          <h1 className="text-2xl md:text-3xl text-[var(--tk-text-primary)]" style={{ fontFamily: 'var(--font-wordmark)' }}>Users</h1>
+          <p className="text-sm text-[var(--tk-text-muted)] mt-1">
+            {readOnly ? "Read-only view: emails are masked, names shortened to an initial, skin data hidden." : "Manage accounts, tiers, extra scans and refunds."}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -520,17 +532,17 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         <StatCard title="Simulations" value={initialStats.totalSimulations || 0} icon={BarChart3} accentColor="#C9772B" />
       </div>
 
-      <ImageMigrationPanel />
+      {!readOnly && <ImageMigrationPanel />}
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-[var(--tk-border-solid)]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-paper p-4 rounded-2xl border border-[var(--tk-border-solid)]">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--tk-text-faint)]" size={18} />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder={readOnly ? "Search…" : "Search by name or email..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/80 border border-[var(--tk-border-solid)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all placeholder:text-[var(--tk-text-faint)] text-[var(--tk-text-primary)]"
+            className="w-full bg-paper/80 border border-[var(--tk-border-solid)] rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent transition-all placeholder:text-[var(--tk-text-faint)] text-[var(--tk-text-primary)]"
           />
         </div>
         
@@ -542,7 +554,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
                 filter === f 
                   ? 'bg-black text-white shadow-lg shadow-black/10' 
-                  : 'bg-white/60 text-[var(--tk-text-muted)] hover:bg-black/5 hover:text-[var(--tk-text-primary)] border border-[var(--tk-border-solid)]'
+                  : 'bg-paper/60 text-[var(--tk-text-muted)] hover:bg-black/5 hover:text-[var(--tk-text-primary)] border border-[var(--tk-border-solid)]'
               }`}
             >
               {f}
@@ -560,7 +572,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
           filteredUsers.map((user) => {
             const isExpanded = expandedRows.has(user._id);
             return (
-              <li key={user._id} className="bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
+              <li key={user._id} className="bg-paper border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
                 <div className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="w-11 h-11 rounded-full bg-gradient-to-br from-black/5 to-black/10 flex items-center justify-center border border-black/10 overflow-hidden shrink-0">
@@ -604,18 +616,18 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
 
                   <div className="mt-3 flex items-center gap-2">
                     <label className="sr-only" htmlFor={`tier-${user._id}`}>Subscription</label>
-                    <select
+                    {readOnly ? <span className="flex-1 text-sm capitalize px-3 py-2.5 rounded-xl border border-line bg-paper">{user.tier || "free"}</span> : <select
                       id={`tier-${user._id}`}
                       value={user.tier || "free"}
                       onChange={(e) => handleChangeTier(user._id, e.target.value)}
                       disabled={togglingMap[user._id]}
-                      className="flex-1 text-sm border border-line rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="flex-1 text-sm border border-line rounded-xl px-3 py-2.5 bg-paper focus:outline-none focus:ring-1 focus:ring-accent"
                     >
                       <option value="free">Free</option>
                       <option value="pending">Pending</option>
                       <option value="standard">Standard</option>
                       <option value="premium">Premium</option>
-                    </select>
+                    </select>}
                     <button
                       onClick={() => toggleExpand(user._id)}
                       aria-expanded={isExpanded}
@@ -631,7 +643,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
             );
           })
         ) : (
-          <li className="bg-white border border-[var(--tk-border-solid)] rounded-2xl px-6 py-10 text-center text-[var(--tk-text-faint)]">
+          <li className="bg-paper border border-[var(--tk-border-solid)] rounded-2xl px-6 py-10 text-center text-[var(--tk-text-faint)]">
             <AlertCircle size={28} className="opacity-50 mx-auto mb-2" />
             <p>No users found matching your criteria.</p>
             <button onClick={() => { setSearchTerm(""); setFilter("All"); }} className="mt-2 text-sm text-accent hover:underline font-medium">
@@ -641,7 +653,7 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
         )}
       </ul>
 
-      <div className="hidden md:block bg-white border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
+      <div className="hidden md:block bg-paper border border-[var(--tk-border-solid)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-black/[0.02] border-b border-[var(--tk-border-solid)] text-[var(--tk-text-muted)]">
@@ -694,17 +706,17 @@ export default function AdminDashboard({ initialUsers = [], initialStats = {} })
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <select
+                          {readOnly ? <span className="capitalize text-[var(--tk-text-muted)]">{user.tier || 'free'}</span> : <select
                             value={user.tier || 'free'}
                             onChange={(e) => handleChangeTier(user._id, e.target.value)}
                             disabled={togglingMap[user._id]}
-                            className="text-sm border border-line rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+                            className="text-sm border border-line rounded px-2 py-1 bg-paper focus:outline-none focus:ring-1 focus:ring-accent"
                           >
                             <option value="free">Free</option>
                             <option value="pending">Pending</option>
                             <option value="standard">Standard</option>
                             <option value="premium">Premium</option>
-                          </select>
+                          </select>}
                         </td>
                         <td className="px-6 py-4 text-[var(--tk-text-muted)] capitalize">
                           {user.skinType ? user.skinType.replace('_', ' ') : '-'}

@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    const { users, stats } = await fetchAdminData();
+    const { users, stats } = await fetchAdminData({ masked: session.role !== "owner" });
     return Response.json({ success: true, users, stats });
   } catch {
     return Response.json({ success: false, error: "Internal server error" }, { status: 500 });

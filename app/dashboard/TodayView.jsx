@@ -6,7 +6,7 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronRight,
-  ShoppingBag,
+  FlaskConical,
   Sparkles,
   FileText,
   Trophy,
@@ -157,10 +157,10 @@ function SkinCard({ mode, score, delta, startScore, weekScans, skinAge, realAge,
 
 function ExploreGrid({ reportReady, showLeaderboard }) {
   const items = [
+    { href: "/products", label: "Product check", sub: "Does it fit your plan?", icon: FlaskConical },
     { href: "/what-if", label: "What-If", sub: "Preview 6 months ahead", icon: Sparkles },
     { href: "/reports", label: "Reports", sub: reportReady ? "New report ready" : "Progress reports", icon: FileText, dot: reportReady },
     showLeaderboard && { href: "/leaderboard", label: "Leaderboard", sub: "Days of care this month", icon: Trophy },
-    { href: "/shop", label: "Shop", sub: "Curated products", icon: ShoppingBag },
   ].filter(Boolean);
   return (
     <section data-tour="explore" aria-label="Explore" className="rounded-2xl">
@@ -269,7 +269,7 @@ export default function TodayView({ data, radar, banners, planCard, afterPlan = 
           </>
         )}
 
-        {afterPlan && <div className="order-5 empty:hidden">{afterPlan}</div>}
+        {afterPlan && <div className="order-5 empty:hidden flex flex-col gap-4">{afterPlan}</div>}
       </div>
 
       <div className="contents lg:flex lg:flex-col lg:gap-5 lg:min-w-0 lg:sticky lg:top-20 lg:self-start">

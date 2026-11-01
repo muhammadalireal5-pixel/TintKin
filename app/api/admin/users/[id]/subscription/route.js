@@ -1,10 +1,10 @@
-import { verifyAdminSession } from "@/app/lib/admin-auth";
+import { verifyAdminOwner } from "@/app/lib/admin-auth";
 import { connectDb, User } from "@/app/lib/mongoose";
 import { ALLOWED_ADMIN_TIERS, ACTIVE_SUBSCRIPTION_TIERS } from "@/lib/constants/tiers";
 import mongoose from "mongoose";
 
 export async function PATCH(request, { params }) {
-  const session = await verifyAdminSession();
+  const session = await verifyAdminOwner();
   if (!session) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

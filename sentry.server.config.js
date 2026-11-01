@@ -1,18 +1,19 @@
+// This file configures the initialization of Sentry on the server.
+// The config you add here will be used whenever the server handles a request.
+// https://docs.sentry.io/platforms/javascript/guides/nextjs/
+
 import * as Sentry from "@sentry/nextjs";
-import { scrubSentryEvent } from "./lib/utils/pii-scrubber";
 
 Sentry.init({
-  dsn: process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN,
-  enabled: process.env.NODE_ENV === "production" || Boolean(process.env.SENTRY_DSN),
+  dsn: "https://0400200cb40d17518bfdbd81fada7f1d@o4512213565505537.ingest.de.sentry.io/4512213571469392",
 
-  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+  tracesSampleRate: 1,
 
-  beforeSend(event) {
-    return scrubSentryEvent(event);
+  dataCollection: {
+    // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:
+    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#dataCollection
+    // userInfo: false,
+    // httpBodies: [],
   },
-  beforeSendTransaction(event) {
-    return scrubSentryEvent(event);
-  },
-
-  sendDefaultPii: false,
 });

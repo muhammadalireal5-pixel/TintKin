@@ -3,7 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { connectDb, User } from "@/app/lib/mongoose";
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/utils/password";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { getResetSecret } from "@/app/lib/reset-secret";
@@ -70,7 +70,7 @@ export async function submitNewPassword(newPassword) {
     await connectDb();
 
     const cleanEmail = userEmail.toLowerCase().trim();
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await hashPassword(newPassword);
     
     // Bumping sessionVersion signs out every existing session, including any
     // held by whoever knew the old password.

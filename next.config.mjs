@@ -30,6 +30,7 @@ const nextConfig = {
   // Both reactCompiler and the Sentry build wrapper slow dev compiles a lot;
   // they only matter for production builds.
   reactCompiler: isProd,
+  serverExternalPackages: ["@node-rs/argon2"],
   images: {
     remotePatterns: [
       {

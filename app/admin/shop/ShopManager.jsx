@@ -63,7 +63,7 @@ function PackForm({ initial, onCancel, onSubmit, submitting }) {
   );
 }
 
-export default function ShopManager({ initialPacks, initialSettings, loadError }) {
+export default function ShopManager({ initialPacks, initialSettings, loadError, readOnly = false }) {
   const { showToast } = useToast();
   const [packs, setPacks] = useState(initialPacks);
   const [addingPack, setAddingPack] = useState(false);
@@ -172,6 +172,7 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
   };
 
   return (
+    <fieldset disabled={readOnly} className="min-w-0 disabled:opacity-80">
     <div className="space-y-8">
       {loadError && (
         <div className="bg-danger/10 text-danger text-sm p-3 rounded-lg border border-danger/20">{loadError}</div>
@@ -286,5 +287,6 @@ export default function ShopManager({ initialPacks, initialSettings, loadError }
         </p>
       </section>
     </div>
+    </fieldset>
   );
 }

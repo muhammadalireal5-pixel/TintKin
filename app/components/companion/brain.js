@@ -16,6 +16,9 @@ const TIPS = [
   "Skin changes slowly. One check-in scan a week, in the same light, shows your progress best.",
   "Your plan has two focus areas. Watch those bars on your home screen move over the next 30 days.",
   "Tick off routine steps as you go. It keeps your streak and your plan honest.",
+  "Felt a sting after a session? Tell me. Your actives rest, then restart one step lower.",
+  "Thinking of buying something new? Run a product check first to spot clashes with your plan.",
+  "A one-tap mirror check each day is how you earn a scan to measure your progress.",
 ];
 
 // Tips are shuffled once per day (seeded by the date) so tapping "Tip" never
@@ -192,9 +195,13 @@ const PAGE_GREETINGS = {
     "Look who's back! Your day at a glance is ready.",
   ],
   "/routine": [
-    "Plan time! Tick each step as you go and I'll cheer you on.",
-    "Little steps, big glow. Let's get through today's steps!",
-    "Your plan is my favourite page. Let's do this!",
+    "Tap Start session and I'll talk you through each step.",
+    "Little steps, big glow. Tell me how your skin felt after, and I'll adjust tomorrow.",
+    "Your actives only run on their nights. I'll tell you when they step up!",
+  ],
+  "/products": [
+    "Got a product you love? Paste the ingredients and I'll check it fits your plan.",
+    "Snap the label, not the front. The ingredient list is where the truth is!",
   ],
   "/progress": [
     "Look how far you've come! Progress is made of tiny wins.",

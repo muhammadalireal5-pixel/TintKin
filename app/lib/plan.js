@@ -1,13 +1,17 @@
 import "server-only";
+import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { connectDb, Plan, Selfie, RoutineLog, User } from "./mongoose";
+import { connectDb, Plan, Selfie, RoutineLog, User, Lifestyle } from "./mongoose";
+import { COACH_ENGINE_ENABLED } from "./feature-flags";
+import { hasCoach, upgradeToCoach, advanceLadders, applyReaction, computeReadiness } from "@/lib/plan/coach";
+import { answersFromLog } from "@/lib/checkin/freshness";
 import { generatePlanAdjustment, generatePlanEdit } from "./qwen";
 import { getLocalDayKey, getLocalDayStart } from "@/lib/utils/date";
 import { isLowConfidence } from "@/lib/utils/image-quality";
 import { PLAN_STATUS, CHECKIN_STATUS, PLAN_METRICS, normalizeMonths, MAX_PLAN_MONTHS } from "@/lib/constants/plan";
 import { buildMonthReview, applyProposals, carryOverSteps } from "@/lib/plan/review";
 import { sanitizeDraft, sanitizeAdjustment, buildPlan } from "@/lib/plan/build";
-import { classifyProfile, buildDraft, buildFocus, filterSafeSteps, filterNotDenied, safetyBrief, toPlainUser } from "@/lib/plan/engine";
+import { classifyProfile, buildDraft, buildFocus, gentleAlternative, filterSafeSteps, filterNotDenied, safetyBrief, toPlainUser } from "@/lib/plan/engine";
 import { endUnsafeSteps, mergePlanWithProfile } from "@/lib/plan/rebuild";
 import { getPlanDay, getStepsForDay, isPlanExpired, applyScanToPlan, applyAdjustment, applySelfCheckIn, applyRatingsToCheckIn, cleanRatings } from "@/lib/plan/state";
 
@@ -41,6 +45,12 @@ async function updatePlanGuarded(userId, build) {
 export async function findActivePlan(userId) {
   await connectDb();
   return Plan.findOne({ userId, status: PLAN_STATUS.ACTIVE }).lean();
+}
+
+const findActivePlanById = cache((id) => findActivePlan(id));
+
+export function findActivePlanCached(userId) {
+  return findActivePlanById(String(userId));
 }
 
 function scoresOf(selfie) {
@@ -87,6 +97,7 @@ export async function createPlan(user, timezone, now = new Date(), { selfie = nu
     ratings: Object.fromEntries(focus.map((f) => [f.metric, f.baseline])),
     monthIndex,
     totalMonths: months,
+    coach: COACH_ENGINE_ENABLED,
   });
 
   try {
@@ -108,8 +119,8 @@ export async function createPlan(user, timezone, now = new Date(), { selfie = nu
  * exists, and falls back to the latest scan's routine text when it doesn't.
  * @returns {Promise<{ am: string[], pm: string[], plan: any }|null>}
  */
-export async function getTodayRoutineKeys(userId, timezone, now = new Date()) {
-  const plan = await findActivePlan(userId);
+export async function getTodayRoutineKeys(userId, timezone, now = new Date(), { cached = false } = {}) {
+  const plan = cached ? await findActivePlanCached(userId) : await findActivePlan(userId);
   if (!plan) return null;
   const steps = getStepsForDay(plan, getPlanDay(plan, getLocalDayKey(timezone, now)));
   return { am: steps.am.map((s) => s.id), pm: steps.pm.map((s) => s.id), plan };
@@ -404,4 +415,101 @@ export async function adjustPlanAfterCheckIn(user, timezone, now = new Date()) {
     { $set: changes }
   );
   return res.modifiedCount ? { adjusted: true, note: changes.adjustments[changes.adjustments.length - 1].note } : { adjusted: false, reason: "conflict" };
+}
+
+const LIFESTYLE_FRESH_DAYS = 10;
+
+function planDayKey(plan, day) {
+  return new Date(Date.parse(plan.startDayKey) + (day - 1) * DAY_MS).toISOString().slice(0, 10);
+}
+
+async function loadTicks(userId, timezone, plan) {
+  const logs = await RoutineLog.find({ userId, date: { $gte: new Date(new Date(plan.startedAt).getTime() - DAY_MS) } })
+    .select("date amCompleted pmCompleted")
+    .lean();
+  const byDay = new Map();
+  for (const l of logs) {
+    const key = getLocalDayKey(timezone, new Date(l.date));
+    const set = byDay.get(key) ?? new Set();
+    for (const id of [...(l.amCompleted ?? []), ...(l.pmCompleted ?? [])]) set.add(id);
+    byDay.set(key, set);
+  }
+  return (day, stepId) => byDay.get(planDayKey(plan, day))?.has(stepId) ?? false;
+}
+
+export async function recentLifestyle(userId, now = new Date()) {
+  const log = await Lifestyle.findOne({ userId, date: { $gte: new Date(now.getTime() - LIFESTYLE_FRESH_DAYS * DAY_MS) } })
+    .sort({ date: -1 })
+    .select("sleepHours stressLevel")
+    .lean();
+  return log ? answersFromLog(log) : null;
+}
+
+export async function syncCoach(user, timezone, now = new Date(), { lifestyle = null } = {}) {
+  const existing = await findActivePlanCached(user._id);
+  if (!existing || !COACH_ENGINE_ENABLED) return existing;
+  const todayKey = getLocalDayKey(timezone, now);
+  if (isPlanExpired(existing, todayKey)) return existing;
+  const day = getPlanDay(existing, todayKey);
+  const done = hasCoach(existing) ? await loadTicks(user._id, timezone, existing) : () => false;
+  const out = await updatePlanGuarded(user._id, (plan) => {
+    const set = {};
+    let next = plan;
+    if (!hasCoach(plan)) {
+      const upgraded = upgradeToCoach(plan);
+      set.steps = upgraded.steps;
+      set.coach = upgraded.coach;
+      next = { ...plan, ...upgraded };
+    }
+    const readiness = computeReadiness(next, day, { lifestyle });
+    const advanced = advanceLadders(next, day, done, { readiness });
+    if (advanced) {
+      set.coach = advanced.coach;
+      next = { ...next, coach: advanced.coach };
+    }
+    if (!Object.keys(set).length) return null;
+    return { set, result: { plan: next, steppedUp: advanced?.steppedUp ?? [] } };
+  });
+  return out?.result?.plan ?? out?.plan ?? existing;
+}
+
+export async function recordReaction(user, { level, slot }, timezone, now = new Date()) {
+  const todayKey = getLocalDayKey(timezone, now);
+  const plain = toPlainUser(user);
+  const out = await updatePlanGuarded(user._id, (plan) => {
+    if (isPlanExpired(plan, todayKey)) return null;
+    const base = hasCoach(plan) ? plan : { ...plan, ...upgradeToCoach(plan) };
+    const day = getPlanDay(base, todayKey);
+    const reaction = applyReaction(base, { day, level, slot, at: now });
+    const set = { coach: reaction.coach };
+    if (!hasCoach(plan)) set.steps = base.steps;
+    let next = { ...base, coach: reaction.coach };
+    const swapped = [];
+    if (reaction.repeatClasses.length) {
+      const drop = next.steps.filter((s) => reaction.suspectIds.includes(s.id) && reaction.repeatClasses.includes(s.cls));
+      const live = next.steps.filter((s) => s.endDay == null && !drop.includes(s));
+      const add = { am: [], pm: [] };
+      for (const step of drop) {
+        const alt = gentleAlternative(plain, step.metric, live);
+        if (alt && filterSafeSteps([alt], plain).length) add[alt.slot].push(alt);
+      }
+      const adjusted = applyAdjustment(next, {
+        note: "Your skin reacted twice to the same active, so we swapped it for a gentler step.",
+        drop: drop.map((s) => s.id),
+        add,
+      }, day, { at: now, source: "reaction" });
+      Object.assign(set, { steps: adjusted.steps, version: adjusted.version, adjustments: adjusted.adjustments });
+      next = { ...next, ...adjusted };
+      swapped.push(...drop.map((s) => s.id));
+    } else if (reaction.serious) {
+      const adjustments = [...plan.adjustments, {
+        version: plan.version, at: now, day, checkInDay: null, selfieId: null, source: "reaction",
+        note: "Your skin reacted, so actives rest for three days and restart one step lower.", dropped: [], added: [],
+      }];
+      set.adjustments = adjustments;
+      next = { ...next, adjustments };
+    }
+    return { set, result: { plan: next, serious: reaction.serious, swapped } };
+  });
+  return out?.result ?? null;
 }

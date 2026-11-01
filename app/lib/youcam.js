@@ -63,12 +63,72 @@ async function readJson(response) {
   }
 }
 
-async function pollTask(taskType, taskId) {
-  for (let i = 0; i < 30; i++) {
-    const response = await fetch(`${BASE}/s2s/v2.0/task/${taskType}/${taskId}`, {
+export const youcamTiming = {
+  firstPollMs: 4000,
+  pollEveryMs: 3000,
+  rateLimitBackoffMs: 5000,
+  maxRateLimitRetries: 3,
+  scanBudgetMs: 70000,
+  minCandidateMs: 25000,
+};
+
+export const youcamHooks = {
+  beforeRequest: async () => {},
+  onResult: () => {},
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function timeoutError() {
+  const err = new Error("YouCam task timeout");
+  err.isTimeout = true;
+  return err;
+}
+
+function remainingMs(deadline) {
+  return deadline - Date.now();
+}
+
+function retryAfterMs(response, attempt) {
+  const header = Number(response.headers?.get?.("retry-after"));
+  if (Number.isFinite(header) && header > 0) return Math.min(header * 1000, 30000);
+  return youcamTiming.rateLimitBackoffMs * (attempt + 1);
+}
+
+async function youcamFetch(url, init, deadline) {
+  for (let attempt = 0; ; attempt++) {
+    if (remainingMs(deadline) <= 0) throw timeoutError();
+    await youcamHooks.beforeRequest(deadline);
+    const left = remainingMs(deadline);
+    if (left <= 0) throw timeoutError();
+    let response;
+    try {
+      response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, left)),
+      });
+    } catch (err) {
+      youcamHooks.onResult(false);
+      throw err;
+    }
+    youcamHooks.onResult(response.status < 500 && response.status !== 429);
+    if (response.status !== 429) return response;
+    const wait = retryAfterMs(response, attempt);
+    if (attempt >= youcamTiming.maxRateLimitRetries || wait >= remainingMs(deadline)) {
+      const err = createYouCamError("YouCam is busy right now (rate limited)");
+      err.isRateLimited = true;
+      throw err;
+    }
+    await sleep(wait);
+  }
+}
+
+async function pollTask(taskType, taskId, deadline) {
+  await sleep(Math.min(youcamTiming.firstPollMs, Math.max(0, remainingMs(deadline))));
+  while (remainingMs(deadline) > 0) {
+    const response = await youcamFetch(`${BASE}/s2s/v2.0/task/${taskType}/${taskId}`, {
       headers: { Authorization: `Bearer ${KEY}` },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    }, deadline);
 
     if (!response.ok) {
       throw createYouCamError(`YouCam task status check failed (HTTP ${response.status})`);
@@ -86,9 +146,9 @@ async function pollTask(taskType, taskId) {
       throw createYouCamError(rawErr);
     }
 
-    await new Promise(r => setTimeout(r, 1000));
+    await sleep(Math.min(youcamTiming.pollEveryMs, Math.max(0, remainingMs(deadline))));
   }
-  throw new Error("YouCam task timeout");
+  throw timeoutError();
 }
 
 // YouCam returns either inline output[] (format: "json") or a score_info.zip
@@ -162,7 +222,7 @@ export async function extractScoreInfo(data) {
   return data;
 }
 
-export async function analyzeSkin(imageUrl) {
+export async function analyzeSkin(imageUrl, { deadline = Date.now() + youcamTiming.scanBudgetMs } = {}) {
   const candidates = [];
   // Candidate 1: Original uncropped image so YouCam's native detector has full head & shoulder context
   candidates.push(imageUrl);
@@ -176,13 +236,12 @@ export async function analyzeSkin(imageUrl) {
     candidates.push(applyFaceCropToCloudinary(imageUrl, 1.3));
   }
 
-  const startTime = Date.now();
   let lastError;
   for (let i = 0; i < candidates.length; i++) {
     const candidateUrl = candidates[i];
 
     try {
-      const response = await fetch(`${BASE}/s2s/v2.0/task/skin-analysis`, {
+      const response = await youcamFetch(`${BASE}/s2s/v2.0/task/skin-analysis`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${KEY}`, 
@@ -193,8 +252,7 @@ export async function analyzeSkin(imageUrl) {
           dst_actions: YOUCAM_DST_ACTIONS,
           format: "json"
         }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
+      }, deadline);
 
       const res = await readJson(response);
       const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
@@ -204,7 +262,7 @@ export async function analyzeSkin(imageUrl) {
         throw createYouCamError(rawErr);
       }
 
-      return await pollTask("skin-analysis", taskId);
+      return await pollTask("skin-analysis", taskId, deadline);
     } catch (err) {
       lastError = err;
       const rawCode = (err?.rawCode || "").toLowerCase();
@@ -221,8 +279,7 @@ export async function analyzeSkin(imageUrl) {
         errMsg.includes("error_src_face") ||
         isDownloadError(err);
 
-      const elapsed = Date.now() - startTime;
-      if (isRetryable && i < candidates.length - 1 && elapsed < 45000) {
+      if (isRetryable && i < candidates.length - 1 && remainingMs(deadline) >= youcamTiming.minCandidateMs) {
         continue;
       }
 
@@ -238,7 +295,7 @@ export async function analyzeSkin(imageUrl) {
 export const SIM_CROP_OPTIONS = Object.freeze({ sharpen: false, quality: "auto:best" });
 
 // intensities: concern -> 0.0-1.0 improvement strength, e.g. { wrinkle: 0.5, age_spot: 0.8 }
-export async function simulateSkin(imageUrl, intensities = {}) {
+export async function simulateSkin(imageUrl, intensities = {}, { deadline = Date.now() + youcamTiming.scanBudgetMs } = {}) {
   const payloadIntensities = { ...intensities };
   if (Object.values(payloadIntensities).length === 0 || Object.values(payloadIntensities).every(v => !v || v === 0)) {
     payloadIntensities.texture = 0.05;
@@ -258,7 +315,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
     const candidateUrl = candidates[i];
 
     try {
-      const response = await fetch(`${BASE}/s2s/v2.0/task/skin-simulation`, {
+      const response = await youcamFetch(`${BASE}/s2s/v2.0/task/skin-simulation`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${KEY}`, 
@@ -268,8 +325,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
           src_file_url: candidateUrl,
           ...payloadIntensities
         }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
+      }, deadline);
 
       const res = await readJson(response);
       const taskId = res.data?.task_id || res.task_id || res.result?.task_id;
@@ -279,7 +335,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         throw createYouCamError(rawErr);
       }
 
-      const taskResult = await pollTask("skin-simulation", taskId);
+      const taskResult = await pollTask("skin-simulation", taskId, deadline);
       return taskResult;
     } catch (err) {
       lastError = err;
@@ -291,7 +347,7 @@ export async function simulateSkin(imageUrl, intensities = {}) {
         errMsg.includes("out of bound") ||
         isDownloadError(err);
 
-      if (isRetryable && i < candidates.length - 1) {
+      if (isRetryable && i < candidates.length - 1 && remainingMs(deadline) >= youcamTiming.minCandidateMs) {
         console.warn(`simulateSkin: candidate ${i + 1}/${candidates.length} failed (${describeYouCamError(err)}), trying next`);
         continue;
       }

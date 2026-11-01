@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { Check, Sun, Moon, ChevronDown } from "lucide-react";
+import { Check, Sun, Moon, ChevronDown, Play, MoonStar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { saveRoutineCompletion, saveWorkoutCompletion } from "@/app/lib/actions";
 import SegmentedTabs from "@/app/components/ui/SegmentedTabs";
@@ -10,6 +10,7 @@ import { ROUTINE_PRAISE } from "@/app/components/companion/brain";
 import { getProductGuidance } from "@/lib/constants/productGuidance";
 import ProductImage from "./ProductImage";
 import { productForStep, whyLine } from "@/app/plan/plan-products";
+import SessionPlayer from "@/app/routine/SessionPlayer";
 
 function RoutineCheckbox({ checked }) {
   return (
@@ -37,7 +38,30 @@ function RoutineCheckbox({ checked }) {
 
 // A step is either plain text (an older, scan-based routine) or a plan step
 // ({ id, text, why }). `key` is what gets saved when it is ticked.
-const asItem = (step) => (typeof step === "string" ? { key: step, text: step, why: "" } : { key: step.id, text: step.text, why: step.why || "" });
+const asItem = (step) => (typeof step === "string" ? { key: step, text: step, why: "" } : { key: step.id, text: step.text, why: step.why || "", schedule: step.schedule || null });
+
+const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+
+function offLabel(off, planDay) {
+  if (off.nextDay == null) return off.reason === "paused" ? "Resting while your skin recovers" : "Resting";
+  const away = off.nextDay - planDay;
+  const when = away === 1 ? "tomorrow" : WEEKDAY.format(new Date(Date.now() + away * 86400000));
+  return off.reason === "paused" ? `Paused while your skin recovers · back ${when}` : `Rest night · next ${when}`;
+}
+
+function OffRow({ off, planDay }) {
+  return (
+    <li className="flex items-center gap-3 min-h-11 px-1 py-2 opacity-70">
+      <span className="shrink-0 w-6 h-6 rounded-full border-2 border-dashed border-[var(--tk-border-strong)] flex items-center justify-center text-faint">
+        <MoonStar size={12} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[15px] leading-snug text-muted">{off.text}</span>
+        <span className="block text-xs text-faint">{offLabel(off, planDay)}</span>
+      </span>
+    </li>
+  );
+}
 
 /** One compact product row under an expanded step: picture, name, why it fits, and how to use it. */
 function StepProduct({ product }) {
@@ -92,6 +116,7 @@ function StepRow({ item, checked, isNew, onToggle, chip = null, children = null 
             {item.text}
             {isNew && <span className="tk-chip tk-chip-success ml-2 align-middle">New this week</span>}
             {chip && <span className="tk-chip ml-2 align-middle">{chip}</span>}
+            {item.schedule && <span className="tk-chip ml-2 align-middle">{item.schedule}</span>}
           </span>
         </button>
         {children && (
@@ -111,9 +136,9 @@ function StepRow({ item, checked, isNew, onToggle, chip = null, children = null 
   );
 }
 
-function StepList({ id, steps, checks, onToggle, newStepIds, products, workout, emptyText }) {
+function StepList({ id, steps, checks, onToggle, newStepIds, products, workout, emptyText, offSteps = [], planDay = 0 }) {
   const items = (steps || []).map(asItem);
-  if (items.length === 0 && !workout) return <p className="text-sm text-muted py-3">{emptyText}</p>;
+  if (items.length === 0 && !workout && !offSteps.length) return <p className="text-sm text-muted py-3">{emptyText}</p>;
   return (
     <ul id={id} className="divide-y divide-line">
       {items.map((item) => {
@@ -138,6 +163,7 @@ function StepList({ id, steps, checks, onToggle, newStepIds, products, workout, 
           <p className="text-sm text-muted leading-relaxed">{workout.detail}</p>
         </StepRow>
       )}
+      {offSteps.map((off) => <OffRow key={off.id} off={off} planDay={planDay} />)}
     </ul>
   );
 }
@@ -157,7 +183,11 @@ export default function RoutineChecklist({
   products = [],
   facialWorkout = "",
   workoutDone = false,
+  offSteps = [],
+  planDay = 0,
+  coached = false,
 }) {
+  const [session, setSession] = useState(null);
   const [amChecks, setAmChecks] = useState(completedAm);
   const [pmChecks, setPmChecks] = useState(completedPm);
   const [workoutChecked, setWorkoutChecked] = useState(workoutDone);
@@ -166,6 +196,11 @@ export default function RoutineChecklist({
   const tab = picked ?? autoTab;
 
   const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const markDone = async (time, step) => {
+    if ((time === "am" ? amChecks : pmChecks).includes(step)) return;
+    await toggleCheck(time, step);
+  };
 
   const toggleCheck = async (time, step) => {
     let newChecks;
@@ -206,9 +241,11 @@ export default function RoutineChecklist({
       }
     : null;
 
-  const total = (tab === "am" ? amRoutine : pmRoutine)?.length || 0;
+  const tabSteps = (tab === "am" ? amRoutine : pmRoutine) || [];
+  const total = tabSteps.length;
   const done = tab === "am" ? amChecks.length : pmChecks.length;
   const complete = total > 0 && done >= total;
+  const canPlay = coached && total > 0 && tabSteps.every((s) => typeof s === "object");
 
   return (
     <div className="flex flex-col gap-3">
@@ -230,14 +267,30 @@ export default function RoutineChecklist({
         )}
       </div>
 
+      {canPlay && (
+        <button type="button" onClick={() => setSession(tab)} className="tk-pill-btn tk-btn-primary w-full py-3 text-sm" data-kin="session">
+          <Play size={16} /> {complete ? "Replay" : "Start"} {tab === "am" ? "morning" : "evening"} session
+        </button>
+      )}
+
+      {session && (
+        <SessionPlayer
+          slot={session}
+          steps={(session === "am" ? amRoutine : pmRoutine) || []}
+          checks={session === "am" ? amChecks : pmChecks}
+          onDone={(id) => markDone(session, id)}
+          onClose={() => setSession(null)}
+        />
+      )}
+
       {/* Both lists share one grid cell and the hidden one keeps its space, so the
           card is as tall as the longer list and switching never changes the page height. */}
       <section className="tk-card px-4 sm:px-5 py-1 grid grid-cols-[minmax(0,1fr)] overflow-hidden" aria-label="Routine">
         <div className={`col-start-1 row-start-1 min-w-0 ${tab === "am" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "am"} inert={tab !== "am"}>
-          <StepList id="morning" steps={amRoutine} checks={amChecks} onToggle={(s) => toggleCheck("am", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised morning routine." />
+          <StepList id="morning" steps={amRoutine} checks={amChecks} onToggle={(s) => toggleCheck("am", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised morning routine." offSteps={offSteps.filter((o) => o.slot === "am")} planDay={planDay} />
         </div>
         <div className={`col-start-1 row-start-1 min-w-0 ${tab === "pm" ? "" : "invisible pointer-events-none"}`} aria-hidden={tab !== "pm"} inert={tab !== "pm"}>
-          <StepList id="evening" steps={pmRoutine} checks={pmChecks} onToggle={(s) => toggleCheck("pm", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised evening routine." />
+          <StepList id="evening" steps={pmRoutine} checks={pmChecks} onToggle={(s) => toggleCheck("pm", s)} newStepIds={newStepIds} products={products} workout={workout} emptyText="Take a selfie to get your personalised evening routine." offSteps={offSteps.filter((o) => o.slot === "pm")} planDay={planDay} />
         </div>
       </section>
     </div>

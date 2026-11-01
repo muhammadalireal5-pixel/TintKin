@@ -32,7 +32,7 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
     const resetTime = new Date(bucketStart + windowMs);
 
     // Atomic upsert: increment this window's counter, creating it on first hit.
-    const result = await RateLimit.findOneAndUpdate(
+    const bump = () => RateLimit.findOneAndUpdate(
       {
         identifier,
         action,
@@ -50,6 +50,10 @@ export async function checkRateLimit(identifier, action, limit, windowMs) {
         new: true,
       }
     );
+    const result = await bump().catch((err) => {
+      if (err?.code === 11000) return bump();
+      throw err;
+    });
 
     const currentCount = result?.count || 1;
 

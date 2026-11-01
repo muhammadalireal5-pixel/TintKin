@@ -2,16 +2,17 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { Check } from "lucide-react";
 import PricingClient from "./PricingClient";
+import { ALL_PREMIUM } from "@/app/lib/feature-flags";
 
 export const metadata = {
     title: "Pricing & Plans",
-    description: "Improve your skin with a personalised routine and weekly check-ins. Start free with 2 scans/mo, or upgrade from $8/mo for more check-ins and what-if simulations.",
+    description: "A daily skin coach that adapts to you. Start free with an adaptive plan, guided sessions, 2 scans and 3 product checks a month, or upgrade from $8/mo.",
     alternates: {
         canonical: "/pricing",
     },
     openGraph: {
         title: "Pricing & Plans | TintKin",
-        description: "Improve your skin with a personalised routine and weekly check-ins. Start free with 2 scans/mo, or upgrade from $8/mo for more check-ins and what-if simulations.",
+        description: "A daily skin coach that adapts to you. Start free with an adaptive plan, guided sessions, 2 scans and 3 product checks a month, or upgrade from $8/mo.",
         url: "https://tintkin.com/pricing",
     },
 };
@@ -100,10 +101,10 @@ export default async function PricingPage() {
     const nonce = (await headers()).get("x-nonce") || undefined;
     const demo = process.env.ENABLE_DEMO_TIER_SWITCHING === "true";
     const benefits = [
-        "Track acne, pigmentation, redness & texture",
-        "Personalized skincare routines",
-        "AI what-if simulations",
-        "Visible progress over time",
+        "A plan that adapts to how your skin reacts",
+        "Guided morning and evening sessions",
+        "Plan-aware product checks",
+        "Progress measured, not guessed",
     ];
     return (
         <div className="tk-container py-6 sm:py-10">
@@ -114,12 +115,14 @@ export default async function PricingPage() {
             />
             <div className="tk-card p-6 sm:p-8 mb-6 sm:mb-8 tk-anim-1 md:flex md:items-center md:justify-between md:gap-10">
                 <div>
-                    <p className="tk-eyebrow mb-2">Unlock Your Potential</p>
+                    <p className="tk-eyebrow mb-2">Your daily skin coach</p>
                     <h1 className="text-[1.75rem] sm:text-4xl font-semibold text-primary leading-tight">
-                        Healthier skin.<br />A more confident you.
+                        Coaching is free.<br />Measuring is a plan.
                     </h1>
                     <p className="text-muted text-sm sm:text-base max-w-xl mt-3">
-                        {demo
+                        {ALL_PREMIUM
+                            ? "During the YouCam hackathon every account gets Pro for free. No card needed: just sign up and start."
+                            : demo
                             ? "Select the plan that fits your skin goals. Early access preview — all tiers are unlocked for testing!"
                             : "Select the plan that fits your skin goals. Standard and Pro are paid plans and will take you to checkout."}
                     </p>

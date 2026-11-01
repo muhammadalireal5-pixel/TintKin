@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Check, X, RotateCcw, Maximize2, Move } from "lucide-react";
 
+const MAX_UPLOAD_EDGE = 2048;
+
 /**
  * ImageCropper Component
  * Allows users to manually frame their face within an adjustable bounding box.
@@ -185,9 +187,10 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
     const sourceW = Math.min(img.naturalWidth - sourceX, Math.round(crop.width * scaleX));
     const sourceH = Math.min(img.naturalHeight - sourceY, Math.round(crop.height * scaleY));
 
+    const shrink = Math.min(1, MAX_UPLOAD_EDGE / Math.max(sourceW, sourceH, 1));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, sourceW);
-    canvas.height = Math.max(1, sourceH);
+    canvas.width = Math.max(1, Math.round(sourceW * shrink));
+    canvas.height = Math.max(1, Math.round(sourceH * shrink));
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -217,7 +220,7 @@ export default function ImageCropper({ imageSrc, originalFile, onCropComplete, o
         onCropComplete(croppedFile, croppedUrl);
       },
       "image/jpeg",
-      0.95
+      0.9
     );
   };
 

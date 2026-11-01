@@ -57,7 +57,7 @@ function Meta({ label, value }) {
   );
 }
 
-function FeedbackRow({ item, onChanged, onDeleted }) {
+function FeedbackRow({ item, onChanged, onDeleted, readOnly = false }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState(item.status);
   const [priority, setPriority] = useState(item.priority || "");
@@ -124,7 +124,7 @@ function FeedbackRow({ item, onChanged, onDeleted }) {
             <Meta label="Theme" value={item.theme} />
           </div>
 
-          <div className="rounded-xl bg-[var(--tk-accent-soft)]/40 border border-[var(--tk-border-solid)] p-3 space-y-3">
+          {!readOnly && <div className="rounded-xl bg-[var(--tk-accent-soft)]/40 border border-[var(--tk-border-solid)] p-3 space-y-3">
             <p className="text-xs font-semibold text-[var(--tk-text-muted)]">Private triage. Never shown to the user.</p>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
@@ -168,14 +168,14 @@ function FeedbackRow({ item, onChanged, onDeleted }) {
                 <Save size={14} /> {saving ? "Saving…" : "Save"}
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       )}
     </li>
   );
 }
 
-export default function FeedbackManager({ initial, loadError }) {
+export default function FeedbackManager({ initial, loadError, readOnly = false }) {
   const [data, setData] = useState(initial);
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
@@ -259,6 +259,7 @@ export default function FeedbackManager({ initial, loadError }) {
             <FeedbackRow
               key={item.id}
               item={item}
+              readOnly={readOnly}
               onChanged={(updated) => setData((d) => ({ ...d, items: d.items.map((i) => (i.id === updated.id ? updated : i)) }))}
               onDeleted={(id) => load({ page: data.page })}
             />

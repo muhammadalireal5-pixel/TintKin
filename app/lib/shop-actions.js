@@ -4,7 +4,7 @@ import "server-only";
 import * as Sentry from "@sentry/nextjs";
 import mongoose from "mongoose";
 import { connectDb, CreditPack } from "./mongoose";
-import { verifyAdminSession } from "./admin-auth";
+import { verifyAdminSession, verifyAdminOwner } from "./admin-auth";
 import {
   getOrCreateShopSettings,
   createPolarPackProduct,
@@ -92,7 +92,7 @@ export async function adminListShopItems() {
 /** Admin-only. Creates a new credit pack and its backing Polar product. */
 export async function adminCreatePack({ label, description, credits, priceCents, sortOrder } = {}) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     const cleanLabel = typeof label === "string" ? label.trim().slice(0, 80) : "";
@@ -134,7 +134,7 @@ export async function adminCreatePack({ label, description, credits, priceCents,
 /** Admin-only. Updates a pack's copy/price/credits, syncing Polar when needed. Active state is controlled by adminDeletePack/adminRestorePack. */
 export async function adminUpdatePack(packId, updates = {}) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
     if (!packId || !mongoose.Types.ObjectId.isValid(packId)) {
       return { success: false, error: "Invalid pack ID" };
@@ -186,7 +186,7 @@ export async function adminUpdatePack(packId, updates = {}) {
  */
 export async function adminDeletePack(packId) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
     if (!packId || !mongoose.Types.ObjectId.isValid(packId)) {
       return { success: false, error: "Invalid pack ID" };
@@ -210,7 +210,7 @@ export async function adminDeletePack(packId) {
 /** Admin-only. Reverses adminDeletePack: unarchives the Polar product and puts the pack back on /shop. */
 export async function adminRestorePack(packId) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
     if (!packId || !mongoose.Types.ObjectId.isValid(packId)) {
       return { success: false, error: "Invalid pack ID" };
@@ -238,7 +238,7 @@ export async function adminRestorePack(packId) {
  */
 export async function adminUpdateShopSettings(updates = {}) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     const price = Number(updates.pricePerCreditCents);

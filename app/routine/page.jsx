@@ -11,6 +11,7 @@ import RatingsForm from "@/app/plan/RatingsForm";
 import PlanBuilder from "@/app/plan/PlanBuilder";
 import NextPlanCard from "@/app/plan/NextPlanCard";
 import ProfileUpdateBanner from "@/app/dashboard/ProfileUpdateBanner";
+import ReadinessCard from "@/app/plan/ReadinessCard";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,16 @@ export default async function RoutinePage({ searchParams }) {
                     {plan.expired && <NextPlanCard />}
                     <PlanHeader plan={plan} />
                     {!plan.expired && plan.nextCheckIn?.isDue && <CheckInCard plan={plan} />}
-                    <RoutineChecklist amRoutine={plan.steps.am} pmRoutine={plan.steps.pm} newStepIds={plan.newStepIds} {...routineProps} />
+                    {!plan.expired && <ReadinessCard coach={plan.coach} />}
+                    <RoutineChecklist
+                        amRoutine={plan.steps.am}
+                        pmRoutine={plan.steps.pm}
+                        newStepIds={plan.newStepIds}
+                        offSteps={plan.coach?.off ?? []}
+                        planDay={plan.day}
+                        coached={Boolean(plan.coach) && !plan.expired}
+                        {...routineProps}
+                    />
                     <PlanAim progress={plan.progress} />
                     <PickedForYou products={products} />
                 </div>

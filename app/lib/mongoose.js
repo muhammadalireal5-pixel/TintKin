@@ -32,7 +32,7 @@ const CONNECT_RETRY_DELAYS_MS = [500, 1500, 4000];
 const connectWithRetry = async () => {
     const opts = {
         bufferCommands: false,
-        maxPoolSize: 10,
+        maxPoolSize: Number(process.env.MONGODB_POOL_SIZE) || 5,
         maxIdleTimeMS: 10000,
         serverSelectionTimeoutMS: 10000,
         socketTimeoutMS: 45000,
@@ -216,6 +216,12 @@ const UserSchema = new mongoose.Schema({
     // routine") use the user's real day boundary instead of defaulting to UTC.
     timezone: { type: String, default: null }
 }, { strict: true });
+const OPTED_IN = { partialFilterExpression: { optInComparison: true } };
+UserSchema.index({ 'location.city': 1 }, OPTED_IN);
+UserSchema.index({ 'location.countryCode': 1 }, OPTED_IN);
+UserSchema.index({ 'location.country': 1 }, OPTED_IN);
+UserSchema.index({ birthDate: 1 }, OPTED_IN);
+UserSchema.index({ optInComparison: 1 });
 
 const SelfieSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -294,6 +300,9 @@ const RoutineLogSchema = new mongoose.Schema({
     pmCompleted: [String],
     // The day's facial workout is one tick of its own, outside the AM/PM step lists.
     workoutDone: { type: Boolean, default: false },
+    amSkipped: [String],
+    pmSkipped: [String],
+    mirror: { type: Number, min: 1, max: 5, default: null },
 }, { strict: true });
 RoutineLogSchema.index({ userId: 1, date: -1 });
 
@@ -366,6 +375,9 @@ const PlanSchema = new mongoose.Schema({
         text: { type: String, required: true },
         why: String,
         metric: { type: String, enum: [...STEP_METRICS, null], default: null },
+        cls: { type: String, default: null },
+        ladder: { type: String, default: null },
+        startRung: { type: Number, default: null },
         startDay: { type: Number, default: 1 },
         endDay: { type: Number, default: null },
     }],
@@ -404,12 +416,40 @@ const PlanSchema = new mongoose.Schema({
         dropped: [String],
         added: [String],
     }],
+    coach: {
+        type: new mongoose.Schema({
+            version: Number,
+            knowledgeVersion: String,
+            ladders: { type: mongoose.Schema.Types.Mixed, default: {} },
+            pausedFrom: { type: Number, default: null },
+            pausedUntilDay: { type: Number, default: null },
+            reactions: [{
+                _id: false,
+                day: Number,
+                level: { type: String, enum: ['fine', 'tingle', 'irritated', 'breakout'] },
+                slot: { type: String, enum: ['am', 'pm', null], default: null },
+                classes: [String],
+                at: Date,
+            }],
+        }, { _id: false, minimize: false }),
+        default: undefined,
+    },
     createdAt: { type: Date, default: Date.now },
 }, { strict: true });
 PlanSchema.index({ userId: 1, createdAt: -1 });
 // At most one active plan per user, so two concurrent "create my plan" calls
 // can't both succeed; the loser hits a duplicate-key error and reads the winner.
 PlanSchema.index({ userId: 1 }, { unique: true, partialFilterExpression: { status: PLAN_STATUS.ACTIVE }, name: 'one_active_plan_per_user' });
+
+const ProductCheckSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    name: { type: String, maxlength: 120 },
+    source: { type: String, enum: ['paste', 'photo'], default: 'paste' },
+    ingredients: [{ type: String, maxlength: 80 }],
+    report: { type: mongoose.Schema.Types.Mixed },
+    createdAt: { type: Date, default: Date.now },
+}, { strict: true });
+ProductCheckSchema.index({ userId: 1, createdAt: -1 });
 
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);
 export const Selfie = mongoose.models.Selfie || mongoose.model('Selfie', SelfieSchema);
@@ -418,6 +458,7 @@ export const Simulation = mongoose.models.Simulation || mongoose.model('Simulati
 export const RoutineLog = mongoose.models.RoutineLog || mongoose.model('RoutineLog', RoutineLogSchema);
 export const Report = mongoose.models.Report || mongoose.model('Report', ReportSchema);
 export const Plan = mongoose.models.Plan || mongoose.model('Plan', PlanSchema);
+export const ProductCheck = mongoose.models.ProductCheck || mongoose.model('ProductCheck', ProductCheckSchema);
 
 /**
  * Rate Limit Schema with TTL index for automatic cleanup
@@ -434,7 +475,7 @@ const RateLimitSchema = new mongoose.Schema({
 
 // TTL index for automatic cleanup - MUST be created in MongoDB
 RateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-RateLimitSchema.index({ identifier: 1, action: 1, windowStart: 1 });
+RateLimitSchema.index({ identifier: 1, action: 1, windowStart: 1 }, { unique: true });
 
 export const RateLimit = mongoose.models.RateLimit || mongoose.model('RateLimit', RateLimitSchema);
 

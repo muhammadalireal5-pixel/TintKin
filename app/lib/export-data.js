@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { zipSync, strToU8 } from "fflate";
 import { Resend } from "resend";
 import { getAuthenticatedUser } from "@/app/lib/auth-server";
-import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Feedback } from "./mongoose";
+import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Feedback, ProductCheck } from "./mongoose";
 import { signCloudinaryUrl } from "@/lib/utils/cloudinary";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./rate-limit";
 
@@ -46,13 +46,14 @@ export async function exportUserData() {
   }
 
   try {
-    const [selfies, lifestyles, simulations, routineLogs, feedback] = await Promise.all([
+    const [selfies, lifestyles, simulations, routineLogs, feedback, productChecks] = await Promise.all([
       Selfie.find({ userId }).select("-__v").sort({ takenAt: -1 }).lean(),
       Lifestyle.find({ userId }).select("-__v").sort({ date: -1 }).lean(),
       Simulation.find({ userId }).select("-__v").sort({ createdAt: -1 }).lean(),
       RoutineLog.find({ userId }).select("-__v").sort({ date: -1 }).lean(),
       // Only what the user wrote; the owner's private triage fields stay out.
       Feedback.find({ userId }).select("type rating message page createdAt").sort({ createdAt: -1 }).lean(),
+      ProductCheck.find({ userId }).select("-__v").sort({ createdAt: -1 }).lean(),
     ]);
 
     const exportManifest = {
@@ -123,7 +124,11 @@ export async function exportUserData() {
         date: r.date,
         amCompleted: r.amCompleted,
         pmCompleted: r.pmCompleted,
+        amSkipped: r.amSkipped,
+        pmSkipped: r.pmSkipped,
+        mirror: r.mirror ?? null,
       })),
+      productChecks: productChecks.map((c) => ({ name: c.name, source: c.source, ingredients: c.ingredients, report: c.report, createdAt: c.createdAt })),
     };
 
     /** @type {Record<string, Uint8Array>} */

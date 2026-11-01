@@ -2,6 +2,24 @@
 
 **Date:** 2026-10-02, updated 2026-10-05, 2026-10-10, 2026-10-12, 2026-10-13, 2026-10-14 · **Scope:** whole repository at `b16a094` plus uncommitted working tree · **Stack:** Next.js 16.3.8 (App Router, Turbopack), React 19.2, Auth.js `next-auth@5.0.0-beta.32` (JWT sessions), Mongoose 8, Cloudinary, YouCam, Qwen (DashScope), Resend, Sentry, Polar, Vercel.
 
+## 2026-10-27, scalability fixes (S1–S10 code, S5/S11 manual)
+
+| # | Status | What changed |
+|---|---|---|
+| S1 | Done | The session user and the active plan load once per request (React `cache`, `findSessionUserCached` / `findActivePlanCached`). Kin reloads at most once a minute and never twice at once. |
+| S2 | Done (code) | The reminders cron filters due users in memory, loads their scans, logs and plans in 4 batched queries, sends 10 at a time, and stops after 50s with `remaining` in the response. The per-slot claim makes the next run safe to continue. **Manual:** the hourly scheduler still lives outside the repo; Vercel Hobby crons only run daily, so keep the external scheduler or add `crons` once on Pro. |
+| S3 | Done | Partial indexes on opted-in users (`location.city`, `location.countryCode`, `location.country`, `birthDate`) and on `optInComparison`. Leaderboard boards are cached for 5 minutes per scope and month, and only opted-in users are loaded. |
+| S4 | Done | `@node-rs/argon2` (native, off the event loop) replaces bcryptjs for new hashes. Old bcrypt hashes still verify and are re-hashed on the next sign-in. |
+| S5 | Manual | Not changed: a hash-based CSP for static marketing pages needs testing against Sentry and Next's inline scripts. Check the build output (`ƒ` vs `○`) first. |
+| S6 | Done | The phone uploads straight to Cloudinary with a server-signed, owner-prefixed `authenticated` upload (`getSelfieUploadSignature`, `app/lib/direct-upload.js`). It falls back to the server action. `connect-src` now allows `api.cloudinary.com`. |
+| S7 | Done (no queue) | One shared YouCam budget across instances: 230 requests per 300s and 4 a second (`app/lib/youcam-gate.js`, RateLimit counters). There is a circuit breaker (8 failures a minute) that refuses new scans and sims *before* any quota is spent, per-scan time budgets, and 429 back-off. The full queued worker is still on the roadmap. |
+| S8 | Done, **manual step** | The rate-limit bucket index is now `unique`, and a duplicate-key upsert retries once. **Manual:** drop the old non-unique index once (`db.ratelimits.dropIndex("identifier_1_action_1_windowStart_1")`) so Mongoose can build the unique one. |
+| S9 | Done | The pool defaults to 5 per instance (`MONGODB_POOL_SIZE` overrides). |
+| S10 | Done | Leaderboard and percentile errors go to Sentry. |
+| S11 | Manual | Set budget alerts in YouCam, DashScope and Vercel. |
+
+**Hackathon settings:** `ALL_PREMIUM` (default on) makes every account act as Pro without touching the database. `ADMIN_VIEWER_EMAIL` / `ADMIN_VIEWER_PASSWORD` add a read-only admin login with masked users and feedback; it is listed publicly in README. Edits are owner-only on the server (`verifyAdminOwner`).
+
 ## 2026-10-25, scalability audit (user-requested: "can this handle 10k concurrent users?", ignoring Vercel/Atlas free-tier limits)
 
 **Findings only, no code changed.** Read-only review of `mongoose.js`, `auth.js`, `proxy.js`, `actions.js` (scan, dashboard, leaderboard, percentile), `plan.js`, `quota.js`, `rate-limit.js`, `youcam.js`, `qwen.js`, the reminders cron, `AppShell`/`Companion`. **Nothing was load-tested or run**, so every "will fail at N" below is reasoning from the code, not a measurement. Planning figure: 10k concurrent users ≈ 200–500 req/s at peak, not 10k simultaneous requests.

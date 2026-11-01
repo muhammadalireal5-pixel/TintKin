@@ -314,3 +314,35 @@ export async function analyzeProductIngredients(base64Image) {
     throw new Error("Failed to analyze product ingredients.");
   }
 }
+
+export async function readIngredientLabel(base64Image) {
+  if (!base64Image || typeof base64Image !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(base64Image)) {
+    throw new Error("Invalid image format");
+  }
+  const prompt = `Read the product label in this photo. Copy the ingredient list exactly as printed, in order, separated by commas. Do not add, explain or judge any ingredient.
+Respond strictly with JSON (no markdown): {"name": "product name if visible, else empty", "ingredients": "Aqua, Glycerin, ..."}
+If no ingredient list is readable, respond {"name": "", "ingredients": ""}.`;
+  const response = await getOpenAIClient().chat.completions.create({
+    model: "qwen-vl-max",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: base64Image } },
+        ],
+      },
+    ],
+  });
+  const content = String(response.choices?.[0]?.message?.content ?? "")
+    .trim()
+    .replace(/^```json/im, "")
+    .replace(/^```/im, "")
+    .replace(/```$/im, "")
+    .trim();
+  const parsed = JSON.parse(content);
+  return {
+    name: typeof parsed.name === "string" ? parsed.name.slice(0, 120) : "",
+    ingredients: typeof parsed.ingredients === "string" ? parsed.ingredients.slice(0, 4000) : "",
+  };
+}

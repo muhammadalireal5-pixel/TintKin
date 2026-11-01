@@ -8,6 +8,7 @@ import {
   Trophy,
   ShoppingBag,
   Crown,
+  FlaskConical,
 } from "lucide-react";
 
 // Phone bottom nav: four tabs around the centre Scan button (see AppShell).
@@ -32,6 +33,7 @@ export const SIDEBAR_GROUPS = [
   {
     label: "Explore",
     items: [
+      { href: "/products", label: "Product check", icon: FlaskConical },
       { href: "/what-if", label: "What-If", icon: Sparkles },
       { href: "/reports", label: "Reports", icon: FileText, badge: "report" },
       { href: "/leaderboard", label: "Leaderboard", icon: Trophy },

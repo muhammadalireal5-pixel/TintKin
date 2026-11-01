@@ -2,11 +2,12 @@
 
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
-import { getAuthenticatedUser, findSessionUser, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
+import { getAuthenticatedUser, findSessionUser, findSessionUserCached, SESSION_EXPIRED_PATH } from "@/app/lib/auth-server";
 import { connectDb, User, Selfie, Lifestyle, Simulation, RoutineLog, Report, Plan } from "./mongoose";
 import { revalidatePath } from "next/cache";
-import { verifyAdminSession } from "./admin-auth";
+import { verifyAdminOwner } from "./admin-auth";
 import { analyzeSkin, simulateSkin, extractScoreInfo, SIM_CROP_OPTIONS } from "./youcam";
+import { youcamBreakerOpen } from "./youcam-gate";
 import { projectTrajectory } from "./predict";
 import { loadWhatIfInputs, describeInputs, previewWhatIfInputs } from "./whatif-inputs";
 import { assessReliability } from "@/lib/whatif/reliability";
@@ -31,6 +32,7 @@ import { sanitizeRecommendedProducts, makeAdviceSafe, makeProductsSafe } from "@
 import { toPlainUser } from "@/lib/plan/engine";
 import { validateCheckIn, lifestyleFromCheckIn, DUPLICATE_WITHIN_DAYS } from "@/lib/checkin/freshness";
 import { assessScanConfidence, sanitizeClientQuality, isLowConfidence } from "@/lib/utils/image-quality";
+import { mirrorSummary } from "@/lib/plan/mirror";
 import { reserveScanSlot, releaseScanSlot, reserveSimulationSlot, releaseSimulationSlot } from "./quota";
 import { validateImageFile } from "@/lib/validations/image";
 
@@ -69,7 +71,7 @@ import {
 import { resolvePeriod } from "@/lib/utils/quota-period";
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { EMAIL_VERIFICATION_ENABLED } from "./feature-flags";
+import { EMAIL_VERIFICATION_ENABLED, ALL_PREMIUM, effectiveTier } from "./feature-flags";
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_TIMEOUT_MS = 20000;
@@ -239,6 +241,37 @@ async function prepareSimulationSource(imageUrl, userId) {
 // ValidationError and silently discarded the entire scan. Sanitize to the
 // schema's contract, falling back to the curated defaults when the AI output
 // doesn't qualify.
+export async function getSelfieUploadSignature({ flip = false } = {}) {
+  let decoded;
+  try {
+    decoded = await getAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Please sign in again to continue." };
+  }
+  if (!decoded) return { success: false, error: "Please sign in again to continue." };
+  const rateCheck = await checkRateLimit(decoded.uid, "upload", 5, 60000);
+  if (!rateCheck.allowed) {
+    return { success: false, error: `Too many upload attempts. Please try again in ${rateCheck.retryAfter}s.` };
+  }
+  const timestamp = Math.floor(Date.now() / 1000);
+  const publicId = `${getUserUploadPrefix(decoded.uid)}${crypto.randomBytes(12).toString("hex")}`;
+  const allowedFormats = "jpg,jpeg,png,webp";
+  const signedParams = `allowed_formats=${allowedFormats}&public_id=${publicId}&timestamp=${timestamp}${flip ? "&transformation=a_hflip" : ""}&type=authenticated`;
+  return {
+    success: true,
+    url: `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    fields: {
+      api_key: process.env.CLOUDINARY_API_KEY,
+      allowed_formats: allowedFormats,
+      public_id: publicId,
+      timestamp: String(timestamp),
+      type: "authenticated",
+      signature: signCloudinaryParams(signedParams),
+      ...(flip ? { transformation: "a_hflip" } : {}),
+    },
+  };
+}
+
 export async function uploadSelfieServerAction(formData) {
   let decoded;
   try {
@@ -303,7 +336,7 @@ export async function uploadSelfieServerAction(formData) {
   }
 }
 
-async function getDbUser() {
+async function getDbUser({ cached = false } = {}) {
   const [, auth] = await Promise.all([
     connectDb(),
     getAuthenticatedUser().then(
@@ -314,7 +347,9 @@ async function getDbUser() {
   const decoded = auth.decoded;
   if (!decoded) redirect("/sign-in");
 
-  const user = await findSessionUser(decoded);
+  const user = cached
+    ? await findSessionUserCached(decoded.uid, decoded.email, decoded.sv)
+    : await findSessionUser(decoded);
 
   // Both sign-in providers create the DB user before issuing a session, so a
   // missing user means the account was deleted or the session revoked. Never
@@ -368,7 +403,28 @@ export async function checkOnboardingStatus() {
   return { complete: user?.onboardingComplete || false };
 }
 
+const SCAN_TOTAL_BUDGET_MS = 105000;
+const SCAN_YOUCAM_BUDGET_MS = 70000;
+const SCAN_ADVICE_MIN_MS = 20000;
+const SCAN_ADVICE_MARGIN_MS = 8000;
+
+function adviceWithinBudget(promise, remainingMs) {
+  if (remainingMs < SCAN_ADVICE_MIN_MS) {
+    return Promise.resolve(errorResult(ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Skipped to keep the scan fast"));
+  }
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(
+      () => resolve(errorResult(ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Advice took too long")),
+      remainingMs - SCAN_ADVICE_MARGIN_MS
+    );
+  });
+  return Promise.race([promise.catch(() => errorResult(ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Advice failed")), timeout])
+    .finally(() => clearTimeout(timer));
+}
+
 export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQuality = null) {
+  const scanStartedAt = Date.now();
   timezone = normalizeTimezone(timezone);
   const user = await getDbUser();
   await syncUserTimezone(user, timezone);
@@ -407,12 +463,20 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     if (!imageUrl || !isOwnedUserUpload(imageUrl, user._id.toString())) {
       return errorResult(ERROR_CODES.VALIDATION_ERROR, "That image couldn't be used — please upload a new photo.", { error: "That image couldn't be used — please upload a new photo." });
     }
+    if (sanitizeClientQuality(imageQuality)?.verdict === "retake") {
+      await cleanupOrphanedUpload();
+      return errorResult(ERROR_CODES.VALIDATION_ERROR, "That photo is too dark or blurry to measure. Retake it in even light, this one didn't use a scan.", { error: "RETAKE" });
+    }
 
-    const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier);
+    const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(effectiveTier(user));
 
     let scanDenialReason = "";
     // Atomically reserves the slot before the expensive AI calls below so
     // concurrent requests can't both pass a stale check (see app/lib/quota.js).
+    if (await youcamBreakerOpen()) {
+      await cleanupOrphanedUpload();
+      return errorResult(ERROR_CODES.ANALYSIS_FAILED, "Scans are busy right now. Please try again in a minute. This didn't use a scan.", { error: "YOUCAM_BUSY" });
+    }
     const reservation = await reserveScanSlot(user._id, timezone, scanDailyLimit, scanMonthlyLimit);
     if (reservation.granted) {
       reservedScanSlot = { dayKey: reservation.dayKey, monthKey: reservation.monthKey };
@@ -476,7 +540,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     // YouCam fetches this URL from its own servers, so an `authenticated`-type
     // asset (see M22 in AUDIT.md) must be signed first, or every candidate
     // download 401s. Signing an already-public `upload`-type asset is a no-op.
-    const youCamResult = await analyzeSkin(signCloudinaryUrl(imageUrl));
+    const youCamResult = await analyzeSkin(signCloudinaryUrl(imageUrl), { deadline: Date.now() + SCAN_YOUCAM_BUDGET_MS });
 
     const data = youCamResult.results || youCamResult.result || youCamResult.task_result || youCamResult;
 
@@ -549,7 +613,10 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
           // UV index is best-effort
         }
       }
-      advice = await generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex, confidence.level === "low");
+      advice = await adviceWithinBudget(
+        generatePersonalizedAdvice(user, scores, overallScore, skinAge, uvIndex, confidence.level === "low"),
+        SCAN_TOTAL_BUDGET_MS - (Date.now() - scanStartedAt)
+      );
     }
 
     const adviceSucceeded = Boolean(advice && advice.status !== STATUS.ERROR && advice.success !== false);
@@ -677,8 +744,9 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     const checkInCompleted = planScan?.completedDay != null;
 
     if (lastSelfie && lastSelfie.imageUrl) {
-      await deleteImageFromCloudinary(lastSelfie.imageUrl);
-      await Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } });
+      await deleteImageFromCloudinary(lastSelfie.imageUrl)
+        .then(() => Selfie.updateOne({ _id: lastSelfie._id }, { $set: { imageUrl: null } }))
+        .catch(() => {});
     }
 
     const report = await notifyReportReadyIfDue(user, checkInCompleted);
@@ -713,14 +781,14 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
       quality: { level: confidence.level, issues: confidence.issues },
     },  ERROR_CODES.AI_ADVICE_UNAVAILABLE, "Biomarker scores captured successfully! AI personalized advice is temporarily unavailable and will refresh on your next scan.");
   } catch (err) {
-    if (extraScanConsumed) {
+    if (extraScanConsumed && !selfieCreated) {
       await User.findByIdAndUpdate(user._id, { $inc: { extraScans: 1 } }).catch(() => {});
     }
-    if (creditsConsumed) {
+    if (creditsConsumed && !selfieCreated) {
       await User.findByIdAndUpdate(user._id, { $inc: { creditBalance: CREDIT_COST.scan } }).catch(() => {});
     }
-    if (reservedScanSlot) {
-      await releaseScanSlot(user._id, reservedScanSlot.dayKey, reservedScanSlot.monthKey);
+    if (reservedScanSlot && !selfieCreated) {
+      await releaseScanSlot(user._id, reservedScanSlot.dayKey, reservedScanSlot.monthKey).catch(() => {});
     }
     // Only roll back the upload if no Selfie record ended up referencing it —
     // otherwise a later failure (e.g. the user/badge update) would delete the
@@ -813,7 +881,7 @@ async function recordCareDay(user, timezone) {
 // separate exact queries (totalSelfieCount/firstSelfie) rather than derived from
 // the capped array.
 export async function getLatestData(timezone = null, options = {}) {
-  const user = await getDbUser();
+  const user = await getDbUser({ cached: true });
   // No explicit override: use the timezone learned passively from the user's
   // own browser (see syncUserTimezone) instead of defaulting to UTC, or
   // "today's routine" reads a different day boundary than the one it was
@@ -891,7 +959,7 @@ export async function getLatestData(timezone = null, options = {}) {
       .select("takenAt overallScore isAnalyzed")
       .lean(),
     RoutineLog.find({ userId: user._id, date: { $gte: activityWindowStart } })
-      .select("date amCompleted pmCompleted")
+      .select("date amCompleted pmCompleted mirror")
       .lean(),
     Report.countDocuments({ userId: user._id }),
   ]);
@@ -933,7 +1001,7 @@ export async function getLatestData(timezone = null, options = {}) {
 
   // With a plan, "today's routine" is the plan's steps for today (keyed by step
   // id); without one it is the latest scan's routine (keyed by its text).
-  const planRoutine = await getTodayRoutineKeys(user._id, timezone, now);
+  const planRoutine = await getTodayRoutineKeys(user._id, timezone, now, { cached: true });
   const todayRoutine = {
     am: planRoutine ? planRoutine.am : latestAnalyzedSelfie?.amRoutine || [],
     pm: planRoutine ? planRoutine.pm : latestAnalyzedSelfie?.pmRoutine || [],
@@ -961,6 +1029,14 @@ export async function getLatestData(timezone = null, options = {}) {
     todayKey: getLocalDayKey(timezone, now),
     dayKeyOf: (d) => getLocalDayKey(timezone, d),
   });
+
+  const mirror = mirrorSummary(
+    activityLogs.filter((l) => l.mirror != null).map((l) => ({ dayKey: getLocalDayKey(timezone, new Date(l.date)), value: l.mirror })),
+    {
+      todayKey: getLocalDayKey(timezone, now),
+      lastScanKey: latestAnalyzedSelfie?.takenAt ? getLocalDayKey(timezone, new Date(latestAnalyzedSelfie.takenAt)) : null,
+    }
+  );
 
   const analyzedScores = (rows) => rows.filter(s => s.isAnalyzed !== false && typeof s.overallScore === "number").map(s => s.overallScore);
 
@@ -1023,6 +1099,7 @@ export async function getLatestData(timezone = null, options = {}) {
     todayRoutineLog,
     todayRoutine,
     habitConsistency,
+    mirror,
     recommendedProducts,
     achievements: evaluatedAchievements,
     achievementStats: { unlockedCount, totalCount },
@@ -1030,7 +1107,9 @@ export async function getLatestData(timezone = null, options = {}) {
     newlyUnlockedTitles: evaluatedAchievements.filter((a) => newlyUnlockedIds.includes(a.id)).map((a) => a.title),
     ...(selfieLimit ? { hasMoreSelfies: totalSelfieCount > allSelfies.length } : {}),
   };
-  return JSON.parse(JSON.stringify(data));
+  const serialized = JSON.parse(JSON.stringify(data));
+  if (serialized.user) serialized.user.effectiveTier = effectiveTier(user);
+  return serialized;
 }
 
 export async function getOlderSelfies(beforeTakenAt, pageSize = 20) {
@@ -1124,7 +1203,10 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
   let reservedSimSlot = null;
   let simSourceUrl = null;
   try {
-    const simLimit = getTierSimLimit(user.tier);
+    const simLimit = getTierSimLimit(effectiveTier(user));
+    if (await youcamBreakerOpen()) {
+      return errorResult(ERROR_CODES.ANALYSIS_FAILED, "Simulations are busy right now. Please try again in a minute. This didn't use a simulation.", { error: "YOUCAM_BUSY" });
+    }
     // Atomically reserves the slot before the expensive AI calls below so
     // concurrent requests can't both pass a stale check (see app/lib/quota.js).
     const reservation = await reserveSimulationSlot(user._id, timezone, simLimit);
@@ -1148,7 +1230,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
         if (!paidWithCredits) {
           return errorResult(
             ERROR_CODES.SIM_LIMIT,
-            simLimit === 1 && user.tier === 'free'
+            simLimit === 1 && effectiveTier(user) === 'free'
               ? "You've used your 1 free simulation for this month. Upgrade to Standard or Pro, or buy credits, for more!"
               : `You've used all ${simLimit} simulations for this month.`,
             { error: "SIM_LIMIT" }
@@ -1548,8 +1630,8 @@ export async function getUsageQuotas(timezone) {
   const scansThisMonth = resolvePeriod(scanUsage.monthKey, scanUsage.monthCount, monthKey).count;
   const simsThisMonth = resolvePeriod(simUsage.monthKey, simUsage.monthCount, monthKey).count;
 
-  const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(user.tier);
-  const simLimit = getTierSimLimit(user.tier);
+  const { dailyLimit: scanDailyLimit, monthlyLimit: scanMonthlyLimit } = getTierScanLimits(effectiveTier(user));
+  const simLimit = getTierSimLimit(effectiveTier(user));
 
   const extraScans = user.extraScans || 0;
   const extraSimulations = user.extraSimulations || 0;
@@ -1850,7 +1932,7 @@ async function computeSuggestedRefund(user) {
  */
 export async function previewRefund(userId) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -1884,7 +1966,7 @@ export async function previewRefund(userId) {
  */
 export async function adminIssueRefund(userId, options = {}) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -1936,7 +2018,7 @@ export async function adminIssueRefund(userId, options = {}) {
  */
 export async function listCreditOrders(userId) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -1985,7 +2067,7 @@ export async function listCreditOrders(userId) {
  */
 export async function adminIssueCreditRefund(userId, orderId) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -2105,6 +2187,8 @@ export async function getUserProfile() {
         lng: user.location.lng || null,
       } : null,
       tier: user.tier || "free",
+      effectiveTier: effectiveTier(user),
+      hackathonAccess: ALL_PREMIUM,
       isSubscribed: Boolean(user.isSubscribed),
       creditBalance: user.creditBalance || 0,
       skinType: user.skinType || null,
@@ -2241,7 +2325,7 @@ export async function updateUserTier(tier) {
 
 export async function adminAddExtraScans(userId, amount = 1) {
   try {
-    const session = await verifyAdminSession();
+    const session = await verifyAdminOwner();
     if (!session) return { success: false, error: "Please sign in again to continue." };
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -2309,7 +2393,7 @@ async function renamePublicIdToAuthenticated(publicId) {
  * until nothing is left. Always run dryRun:true first to see the counts.
  */
 export async function migrateImagesToAuthenticated({ dryRun = true, limit = 25 } = {}) {
-  const session = await verifyAdminSession();
+  const session = await verifyAdminOwner();
   if (!session) return { success: false, error: "Please sign in again to continue." };
 
   const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
@@ -2374,6 +2458,50 @@ export async function migrateImagesToAuthenticated({ dryRun = true, limit = 25 }
   ]);
 
   return { success: true, dryRun: false, migrated, failed, remainingSelfies, remainingSimulations };
+}
+
+export async function saveRoutineSkip(time, step, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
+  if (time !== "am" && time !== "pm") return { success: false };
+  if (typeof step !== "string" || !/^s\d{1,4}$/.test(step)) return { success: false };
+  try {
+    const user = await getDbUser();
+    const planRoutine = await getTodayRoutineKeys(user._id, timezone);
+    if (!planRoutine || !planRoutine[time].includes(step)) return { success: false, error: "Unknown routine step." };
+    const field = time === "am" ? "amSkipped" : "pmSkipped";
+    await RoutineLog.findOneAndUpdate(
+      { userId: user._id, date: { $gte: getLocalDayStart(timezone) } },
+      { $setOnInsert: { userId: user._id, date: new Date() }, $addToSet: { [field]: step } },
+      { upsert: true }
+    );
+    return { success: true };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "routine-skip" } });
+    return { success: false };
+  }
+}
+
+export async function saveMirrorCheck(rating, timezone = "UTC") {
+  timezone = normalizeTimezone(timezone);
+  const value = Number(rating);
+  if (!Number.isInteger(value) || value < 1 || value > 5) return { success: false };
+  try {
+    const user = await getDbUser();
+    await RoutineLog.findOneAndUpdate(
+      { userId: user._id, date: { $gte: getLocalDayStart(timezone) } },
+      { $setOnInsert: { userId: user._id, date: new Date() }, $set: { mirror: value } },
+      { upsert: true }
+    );
+    await recordCareDay(user, timezone).catch(() => {});
+    revalidatePath("/dashboard");
+    revalidatePath("/progress");
+    return { success: true };
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw err;
+    Sentry.captureException(err, { tags: { scope: "mirror-check" } });
+    return { success: false };
+  }
 }
 
 export async function saveRoutineCompletion(time, step, isCompleted, timezone = "UTC") {
@@ -2513,7 +2641,8 @@ export async function getPercentileRank() {
     const percentile = Math.round((lowerOrEqual / peerScores.length) * 100);
 
     return { success: true, percentile, peerCount: peerScores.length };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "percentile-rank" } });
     return { success: false };
   }
 }
@@ -2540,7 +2669,7 @@ export async function getReportStatus() {
     await connectDb();
     const decoded = await getAuthenticatedUser().catch(() => null);
     if (!decoded) return null;
-    const user = await findSessionUser(decoded);
+    const user = await findSessionUserCached(decoded.uid, decoded.email, decoded.sv);
     if (!user?.onboardingComplete) return null;
     return await getUserReportStatus(user._id);
   } catch {
@@ -2684,6 +2813,55 @@ export async function getUserReports() {
   }));
 }
 
+const BOARD_TTL_MS = 5 * 60 * 1000;
+const BOARD_MAX_KEYS = 200;
+const boardCache = new Map();
+
+async function activeDaysByUser(ids, monthStart) {
+  const [scanDays, routineDays] = await Promise.all([
+    Selfie.aggregate([
+      { $match: { userId: { $in: ids }, takenAt: { $gte: monthStart } } },
+      { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$takenAt" } } } } },
+    ]),
+    RoutineLog.aggregate([
+      { $match: { userId: { $in: ids }, date: { $gte: monthStart } } },
+      {
+        $match: {
+          $expr: {
+            $gt: [
+              { $add: [{ $size: { $ifNull: ["$amCompleted", []] } }, { $size: { $ifNull: ["$pmCompleted", []] } }] },
+              0,
+            ],
+          },
+        },
+      },
+      { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } } } },
+    ]),
+  ]);
+  const days = new Map();
+  for (const row of [...scanDays, ...routineDays]) {
+    const id = row._id.userId.toString();
+    if (!days.has(id)) days.set(id, new Set());
+    days.get(id).add(row._id.day);
+  }
+  return days;
+}
+
+async function leaderboardBoard(userFilter, monthStart) {
+  const key = JSON.stringify(userFilter, (k, v) => (v instanceof RegExp ? v.toString() : v)) + monthStart.toISOString();
+  const hit = boardCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value;
+  const users = await User.find({ $and: [userFilter, { optInComparison: true }] })
+    .select('_id displayName photoURL location currentStreak optInComparison')
+    .limit(5000)
+    .lean();
+  const days = users.length ? await activeDaysByUser(users.map((u) => u._id), monthStart) : new Map();
+  const value = { users, days: [...days] };
+  if (boardCache.size >= BOARD_MAX_KEYS) boardCache.delete(boardCache.keys().next().value);
+  boardCache.set(key, { value, expires: Date.now() + BOARD_TTL_MS });
+  return value;
+}
+
 export async function getLeaderboard(scope = 'city') {
   try {
     const dbResult = await getDbUserOrStatus();
@@ -2764,17 +2942,19 @@ export async function getLeaderboard(scope = 'city') {
     // second $or key would silently replace it (returning every country).
     // Candidates are ranked by days active below, so this limit must be a DoS
     // safety valve only, never a pre-sort cutoff.
-    const matchingUsers = await User.find({
-      $and: [
-        userFilter,
-        { $or: [{ optInComparison: true }, { _id: user._id }] },
-      ],
-    })
-      .select('_id displayName photoURL location currentStreak optInComparison')
-      .limit(5000)
-      .lean();
+    const { monthStart, daysInMonth } = getLocalMonthStart(normalizeTimezone(user.timezone));
+    const board = await leaderboardBoard(userFilter, monthStart);
+    const selfIncluded = board.users.some((u) => String(u._id) === String(user._id));
+    const matchingUsers = selfIncluded
+      ? board.users
+      : [...board.users, { _id: user._id, displayName: user.displayName, photoURL: user.photoURL, location: user.location, currentStreak: user.currentStreak, optInComparison: user.optInComparison }];
+    const daysByUser = new Map(board.days);
+    if (!selfIncluded) {
+      const own = await activeDaysByUser([user._id], monthStart);
+      for (const [id, days] of own) daysByUser.set(id, days);
+    }
 
-    if (!matchingUsers || matchingUsers.length === 0) {
+    if (!matchingUsers.length) {
       return {
         success: true,
         scope,
@@ -2783,40 +2963,6 @@ export async function getLeaderboard(scope = 'city') {
         entries: [],
         myRank: null
       };
-    }
-
-    const matchingUserIds = matchingUsers.map(u => u._id);
-
-    // The board ranks showing up, not skin scores (which swing with lighting):
-    // distinct days this month with a scan or a ticked routine step. Days are
-    // bucketed in UTC so one query serves every member regardless of timezone.
-    const { monthStart, daysInMonth } = getLocalMonthStart(normalizeTimezone(user.timezone));
-    const [scanDays, routineDays] = await Promise.all([
-      Selfie.aggregate([
-        { $match: { userId: { $in: matchingUserIds }, takenAt: { $gte: monthStart } } },
-        { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$takenAt" } } } } },
-      ]),
-      RoutineLog.aggregate([
-        { $match: { userId: { $in: matchingUserIds }, date: { $gte: monthStart } } },
-        {
-          $match: {
-            $expr: {
-              $gt: [
-                { $add: [{ $size: { $ifNull: ["$amCompleted", []] } }, { $size: { $ifNull: ["$pmCompleted", []] } }] },
-                0,
-              ],
-            },
-          },
-        },
-        { $group: { _id: { userId: "$userId", day: { $dateToString: { format: "%Y-%m-%d", date: "$date" } } } } },
-      ]),
-    ]);
-
-    const daysByUser = new Map();
-    for (const row of [...scanDays, ...routineDays]) {
-      const id = row._id.userId.toString();
-      if (!daysByUser.has(id)) daysByUser.set(id, new Set());
-      daysByUser.get(id).add(row._id.day);
     }
 
     const ranked = [];
@@ -2866,7 +3012,8 @@ export async function getLeaderboard(scope = 'city') {
       daysInMonth,
       myRank
     };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err, { tags: { scope: "leaderboard" } });
     return { success: false, error: "Failed to fetch leaderboard. Please try again later." };
   }
 }

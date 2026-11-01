@@ -2,7 +2,7 @@
 
 import "server-only";
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/utils/password";
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { connectDb, User } from "./mongoose";
@@ -118,7 +118,7 @@ export async function registerUser({ email, password, name } = {}) {
     return { success: true };
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
   const newUser = await User.create({
     email: cleanEmail,
     displayName: (name || "").trim().slice(0, 50),

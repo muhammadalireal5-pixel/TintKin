@@ -563,10 +563,10 @@ export default function SettingsModal({ isOpen, onClose }) {
                 <Crown size={14} className="text-accent" />
                 <span className="text-xs text-muted">Plan:</span>
                 <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-line text-primary">
-                  {TIER_NAMES[profile?.tier] || "Free"}
+                  {profile?.hackathonAccess ? "Pro · free for now" : TIER_NAMES[profile?.tier] || "Free"}
                 </span>
               </div>
-              {!ACTIVE_SUBSCRIPTION_TIERS.includes(profile?.tier) && (
+              {!profile?.hackathonAccess && !ACTIVE_SUBSCRIPTION_TIERS.includes(profile?.tier) && (
                 <Link
                   href="/pricing"
                   onClick={onClose}

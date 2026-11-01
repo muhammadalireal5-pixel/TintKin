@@ -4,13 +4,15 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
-import { analyzeAndSaveSelfie, uploadSelfieServerAction, getUsageQuotas, acceptScanConsent } from "@/app/lib/actions";
+import { analyzeAndSaveSelfie, getUsageQuotas, acceptScanConsent } from "@/app/lib/actions";
+import { uploadSelfie } from "@/app/lib/direct-upload";
 import ScanConsentModal from "@/app/components/ScanConsentModal";
 import { useToast } from "@/app/components/ToastProvider";
 import { FlipHorizontal, Camera, Image as ImageIcon, X, Sun, Sparkles, ScanFace, Smile, CheckCircle2, AlertCircle, Loader2, Lock, ArrowLeft, Crop, CalendarClock } from "lucide-react";
 import ImageCropper from "@/app/components/ImageCropper";
 import { ComponentErrorFallback } from "@/app/components/ComponentErrorFallback";
 import { refreshReportStatus } from "@/app/components/reportStatus";
+import { refreshCompanion } from "@/app/components/companion/store";
 import Link from "next/link";
 import PageHeader from "@/app/components/ui/PageHeader";
 import { measureImageQuality } from "./measure-image";
@@ -150,11 +152,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
     }, []);
 
     const uploadToCloudinary = async (file) => {
-        const form = new FormData();
-        form.append("file", file);
-        if (isFlipped) form.append("flip", "true");
-
-        const res = await uploadSelfieServerAction(form);
+        const res = await uploadSelfie(file, { flip: isFlipped });
         if (!res.success) throw new Error(res.error || "Upload failed");
 
         return res.url;
@@ -240,6 +238,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                     });
                 }
                 refreshReportStatus();
+                refreshCompanion();
 
                 if (res.quality?.level === "low") {
                     showToast({

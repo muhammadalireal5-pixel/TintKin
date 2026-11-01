@@ -10,6 +10,7 @@ import {
   FileText,
   Trophy,
   ShoppingBag,
+  FlaskConical,
   History,
   Share2,
   Shield,
@@ -81,8 +82,8 @@ export default function ProfileClient({ profile }) {
 
   const name = profile?.displayName || user?.displayName || "Your account";
   const email = profile?.email || user?.email || "";
-  const tier = profile?.tier || TIERS.FREE;
-  const tierName = TIER_NAMES[tier] || "Free";
+  const tier = profile?.effectiveTier || profile?.tier || TIERS.FREE;
+  const tierName = profile?.hackathonAccess ? "Pro (free for the hackathon)" : TIER_NAMES[tier] || "Free";
   const place = [profile?.location?.city, profile?.location?.country].filter(Boolean).join(", ");
   const credits = profile?.creditBalance || 0;
 
@@ -103,7 +104,7 @@ export default function ProfileClient({ profile }) {
             {credits > 0 && <span className="tk-chip">{credits} {credits === 1 ? "credit" : "credits"}</span>}
             {profile?.skinType && <span className="tk-chip capitalize">{String(profile.skinType)} skin</span>}
           </div>
-          {tier === TIERS.FREE && (
+          {tier === TIERS.FREE && !profile?.hackathonAccess && (
             <Link href="/pricing" className="tk-pill-btn tk-btn-primary mt-5 w-full py-3">
               Upgrade your plan
             </Link>
@@ -189,10 +190,11 @@ export default function ProfileClient({ profile }) {
         </section>
 
         <Group title="Explore">
+          <Row icon={FlaskConical} label="Product check" sub="See how a product fits your plan" href="/products" />
           <Row icon={Sparkles} label="What-If simulator" sub="Preview your skin 6 months ahead" href="/what-if" />
           <Row icon={FileText} label="Skin reports" sub="AI summaries of your progress" href="/reports" />
           <Row icon={Trophy} label="Leaderboard" sub="See how you rank" href="/leaderboard" />
-          <Row icon={ShoppingBag} label="Shop" sub="Curated products" href="/shop" />
+          <Row icon={ShoppingBag} label="Shop" sub="Extra scans and credits" href="/shop" />
         </Group>
 
         <Group title="Your data">

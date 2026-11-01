@@ -41,8 +41,10 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
       date: `${date.getMonth() + 1}/${date.getDate()}`,
       scan: selfie.overallScore,
       trend: averages[i],
+      low: selfie.quality?.level === 'low',
     };
   });
+  const hasLow = data.some((d) => d.low);
 
   if (data.length < 3) {
     return (
@@ -58,7 +60,10 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
 
   return (
     <div className="w-full min-h-[300px] flex flex-col">
-      <p className="text-xs text-muted mb-3">The line is your 7-day average. Single scans vary with light, so the dots are not a verdict.</p>
+      <p className="text-xs text-muted mb-3">
+        The line is your 7-day average. Single scans vary with light, so the dots are not a verdict.
+        {hasLow && " Hollow dots were taken in poor light, so read them with care."}
+      </p>
       {canLoadMore && (
         <button
           type="button"
@@ -101,7 +106,11 @@ export default function ProgressChart({ allSelfies, hasMore = false }) {
             type="monotone"
             dataKey="scan"
             stroke="none"
-            dot={{ r: 3, fill: 'var(--tk-accent)', fillOpacity: 0.35, strokeWidth: 0 }}
+            dot={({ cx, cy, payload, index }) => (
+              payload.low
+                ? <circle key={index} cx={cx} cy={cy} r={3.5} fill="var(--tk-surface-card)" stroke="var(--tk-text-faint)" strokeWidth={1.5} />
+                : <circle key={index} cx={cx} cy={cy} r={3} fill="var(--tk-accent)" fillOpacity={0.35} />
+            )}
             activeDot={{ r: 5 }}
             name="Single scan"
             isAnimationActive={false}

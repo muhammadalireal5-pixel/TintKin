@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { X, Camera, Sparkles, FileText, Trophy, ShoppingBag, Crown, Lightbulb, MessageSquareHeart } from "lucide-react";
+import { X, Camera, Sparkles, FileText, FlaskConical, ShoppingBag, Crown, Lightbulb, MessageSquareHeart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthContext } from "@/app/context/AuthContext";
 import { getCompanionState } from "@/app/lib/actions";
@@ -13,6 +13,8 @@ import Typewriter, { typingDuration } from "./Typewriter";
 import { openFeedback } from "./FeedbackModal";
 import { markTourSeen } from "@/app/lib/tour-actions";
 import { usePageLoading } from "../page-loading";
+
+const COMPANION_REFRESH_MS = 60000;
 
 const SIZE = 104;
 const MARGIN = 8;
@@ -56,7 +58,7 @@ const WHEEL_ITEMS = [
   { id: "scan", label: "Scan", icon: Camera, href: "/capture" },
   { id: "whatif", label: "What-If", icon: Sparkles, href: "/what-if" },
   { id: "reports", label: "Reports", icon: FileText, href: "/reports" },
-  { id: "board", label: "Board", icon: Trophy, href: "/leaderboard" },
+  { id: "products", label: "Products", icon: FlaskConical, href: "/products" },
   { id: "shop", label: "Shop", icon: ShoppingBag, href: "/shop" },
   { id: "plans", label: "Plans", icon: Crown, href: "/pricing" },
   { id: "tip", label: "Tip", icon: Lightbulb, action: "tip" },
@@ -179,23 +181,34 @@ export default function Companion() {
   }, [state]);
 
   /* ── account snapshot ─────────────────────────────────────────────── */
-  const load = useCallback(() => {
+  const loading = useRef(false);
+  const lastLoadAt = useRef(0);
+  const load = useCallback((force = false) => {
+    if (loading.current) return;
+    if (!force && Date.now() - lastLoadAt.current < COMPANION_REFRESH_MS) return;
+    loading.current = true;
+    lastLoadAt.current = Date.now();
     getCompanionState()
       .then(setState)
       .catch(() => {})
-      .finally(() => setLoaded(true));
+      .finally(() => {
+        loading.current = false;
+        setLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
     if (!visible) return undefined;
     load();
+    const onFocus = () => load();
+    const onRefresh = () => load(true);
     const onVisible = () => document.visibilityState === "visible" && load();
-    window.addEventListener("focus", load);
-    window.addEventListener("tk-companion-refresh", load);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("tk-companion-refresh", onRefresh);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.removeEventListener("focus", load);
-      window.removeEventListener("tk-companion-refresh", load);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("tk-companion-refresh", onRefresh);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [visible, pathname, load]);

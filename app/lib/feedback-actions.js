@@ -6,7 +6,8 @@ import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { connectDb, Feedback } from "./mongoose";
 import { getAuthenticatedUser, findSessionUser } from "./auth-server";
-import { verifyAdminSession } from "./admin-auth";
+import { verifyAdminSession, verifyAdminOwner } from "./admin-auth";
+import { maskEmail, initialOf, redactText } from "@/lib/utils/mask";
 import { checkRateLimit } from "./rate-limit";
 
 const TYPES = ["review", "feedback", "complaint", "idea", "bug", "other"];
@@ -108,12 +109,27 @@ function serialize(doc) {
   };
 }
 
+function serializeForViewer(doc) {
+  const full = serialize(doc);
+  return {
+    ...full,
+    userId: "",
+    userEmail: maskEmail(full.userEmail),
+    userName: initialOf(full.userName),
+    message: redactText(full.message),
+    userAgent: "",
+    adminNote: "",
+  };
+}
+
 const AUTH_ERROR = { success: false, error: "Please sign in again to continue." };
 
 /** Admin only. Filterable, paginated list plus status counts for the tabs. */
 export async function adminListFeedback({ status = "all", type = "all", search = "", page = 1 } = {}) {
   try {
-    if (!(await verifyAdminSession())) return AUTH_ERROR;
+    const session = await verifyAdminSession();
+    if (!session) return AUTH_ERROR;
+    const viewer = session.role === "viewer";
     await connectDb();
 
     const filter = {};
@@ -122,7 +138,7 @@ export async function adminListFeedback({ status = "all", type = "all", search =
     const q = clean(search, 80);
     if (q) {
       const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [{ message: rx }, { userEmail: rx }, { userName: rx }, { adminNote: rx }, { page: rx }];
+      filter.$or = viewer ? [{ message: rx }, { page: rx }] : [{ message: rx }, { userEmail: rx }, { userName: rx }, { adminNote: rx }, { page: rx }];
     }
 
     const pageNum = Math.max(1, Number(page) || 1);
@@ -137,7 +153,8 @@ export async function adminListFeedback({ status = "all", type = "all", search =
 
     return {
       success: true,
-      items: items.map(serialize),
+      items: items.map(viewer ? serializeForViewer : serialize),
+      readOnly: viewer,
       total,
       page: pageNum,
       pageSize: PAGE_SIZE,
@@ -152,7 +169,7 @@ export async function adminListFeedback({ status = "all", type = "all", search =
 /** Admin only. Triage fields: status, priority and a private "how I'll fix it" note. */
 export async function adminUpdateFeedback(id, { status, priority, adminNote } = {}) {
   try {
-    if (!(await verifyAdminSession())) return AUTH_ERROR;
+    if (!(await verifyAdminOwner())) return AUTH_ERROR;
     if (!mongoose.isValidObjectId(id)) return { success: false, error: "Invalid feedback id." };
     await connectDb();
 
@@ -181,7 +198,7 @@ export async function adminUpdateFeedback(id, { status, priority, adminNote } = 
 
 export async function adminDeleteFeedback(id) {
   try {
-    if (!(await verifyAdminSession())) return AUTH_ERROR;
+    if (!(await verifyAdminOwner())) return AUTH_ERROR;
     if (!mongoose.isValidObjectId(id)) return { success: false, error: "Invalid feedback id." };
     await connectDb();
     await Feedback.deleteOne({ _id: id });

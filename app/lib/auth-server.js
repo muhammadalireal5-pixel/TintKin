@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { User } from "@/app/lib/mongoose";
@@ -44,6 +45,8 @@ export async function findSessionUser(decoded) {
   }
   return null;
 }
+
+export const findSessionUserCached = cache((uid, email, sv) => findSessionUser({ uid, email, sv }));
 
 // Signs out a session that is present but no longer valid. Redirecting
 // straight to /sign-in would loop: proxy.js bounces cookie holders to /dashboard.

@@ -13,6 +13,8 @@ import EmailVerificationBanner from "./EmailVerificationBanner";
 import ReportReadyPrompt from "./ReportReadyPrompt";
 import StreakPhotoBanner from "./StreakPhotoBanner";
 import TodayView from "./TodayView";
+import MirrorCheck from "./MirrorCheck";
+import EarnedScanCard from "./EarnedScanCard";
 import ScanInvite from "./ScanInvite";
 import ProfileUpdateBanner from "./ProfileUpdateBanner";
 import FreshnessPrompt from "./FreshnessPrompt";
@@ -25,7 +27,7 @@ export const dynamic = "force-dynamic";
 const DASHBOARD_SELFIE_LIMIT = 20;
 
 async function DashboardContent() {
-    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles, lifestyleLogs } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
+    const { user, latestSelfie, latestAnalyzedSelfie, allSelfies, realAge, weeklyAverage, todayRoutineLog, todayRoutine, achievementStats, activity, newlyUnlockedTitles, lifestyleLogs, mirror } = await getLatestData(null, { selfieLimit: DASHBOARD_SELFIE_LIMIT });
     const [reportStatus, planRes] = await Promise.all([getReportStatus(), getActivePlan()]);
     const plan = planRes?.success ? planRes.plan : null;
 
@@ -97,7 +99,12 @@ async function DashboardContent() {
                 showLeaderboard={(user?.routineDays || 0) >= 3}
                 planCard={plan ? <PlanTodayCard plan={plan} stepsLeft={stepsLeft} stepsTotal={summary.plan.amTotal + summary.plan.pmTotal} week={activity ? { steps: activity.weekSteps, todayIndex: activity.weekTodayIndex } : null} /> : <PlanBuilder compact />}
                 // Sits below the skin card, which the Today/This week toggle controls.
-                afterPlan={firstWeek ? <FirstWeekChecklist items={firstWeek} /> : null}
+                afterPlan={
+                    <>
+                        {firstWeek && <FirstWeekChecklist items={firstWeek} />}
+                        {plan && <MirrorCheck initial={todayRoutineLog?.mirror ?? null} />}
+                    </>
+                }
                 banners={
                     <>
                         {!user?.skinProfile?.concerns?.length && <ProfileUpdateBanner />}
@@ -105,6 +112,7 @@ async function DashboardContent() {
                         {EMAIL_VERIFICATION_ENABLED && <EmailVerificationBanner user={user} />}
                         <LocationPrompt user={user} />
                         <ReportReadyPrompt status={reportStatus} />
+                        <EarnedScanCard mirror={mirror} />
                         {latestSelfie?.isAnalyzed === false && (
                             <StreakPhotoBanner latestSelfie={latestSelfie} user={user} />
                         )}

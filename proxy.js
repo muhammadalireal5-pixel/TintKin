@@ -39,7 +39,7 @@ function buildCsp(nonce) {
     // rendering a Google avatar is silently blocked by the browser.
     "img-src 'self' https://res.cloudinary.com https://yce-us.s3-accelerate.amazonaws.com https://lh3.googleusercontent.com data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self' https://api.cloudinary.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

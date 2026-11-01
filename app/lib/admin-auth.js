@@ -19,6 +19,13 @@ function getAdminPassword() {
   return configured;
 }
 
+function getViewer() {
+  const email = process.env.ADMIN_VIEWER_EMAIL;
+  const password = process.env.ADMIN_VIEWER_PASSWORD;
+  if (!email || !password) return null;
+  return { email: email.toLowerCase().trim(), password };
+}
+
 function getSessionSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET;
   if (!secret) throw new Error("ADMIN_SESSION_SECRET is not configured");
@@ -39,10 +46,12 @@ function safeEqual(a, b) {
 
 // Short fingerprint of the configured password, baked into the session token so
 // rotating ADMIN_PASSWORD immediately invalidates every existing admin session.
-function passwordFingerprint() {
+function passwordFingerprint(role = "owner") {
+  const password = role === "viewer" ? getViewer()?.password : getAdminPassword();
+  if (!password) return null;
   return crypto
     .createHmac("sha256", getSessionSecret())
-    .update(getAdminPassword())
+    .update(`${role}:${password}`)
     .digest("base64url")
     .slice(0, 16);
 }
@@ -70,15 +79,18 @@ export async function adminLogin(email, password) {
 
   // Evaluate both checks unconditionally so a wrong email and a wrong password
   // take the same time and return the same message.
-  const emailOk = safeEqual(normalizedEmail, adminEmail);
-  const passwordOk = safeEqual(suppliedPassword, adminPassword);
-  if (!emailOk || !passwordOk) {
+  const viewer = getViewer();
+  const ownerOk = safeEqual(normalizedEmail, adminEmail) & safeEqual(suppliedPassword, adminPassword);
+  const viewerOk = viewer ? safeEqual(normalizedEmail, viewer.email) & safeEqual(suppliedPassword, viewer.password) : 0;
+  if (!ownerOk && !viewerOk) {
     return { success: false, status: 401, error: "Incorrect email or password." };
   }
+  const role = ownerOk ? "owner" : "viewer";
 
   const token = signAdminToken({
-    email: adminEmail,
-    pv: passwordFingerprint(),
+    email: role === "owner" ? adminEmail : viewer.email,
+    role,
+    pv: passwordFingerprint(role),
     loginAt: Date.now(),
     expiresAt: Date.now() + SESSION_EXPIRY_MS,
   });
@@ -128,8 +140,11 @@ export async function verifyAdminSession() {
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString());
 
     if (payload.expiresAt < Date.now()) return null;
-    if (payload.email !== getAdminEmail()) return null;
-    if (payload.pv !== passwordFingerprint()) return null;
+    const role = payload.role === "viewer" ? "viewer" : "owner";
+    const expectedEmail = role === "viewer" ? getViewer()?.email : getAdminEmail();
+    if (!expectedEmail || payload.email !== expectedEmail) return null;
+    if (payload.pv !== passwordFingerprint(role)) return null;
+    payload.role = role;
 
     await connectDb();
     const state = await AdminAuthState.findById("singleton").lean();
@@ -143,7 +158,19 @@ export async function verifyAdminSession() {
   }
 }
 
+export async function verifyAdminOwner() {
+  const session = await verifyAdminSession();
+  return session?.role === "owner" ? session : null;
+}
+
 export async function adminLogout() {
+  const session = await verifyAdminSession();
+  if (session?.role === "viewer") {
+    const cookieStore = await cookies();
+    cookieStore.delete("admin-session");
+    cookieStore.delete("admin_session");
+    return { success: true };
+  }
   try {
     await connectDb();
     await AdminAuthState.findByIdAndUpdate(
