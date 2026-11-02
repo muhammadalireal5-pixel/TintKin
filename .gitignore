@@ -46,3 +46,7 @@ Thumbs.db
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Local demo media, authenticated browser sessions, and supplied photos
+video-output/
+selfie/

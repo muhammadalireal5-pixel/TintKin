@@ -37,6 +37,7 @@ Skin apps give you a score, and then nothing happens. Testers kept asking "what 
 ## 🚀 What it does
 TintKin is a **daily skin coach**. It works like a workout programme for your skin.
 
+* **An optional YouCam baseline before your plan.** After onboarding, add a selfie for measured starting scores or continue without a photo. Reliable scans establish a baseline; low-confidence scans are excluded from plan baselines and check-ins. The questionnaire continues to guide routine choices and safety rules.
 * **A plan built for your skin.** A deterministic rules engine turns goals, skin type, phototype and safety answers into a staged plan: barrier care first, then one new active at a time. Pregnancy, "unsure" and sensitive skin are hard safety gates.
 * **Guided daily sessions.** Morning and evening sessions come with step cards, timers, voice guidance and a reason for every step.
 * **Actives on a ladder.** Retinoids run 1 → 2 → 3 → 4 nights a week, and acids 1 → 2 → 3. A step goes up a rung only after 14 calm days with 70% of its sessions done.
@@ -46,9 +47,9 @@ TintKin is a **daily skin coach**. It works like a workout programme for your sk
   * Photo quality is checked before scoring, and low-confidence scans are marked.
 * **Plan-aware product check.** Paste an ingredient list or snap the label. TintKin tells you what the product does, which of your goals it serves, whether it clashes with your plan, and anything to avoid for your profile.
 * **What-If simulator.** See your own photo after a year of the routine.
-* **Kin.** A companion who talks you through it and celebrates small wins.
+* **Kin.** A companion who talks you through it and celebrates small wins. Matching static artwork keeps Kin recognizable while its animation loads.
 
-> ![Dashboard](/public/dashboard.png)
+> ![Current mobile dashboard with YouCam measurements](/public/dashboard.png)
 
 ## 💻 How we built it
 TintKin is built on a modern, highly performant full-stack architecture:
@@ -62,10 +63,12 @@ TintKin is built on a modern, highly performant full-stack architecture:
 The **YouCam AI Skin Analysis API** is the foundational engine of TintKin. We integrated it deeply into our capture and simulation workflows to provide skin measurements for a consumer wellness experience.
 
 1. **The measuring instrument for the coach:** Baseline, scheduled check-in and *earned* scans all come from YouCam Skin Analysis. The coach decides when measuring is worth it, which keeps both cost and noise down. Each scan runs under a fixed time budget and backs off on `429` responses, so a busy moment queues briefly instead of failing.
-2. **Precision Scanning:** When a user uploads a daily selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
+2. **Precision Scanning:** When a user uploads an optional baseline or progress selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
 3. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image illustrating a possible outcome, not predicting or guaranteeing how their skin will look.
 
-> ![What-If Simulation](/public/whatif.png)
+> ![Current mobile What-If interface](/public/whatif.png)
+
+These screenshots show the current demo account and interface. A simulation is illustrative, and its screen should not be read as a guaranteed result.
 
 ## 🚧 Challenges we ran into
 Building a complex, image-heavy AI app came with its hurdles. One of our primary technical challenges was handling the variability of the **YouCam API responses**. Depending on the scan results, the API returned either flat JSON objects or zipped files containing `score_info.json`. We had to build a robust, unified parsing utility capable of downloading, unzipping (using `fflate`), and standardizing the data on the fly.

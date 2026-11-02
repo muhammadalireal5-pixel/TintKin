@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Kin's 8-bit cat as a small inline avatar (the same artwork as the floating
  * companion). Plays once on mount and again when `nudge` changes; falls back
- * to an emoji if the animation can't load.
+ * to matching Kin artwork if the animation can't load.
  */
 export default function KinAvatar({ size = 56, nudge = 0, className = "" }) {
   const box = useRef(null);
@@ -49,7 +49,7 @@ export default function KinAvatar({ size = 56, nudge = 0, className = "" }) {
     <div className={`shrink-0 ${className}`} style={{ width: size, height: size }} aria-hidden="true">
       <div className="relative w-full h-full">
       <div ref={box} className="w-full h-full" />
-      {!ready && <span className="absolute inset-0 flex items-center justify-center text-3xl leading-none">{"\u{1F431}"}</span>}
+      {!ready && <span className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: "url(/companion/kin-still.svg)" }} />}
       </div>
     </div>
   );

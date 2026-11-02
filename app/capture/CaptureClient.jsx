@@ -18,7 +18,7 @@ import PageHeader from "@/app/components/ui/PageHeader";
 import { measureImageQuality } from "./measure-image";
 import { describeIssues } from "@/lib/utils/image-quality";
 
-export default function CaptureClient({ precheckPromise, quotasPromise }) {
+export default function CaptureClient({ precheckPromise, quotasPromise, planSetup = false }) {
     const router = useRouter();
     const { showToast } = useToast();
     const cameraInputRef = useRef(null);
@@ -253,7 +253,7 @@ export default function CaptureClient({ precheckPromise, quotasPromise }) {
                 setStatus({ type: "success", msg: res.checkInCompleted ? "Check-in done! Opening your plan…" : "Done! Opening your journal…" });
                 setTimeout(() => {
                   try { window.sessionStorage.setItem("tk:justScanned", "1"); } catch {}
-                  router.push(res.checkInCompleted ? "/routine" : "/dashboard");
+                  router.push(planSetup ? "/welcome" : res.checkInCompleted ? "/routine" : "/dashboard");
                 }, 800);
             } else {
                 setStatus({ type: "error", msg: `Oops: ${res.message || res.error}` });

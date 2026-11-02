@@ -127,7 +127,7 @@ export async function getTodayRoutineKeys(userId, timezone, now = new Date(), { 
 }
 
 async function latestAnalyzedSelfie(userId) {
-  return Selfie.findOne({ userId, isAnalyzed: true, overallScore: { $ne: null } })
+  return Selfie.findOne({ userId, isAnalyzed: true, overallScore: { $ne: null }, "quality.level": { $ne: "low" } })
     .sort({ takenAt: -1 })
     .select("scores overallScore skinAge takenAt")
     .lean();

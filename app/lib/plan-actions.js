@@ -255,7 +255,7 @@ export async function getWelcomeState() {
     const user = await getPlanUser();
     const [plan, scan] = await Promise.all([
       findActivePlan(user._id),
-      Selfie.findOne({ userId: user._id, isAnalyzed: true, overallScore: { $ne: null } }).select("_id").lean(),
+      Selfie.findOne({ userId: user._id, isAnalyzed: true, overallScore: { $ne: null }, "quality.level": { $ne: "low" } }).select("_id").lean(),
     ]);
     const p = classifyProfile(toPlainUser(user));
     return {

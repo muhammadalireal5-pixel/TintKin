@@ -1,7 +1,8 @@
 import { checkOnboardingStatus, getScanConsentStatus, getUsageQuotas } from "@/app/lib/actions";
 import CaptureClient from "./CaptureClient";
 
-export default function CapturePage() {
+export default async function CapturePage({ searchParams }) {
+    const planSetup = (await searchParams)?.setup === "plan";
     // Kicked off here, not awaited, so the page shell (and the CTA buttons)
     // render immediately. The DB round-trip runs in parallel with the client
     // bundle downloading/hydrating, so by the time a tap is possible the
@@ -18,5 +19,5 @@ export default function CapturePage() {
     // used-up allowance show before the user takes a photo, not after.
     const quotasPromise = getUsageQuotas().catch(() => null);
 
-    return <CaptureClient precheckPromise={precheckPromise} quotasPromise={quotasPromise} />;
+    return <CaptureClient planSetup={planSetup} precheckPromise={precheckPromise} quotasPromise={quotasPromise} />;
 }

@@ -16,5 +16,5 @@ export default async function WelcomePage() {
   if (state.success && state.hasPlan) redirect("/routine");
   if (!state.success) redirect("/dashboard");
 
-  return <WelcomeClient firstName={state.firstName} profile={state.profile} />;
+  return <WelcomeClient firstName={state.firstName} profile={state.profile} hasScan={state.hasScan} />;
 }

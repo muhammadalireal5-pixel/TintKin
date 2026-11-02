@@ -253,7 +253,7 @@ export default function Companion() {
         animRef.current = anim;
         anim.goToAndStop(0, true);
       } catch {
-        // Fall back to an emoji so the companion never vanishes.
+        // Fall back to matching Kin artwork so the companion never vanishes.
         if (!cancelled) setArtReady(false);
       }
     })();
@@ -723,7 +723,7 @@ export default function Companion() {
       >
         <div ref={lottieBox} className="w-full h-full pointer-events-none" />
         {!artReady && (
-          <span className="absolute inset-0 flex items-center justify-center text-6xl pointer-events-none" aria-hidden="true">🐈‍⬛</span>
+          <span className="absolute inset-0 bg-contain bg-center bg-no-repeat pointer-events-none" style={{ backgroundImage: "url(/companion/kin-still.svg)" }} aria-hidden="true" />
         )}
       </div>
     </div>
