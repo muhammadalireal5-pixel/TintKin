@@ -31,6 +31,19 @@ This login is a separate **read-only viewer**. It shows aggregate metrics and a 
 
 The owner's admin login is separate and is not in this repo.
 
+**Demo video:** _add the YouTube/Vimeo link here before submitting_
+
+## 💰 Business model
+Subscription only. TintKin does not sell products, so its advice stays independent.
+
+| Tier | Price | Includes |
+|---|---|---|
+| Free | $0 | Adaptive plan, guided sessions, 2 scans, 3 product checks, 1 simulation a month |
+| Standard | $8/mo | 6 scans, unlimited product checks, 3 simulations |
+| Pro | $15/mo | 12 scans, unlimited product checks, 4 simulations, custom-product simulations |
+
+Worst-case YouCam cost is about $3.15 a month for Standard and $5.92 for Pro, which leaves roughly 61% margin before fees. Daily coaching runs on our own engine and costs nothing per use. The full case is in [`docs/hackathon-pitch.md`](docs/hackathon-pitch.md).
+
 ## 💡 Inspiration
 Skin apps give you a score, and then nothing happens. Testers kept asking "what am I getting from just my face result?" Routines found online ignore your skin, your safety (pregnancy, sensitivity), and how your skin reacts in the first weeks. That is exactly when most people quit or irritate their skin.
 
@@ -104,7 +117,7 @@ Tests live in `tests/`. `tests/setup/register.mjs` maps the `@/` import alias so
 **Deployment (Vercel):** set every variable from `.env.example` in the project settings. `NEXTAUTH_URL` must be the public URL (it builds password-reset links), and Google OAuth needs `<url>/api/auth/callback/google` as an authorized redirect URI. See `AUDIT.md` for open production risks and required manual actions.
 
 ## 🔮 What's next for TintKin
-See `docs/skin-coach-design.md` for the full design and `docs/hackathon-pitch.md` for the business case.
+The full design is in `docs/skin-coach-design.md`.
 * Queued scans with a shared YouCam request budget and "you're number 4" progress.
 * A face workout library, plus water and sleep modules.
 * Programmes in 2-week blocks, from 2 to 24 weeks.

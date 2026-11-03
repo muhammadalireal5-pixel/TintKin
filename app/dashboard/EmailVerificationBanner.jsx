@@ -8,7 +8,7 @@ export default function EmailVerificationBanner({ user }) {
   const [state, setState] = useState("idle"); // idle | sending | sent
 
   // Google sign-ups are already verified by the OAuth provider, and the
-  // field is simply absent on legacy accounts from before M21 — only an
+  // field is simply absent on legacy accounts from from before email verification existed — only an
   // explicit `false` means a credentials sign-up that hasn't confirmed yet.
   if (user?.emailVerified !== false) return null;
 

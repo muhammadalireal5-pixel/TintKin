@@ -12,8 +12,8 @@
  * The *last* entry is whatever our own edge/reverse proxy actually observed
  * on the hop directly in front of the app, which a client cannot set. This
  * assumes exactly one trusted hop in front of the app (true for a single
- * Vercel deployment, or one reverse proxy self-hosted); see AUDIT.md's
- * client-IP-trust entry if that topology ever changes.
+ * Vercel deployment, or one reverse proxy self-hosted);
+ * revisit if that topology ever changes.
  *
  * Returns `null` when no IP-identifying header is present at all, rather
  * than a shared sentinel string — callers must not fold that into an

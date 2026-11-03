@@ -90,7 +90,7 @@ function clampString(value, maxLength) {
 }
 
 // Learns the user's real timezone passively from whichever action the client
-// already called with its own Intl timezone (M17 in AUDIT.md) — never prompted
+// already called with its own Intl timezone — never prompted
 // for. Best-effort: a failed write here must never break the caller's own flow.
 async function syncUserTimezone(user, timezone) {
   if (!user || user.timezone === timezone) return;
@@ -204,7 +204,7 @@ async function prepareSimulationSource(imageUrl, userId) {
   if (!imageUrl || !imageUrl.includes("cloudinary.com")) return imageUrl;
   try {
     // Must be signed, not just the signature stripped: an `authenticated`-type
-    // asset 401s on any unsigned fetch (see M22 in AUDIT.md). Re-signing a
+    // asset 401s on any unsigned fetch. Re-signing a
     // legacy `upload`-type asset is harmless.
     const original = await fetch(signCloudinaryUrl(imageUrl), {
       signal: AbortSignal.timeout(CLOUDINARY_TIMEOUT_MS),
@@ -303,7 +303,7 @@ export async function uploadSelfieServerAction(formData) {
 
     // Cloudinary requires signature parameters to be sorted alphabetically.
     // type=authenticated (not the default "upload") makes the asset require a
-    // valid signature to be served at all — see M22 in AUDIT.md.
+    // valid signature to be served at all.
     const signedParams = `public_id=${publicId}&timestamp=${timestamp}${isFlipped ? "&transformation=a_hflip" : ""}&type=authenticated`;
     const signature = signCloudinaryParams(signedParams);
 
@@ -515,8 +515,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     const now = new Date();
     // A scan is an "active" day, same as ticking a routine step (see
     // lib/utils/streak.js and recordCareDay). Day-KEY maths, not elapsed
-    // wall-clock time, so a DST day never counts as a 2-day gap (M16 in
-    // AUDIT.md); one missed day a week is forgiven.
+    // wall-clock time, so a DST day never counts as a 2-day gap; one missed day a week is forgiven.
     const todayKey = getLocalDayKey(timezone, now);
     const streakStep = advanceStreak({
       stored: user.currentStreak || 0,
@@ -527,7 +526,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     const newStreak = streakStep.streak;
 
     // Badge logic: collect only the *new* ids so the user update below can
-    // $addToSet them instead of overwriting the whole array (M15 in AUDIT.md).
+    // $addToSet them instead of overwriting the whole array.
     // Only the first scan is granted here; the rest of the milestone ladder
     // (some with rewards) is awarded by getLatestData, once, via grantMilestones.
     const existingBadges = user.badges || [];
@@ -538,7 +537,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     addBadge("first_glow");
 
     // YouCam fetches this URL from its own servers, so an `authenticated`-type
-    // asset (see M22 in AUDIT.md) must be signed first, or every candidate
+    // asset must be signed first, or every candidate
     // download 401s. Signing an already-public `upload`-type asset is a no-op.
     const youCamResult = await analyzeSkin(signCloudinaryUrl(imageUrl), { deadline: Date.now() + SCAN_YOUCAM_BUDGET_MS });
 
@@ -701,7 +700,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     // image — in that order, so a failure partway through never leaves the
     // user further along (a badge, an advanced streak) than an actual saved
     // scan justifies, and never deletes the old photo before the new scan's
-    // own record is safely committed (M15 in AUDIT.md).
+    // own record is safely committed.
     const selfie = await Selfie.create({
       userId: user._id,
       imageUrl: finalImageUrl,
@@ -792,7 +791,7 @@ export async function analyzeAndSaveSelfie(imageUrl, timezone = "UTC", imageQual
     }
     // Only roll back the upload if no Selfie record ended up referencing it —
     // otherwise a later failure (e.g. the user/badge update) would delete the
-    // image out from under an already-saved scan (M15 in AUDIT.md).
+    // image out from under an already-saved scan.
     if (imageUrl && !selfieCreated) {
       await deleteImageFromCloudinary(imageUrl).catch(() => {});
     }
@@ -826,8 +825,7 @@ const clampPageSize = (value) =>
   Number.isInteger(value) ? Math.min(Math.max(value, 1), MAX_SELFIE_PAGE_SIZE) : null;
 
 // `user.currentStreak` is only recomputed when a new scan lands, so a user
-// who stops scanning keeps seeing their old streak forever (M16 in
-// AUDIT.md). This derives what the streak would be shown as *right now*,
+// who stops scanning keeps seeing their old streak forever. This derives what the streak would be shown as *right now*,
 // without writing anything back — analyzeAndSaveSelfie's own gap logic is
 // the one source of truth for the stored value.
 function computeDisplayStreak(user, timezone) {
@@ -885,7 +883,7 @@ export async function getLatestData(timezone = null, options = {}) {
   // No explicit override: use the timezone learned passively from the user's
   // own browser (see syncUserTimezone) instead of defaulting to UTC, or
   // "today's routine" reads a different day boundary than the one it was
-  // written against (M17 in AUDIT.md).
+  // written against.
   timezone = normalizeTimezone(timezone || user.timezone);
   // Display-only: never persisted, so the stored streak is untouched until
   // the user's next scan recomputes it for real.
@@ -1326,7 +1324,7 @@ export async function runWhatIfSim(interventionsA = [], interventionsB = [], lab
 
         // simSourceUrl is Cloudinary's raw (unsigned) upload response; YouCam
         // fetches it directly, so an `authenticated`-type asset needs it
-        // signed first (see M22 in AUDIT.md).
+        // signed first.
         const sim = await simulateSkin(signCloudinaryUrl(simSourceUrl), intensities);
 
         const extractSimUrl = (sim) => {
@@ -1619,8 +1617,7 @@ export async function getUsageQuotas(timezone) {
 
   // Read the same counters reserveScanSlot/reserveSimulationSlot enforce
   // against (app/lib/quota.js), not a fresh countDocuments(): those drifted
-  // from the enforced count whenever a scan/sim was deleted afterward (M14 in
-  // AUDIT.md), since deleting a document never decrements the counter.
+  // from the enforced count whenever a scan/sim was deleted afterward, since deleting a document never decrements the counter.
   const scanUsage = user.scanUsage || {};
   const simUsage = user.simUsage || {};
   const dayKey = getLocalDayKey(timezone);
@@ -1741,8 +1738,7 @@ export async function getWeeklyHistory() {
     const user = dbResult.user;
     // Only the most recent 12 weeks are ever displayed (see .slice(0, 12)
     // below), but this used to load the user's entire scan history —
-    // unbounded, unprojected and non-lean — to compute it every time (M19 in
-    // AUDIT.md). 100 days covers 12+ calendar weeks with room for week-
+    // unbounded, unprojected and non-lean — to compute it every time. 100 days covers 12+ calendar weeks with room for week-
     // boundary edge effects.
     const since = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
     const allSelfies = await Selfie.find({ userId: user._id, isAnalyzed: { $ne: false }, takenAt: { $gte: since } })
@@ -2350,7 +2346,7 @@ export async function adminAddExtraScans(userId, amount = 1) {
   }
 }
 
-// Matches the legacy, pre-M22 public delivery type. Not a /g regex, so Mongoose
+// Matches the legacy, pre-authenticated public delivery type. Not a /g regex, so Mongoose
 // can use it directly as a query value and repeated .test() calls are safe.
 const LEGACY_UPLOAD_URL = /\/image\/upload\//;
 const SIMULATION_IMAGE_FIELDS = ["scenarioA", "scenarioB", "resultA", "resultB"];
@@ -2382,7 +2378,7 @@ async function renamePublicIdToAuthenticated(publicId) {
 }
 
 /**
- * One-time migration for M22 (AUDIT.md): selfies/simulation images uploaded
+ * One-time migration: selfies/simulation images uploaded
  * before that fix are Cloudinary's public `upload` type. This flips an
  * already-uploaded asset to `authenticated` in place via Cloudinary's rename
  * API (no re-upload of image bytes), then updates the stored URL so this
@@ -2515,7 +2511,7 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
     await syncUserTimezone(user, timezone);
 
     // Whitelist against the routine actually recommended to this user, rather
-    // than trusting a client-supplied string verbatim (M18 in AUDIT.md) — also
+    // than trusting a client-supplied string verbatim — also
     // what bounds amCompleted/pmCompleted to a handful of real entries. With a
     // plan the keys are today's step ids; otherwise the latest scan's text.
     const planRoutine = await getTodayRoutineKeys(user._id, timezone);
@@ -2542,7 +2538,7 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
 
     // findOneAndUpdate(upsert) is one atomic operation — a plain findOne then
     // conditional create() raced two concurrent toggles into creating two
-    // RoutineLog documents for the same day (M18 in AUDIT.md).
+    // RoutineLog documents for the same day.
     const log = await RoutineLog.findOneAndUpdate(
       { userId: user._id, date: { $gte: todayStart } },
       {
@@ -2553,7 +2549,7 @@ export async function saveRoutineCompletion(time, step, isCompleted, timezone = 
     );
 
     // "All done", not "started" — the achievement is Routine Master, not
-    // Routine Starter (M18 in AUDIT.md: this used to fire once either list
+    // Routine Starter (this used to fire once either list
     // had a single entry).
     const amAllDone = amRoutine.length > 0 && amRoutine.every((s) => log.amCompleted.includes(s));
     const pmAllDone = pmRoutine.length > 0 && pmRoutine.every((s) => log.pmCompleted.includes(s));
@@ -2607,7 +2603,7 @@ export async function getPercentileRank() {
 
     // Find users in same age bracket (±5 years) and opted in. Only _id is
     // ever used below, and — unlike the leaderboard — nothing here narrows
-    // by location, so this needs its own safety cap (M19 in AUDIT.md).
+    // by location, so this needs its own safety cap.
     const peers = await User.find({
       optInComparison: true,
       birthDate: { $gte: minAgeDate, $lte: maxAgeDate },

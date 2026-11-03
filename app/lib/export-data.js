@@ -93,7 +93,7 @@ export async function exportUserData() {
         recommendedProducts: s.recommendedProducts,
         // Signed: the image itself is in photos/ in this same ZIP, but the
         // link is still useful on its own, and an unsigned `authenticated`-
-        // type Cloudinary URL (see M22 in AUDIT.md) is simply dead on arrival.
+        // type Cloudinary URL is simply dead on arrival.
         imageUrl: signCloudinaryUrl(s.imageUrl),
       })),
       lifestyleLogs: lifestyles.map((l) => ({
@@ -141,8 +141,7 @@ export async function exportUserData() {
       if (!selfie.imageUrl || !selfie.imageUrl.startsWith("http")) return;
 
       try {
-        // Must be signed: an `authenticated`-type Cloudinary asset (M22 in
-        // AUDIT.md) 401s on any unsigned fetch, same as every other direct
+        // Must be signed: an `authenticated`-type Cloudinary asset 401s on any unsigned fetch, same as every other direct
         // download of a stored imageUrl in this codebase.
         const response = await fetch(signCloudinaryUrl(selfie.imageUrl), { signal: AbortSignal.timeout(15000) });
         if (!response.ok) return;

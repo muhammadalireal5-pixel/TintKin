@@ -57,7 +57,7 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
   );
 };
 
-// M22 (AUDIT.md): flips existing public selfie/simulation images to
+// Flips existing public selfie/simulation images to
 // Cloudinary's private `authenticated` delivery type, a batch at a time.
 // Always dry-run first — it only reports counts, nothing is changed.
 const ImageMigrationPanel = () => {

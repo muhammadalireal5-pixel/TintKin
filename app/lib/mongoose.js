@@ -95,8 +95,8 @@ const UserSchema = new mongoose.Schema({
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
     // Credentials sign-ups only (Google accounts are verified by the IdP —
-    // see H1 in AUDIT.md's email_verified check). Defense-in-depth, not a
-    // login gate: unverified users can still sign in (see M21 in AUDIT.md).
+    // see the email_verified check). Defense-in-depth, not a
+    // login gate: unverified users can still sign in.
     emailVerified: { type: Boolean, default: false },
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpires: { type: Date, select: false },

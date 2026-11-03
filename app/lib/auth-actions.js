@@ -128,7 +128,7 @@ export async function registerUser({ email, password, name } = {}) {
   });
 
   // Best-effort: a failed send never blocks account creation. Defense-in-depth
-  // (M21 in AUDIT.md) — the account pre-hijacking exploit this would also
+  // — the account pre-hijacking exploit this would also
   // guard against is already closed by the Google email_verified check (H1).
   if (EMAIL_VERIFICATION_ENABLED) {
     await sendVerificationEmail(newUser).catch((err) => {
