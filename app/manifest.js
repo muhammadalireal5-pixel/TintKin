@@ -5,7 +5,7 @@ export default function manifest() {
     description: "Take one selfie and get a personal 30-day skin plan: a simple daily routine, weekly check-ins and visible progress. Start free.",
     start_url: "/",
     display: "standalone",
-    background_color: "#FCF4F2",
+    background_color: "#FDFBF7",
     theme_color: "#FDFBF7",
     icons: [
       {
