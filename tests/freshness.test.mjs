@@ -109,3 +109,9 @@ test("check-in sourced inputs count as known for reliability", () => {
   const sources = { sleepHours: "checkins", spfUsed: "profile", uvMinutes: "checkins", smokeCigarettes: "profile" };
   assert.equal(assessReliability({ velocitySource: "user", sources }).scores, "high");
 });
+
+test("saving the skin profile counts as a check-in, so the weekly card does not return", () => {
+  assert.equal(getFreshnessPrompt({ ...base, profileRefreshedAt: ago(1), lastCheckInAt: null }), null);
+  assert.equal(getFreshnessPrompt({ ...base, profileRefreshedAt: ago(1), lastCheckInAt: ago(30) }), null);
+  assert.equal(getFreshnessPrompt({ ...base, profileRefreshedAt: ago(8), lastCheckInAt: null }).kind, "weekly");
+});
