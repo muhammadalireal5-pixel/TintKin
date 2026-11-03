@@ -1,23 +1,23 @@
-# TintKin submission checklist — November 1, 2026
+# TintKin submission checklist — November 2, 2026
 
 Submission site: https://tint-kin.vercel.app/
 
 Official rules: https://youcam-api-skin-ai-ecommerce.devpost.com/rules
 
-Deadline: November 2, 2026, 11:45 am Eastern / 9:45 pm Pakistan time. Target completion remains November 1.
+Deadline: November 2, 2026, 11:45 am Eastern / 9:45 pm Pakistan time.
 
 ## Required submission assets
 
-- A public 1–3 minute YouTube (preferred) or Vimeo demo, linked in Devpost. Show the working app and explain which YouCam APIs it uses. No demo URL has been supplied yet.
+- A public 1–3 minute YouTube (preferred) or Vimeo demo, linked in Devpost. Show the working app and explain which YouCam APIs it uses. No demo URL yet: record it, then replace the placeholder under "For the YouCam judges" in the README.
 - A repository URL with source, assets and reproducible setup instructions. Ensure judges have access; follow the public/private repository requirements in the rules.
 - An English description explaining consumer value. Describe simulations as illustrations, not guaranteed predictions.
 - Keep the working app and free judge access available through November 20. Explain significant updates during the submission period if the project predates it.
 
 ## Release gates
 
-- Run unit tests, lint, the production build and browser checks on the final commit.
-- Deploy the tested commit. The live site observed November 1 still presented the older wellness-journal landing page.
-- Configure `ADMIN_VIEWER_EMAIL` and `ADMIN_VIEWER_PASSWORD` to match the README. A live login attempt with the published credentials returned HTTP 401 on November 1. They are absent from local `.env.local` too. Never use the owner password for the public viewer.
+- Done on commit `ae1be1b`: lint and the production build pass. Still to run: unit tests (needs Node, not installed on the dev machine) and browser checks.
+- Push `main` to deploy, then confirm the live site shows the new daily-coach landing page (on November 1 it still showed the older wellness-journal page).
+- Set `ADMIN_VIEWER_EMAIL`, `ADMIN_VIEWER_PASSWORD`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` in Vercel to match the README, then redeploy. The published login returned HTTP 401 on November 1 because these were unset. Never use the owner password for the public viewer.
 - Verify `AUTH_URL`/`NEXTAUTH_URL`, OAuth callback URLs and vendor keys in Vercel; local key presence does not verify deployed configuration.
 - Keep `ALL_PREMIUM` enabled for judging (the current code enables it unless explicitly set to `0`).
 - Repair the `ratelimits` compound index. A read-only database inspection found `identifier_1_action_1_windowStart_1` without `unique: true`. Check duplicate buckets first; perform the migration in a controlled window, then verify uniqueness. No database index was dropped during this audit.

@@ -62,7 +62,7 @@ TintKin is a **daily skin coach**. It works like a workout programme for your sk
 * **What-If simulator.** See your own photo after a year of the routine.
 * **Kin.** A companion who talks you through it and celebrates small wins. Matching static artwork keeps Kin recognizable while its animation loads.
 
-> ![Current mobile dashboard with YouCam measurements](/public/dashboard.png)
+<p align="center"><img src="public/dashboard.png" alt="Mobile dashboard with YouCam measurements" width="240" /></p>
 
 ## 💻 How we built it
 TintKin is built on a modern, highly performant full-stack architecture:
@@ -79,9 +79,20 @@ The **YouCam AI Skin Analysis API** is the foundational engine of TintKin. We in
 2. **Precision Scanning:** When a user uploads an optional baseline or progress selfie, the image is securely passed to the YouCam API. We extract the granular data (Wrinkles, Firmness, Age Spots, Radiance) and the overall Skin Age to populate our MongoDB models and update the user's historical charts.
 3. **"What-If" Visualizations:** We leverage the YouCam Simulation API to power our standout feature. By calculating the difference between a user's current routine and a proposed "What-If" intervention (like adding SPF daily), we map those deltas to YouCam's simulation intensities. The API returns a highly realistic, visually altered image illustrating a possible outcome, not predicting or guaranteeing how their skin will look.
 
-> ![Current mobile What-If interface](/public/whatif.png)
+<p align="center"><img src="public/whatif.png" alt="Mobile What-If interface" width="240" /></p>
 
 These screenshots show the current demo account and interface. A simulation is illustrative, and its screen should not be read as a guaranteed result.
+
+## 🧗 What we struggled with most
+Our hardest problem was not technical: it was making people understand *why* they would use TintKin. When we put the first version in testers' hands, many opened it, saw a skin score, and asked what it was for. It took several rounds of feedback to turn YouCam's measurements into something people actually wanted.
+
+What testers told us, and what we changed:
+* **"What do I get from just my face result?"** A score alone gave them nothing to do. So the scan stopped being the product. The coach is the product, and YouCam measures whether it is working.
+* **"Generic routines don't fit me."** We built the rules engine around their goals, skin type and safety answers, with hard gates for pregnancy and sensitive skin.
+* **"I stopped when my skin got irritated."** We added the Fine / Tingled / Irritated / Breakout tap after each session, with a gentler restart and a slower ramp for actives.
+* **"Why should I scan again?"** Scans are now *earned*: feel better on 5 of the last 7 days and YouCam measures whether it is real. That is where its precision matters most, so it is also where we spend credits.
+
+The algorithm in the app today is the result of that feedback. It is what testers told us they needed, not what we first assumed.
 
 ## 🚧 Challenges we ran into
 Building a complex, image-heavy AI app came with its hurdles. One of our primary technical challenges was handling the variability of the **YouCam API responses**. Depending on the scan results, the API returned either flat JSON objects or zipped files containing `score_info.json`. We had to build a robust, unified parsing utility capable of downloading, unzipping (using `fflate`), and standardizing the data on the fly.
